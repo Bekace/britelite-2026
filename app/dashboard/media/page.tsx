@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video } from "lucide-react"
+import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog" // Added import for custom confirmation dialog
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
+import { MediaPreviewModal } from "@/components/media-preview-modal"
 
 interface MediaItem {
   id: string
@@ -38,6 +39,13 @@ export default function MediaLibraryPage() {
     open: false,
     itemId: "",
     itemName: "",
+  })
+  const [previewModal, setPreviewModal] = useState<{
+    open: boolean
+    item: MediaItem | null
+  }>({
+    open: false,
+    item: null,
   })
   const { toast } = useToast()
 
@@ -218,6 +226,13 @@ export default function MediaLibraryPage() {
     }
   }
 
+  const handlePreview = (item: MediaItem) => {
+    setPreviewModal({
+      open: true,
+      item: item,
+    })
+  }
+
   const filteredMedia = media.filter((item) => {
     if (!item || !item.name) return false
 
@@ -366,14 +381,14 @@ export default function MediaLibraryPage() {
                         <Video className="h-12 w-12 text-gray-400" />
                       </div>
                     )}
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleDelete(item.id, item.name)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="secondary" size="sm" onClick={() => handlePreview(item)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id, item.name)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <CardContent className="p-4">
                     <h3 className="font-semibold truncate" title={item.name}>
@@ -421,9 +436,14 @@ export default function MediaLibraryPage() {
                         </div>
                       )}
                     </div>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id, item.name)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => handlePreview(item)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id, item.name)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               )}
@@ -441,6 +461,12 @@ export default function MediaLibraryPage() {
         cancelText="Cancel"
         onConfirm={handleConfirmDelete}
         variant="destructive"
+      />
+
+      <MediaPreviewModal
+        open={previewModal.open}
+        onOpenChange={(open) => setPreviewModal({ ...previewModal, open })}
+        item={previewModal.item}
       />
     </div>
   )
