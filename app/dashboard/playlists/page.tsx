@@ -274,11 +274,11 @@ export default function PlaylistsPage() {
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1">
                       <ImageIcon className="h-4 w-4" />
-                      <span>{playlist.playlist_media[0]?.count || 0} items</span>
+                      <span>{playlist.playlist_media?.[0]?.count || 0} items</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
-                      <span>{(playlist.playlist_media[0]?.count || 0) * 10} sec</span>
+                      <span>{(playlist.playlist_media?.[0]?.count || 0) * 10} sec</span>
                     </div>
                   </div>
                   <Badge variant="secondary">{new Date(playlist.created_at).toLocaleDateString()}</Badge>
