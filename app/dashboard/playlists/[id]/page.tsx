@@ -29,8 +29,8 @@ interface MediaItem {
 
 interface PlaylistMediaItem {
   id: string
-  duration: number
-  order_index: number
+  duration_override: number | null
+  position: number
   media: MediaItem
 }
 
@@ -38,7 +38,7 @@ interface Playlist {
   id: string
   name: string
   description: string
-  playlist_media: PlaylistMediaItem[]
+  playlist_items: PlaylistMediaItem[]
 }
 
 export default function PlaylistDetailPage() {
@@ -118,7 +118,7 @@ export default function PlaylistDetailPage() {
           if (!prev) return prev
           return {
             ...prev,
-            playlist_media: [...prev.playlist_media, data.playlistMedia],
+            playlist_items: [...prev.playlist_items, data.playlistMedia],
           }
         })
         setSelectedMedia("")
@@ -156,7 +156,7 @@ export default function PlaylistDetailPage() {
 
   const getTotalDuration = () => {
     if (!playlist) return 0
-    return playlist.playlist_media.reduce((total, item) => total + item.duration, 0)
+    return playlist.playlist_items.reduce((total, item) => total + (item.duration_override || 10), 0)
   }
 
   if (loading) {
@@ -194,7 +194,7 @@ export default function PlaylistDetailPage() {
           <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
             <div className="flex items-center gap-1">
               <ImageIcon className="h-4 w-4" />
-              <span>{playlist.playlist_media.length} items</span>
+              <span>{playlist.playlist_items.length} items</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
@@ -274,7 +274,7 @@ export default function PlaylistDetailPage() {
       </div>
 
       {/* Playlist Items */}
-      {playlist.playlist_media.length === 0 ? (
+      {playlist.playlist_items.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <ImageIcon className="h-12 w-12 text-gray-400 mb-4" />
@@ -290,8 +290,8 @@ export default function PlaylistDetailPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {playlist.playlist_media
-            .sort((a, b) => a.order_index - b.order_index)
+          {playlist.playlist_items
+            .sort((a, b) => a.position - b.position)
             .map((item, index) => (
               <Card key={item.id}>
                 <CardContent className="p-4">
@@ -319,7 +319,7 @@ export default function PlaylistDetailPage() {
                         <span>{formatFileSize(item.media.file_size)}</span>
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          <span>{item.duration}s</span>
+                          <span>{item.duration_override || 10}s</span>
                         </div>
                       </div>
                       {item.media.tags.length > 0 && (
