@@ -239,10 +239,10 @@ export default function PlaylistDetailPage() {
                     >
                       <CardContent className="p-3">
                         <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-2">
-                          {media.file_type.startsWith("image/") ? (
+                          {media.file_type && media.file_type.startsWith("image/") ? (
                             <img
                               src={media.blob_url || "/placeholder.svg"}
-                              alt={media.filename}
+                              alt={media.filename || "Media file"}
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -251,10 +251,10 @@ export default function PlaylistDetailPage() {
                             </div>
                           )}
                         </div>
-                        <h4 className="font-medium text-sm truncate" title={media.filename}>
-                          {media.filename}
+                        <h4 className="font-medium text-sm truncate" title={media.filename || "Untitled"}>
+                          {media.filename || "Untitled"}
                         </h4>
-                        <p className="text-xs text-gray-600">{formatFileSize(media.file_size)}</p>
+                        <p className="text-xs text-gray-600">{formatFileSize(media.file_size || 0)}</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -301,10 +301,10 @@ export default function PlaylistDetailPage() {
                       <span className="text-sm font-medium">{index + 1}</span>
                     </div>
                     <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                      {item.media.file_type.startsWith("image/") ? (
+                      {item.media.file_type && item.media.file_type.startsWith("image/") ? (
                         <img
                           src={item.media.blob_url || "/placeholder.svg"}
-                          alt={item.media.filename}
+                          alt={item.media.filename || "Media file"}
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -314,15 +314,15 @@ export default function PlaylistDetailPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold truncate">{item.media.filename}</h3>
+                      <h3 className="font-semibold truncate">{item.media.filename || "Untitled"}</h3>
                       <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                        <span>{formatFileSize(item.media.file_size)}</span>
+                        <span>{formatFileSize(item.media.file_size || 0)}</span>
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           <span>{item.duration_override || 10}s</span>
                         </div>
                       </div>
-                      {item.media.tags.length > 0 && (
+                      {item.media.tags && item.media.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {item.media.tags.slice(0, 3).map((tag, tagIndex) => (
                             <Badge key={tagIndex} variant="secondary" className="text-xs">
