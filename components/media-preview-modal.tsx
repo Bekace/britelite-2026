@@ -25,7 +25,7 @@ export function MediaPreviewModal({ open, onOpenChange, item }: MediaPreviewModa
   if (!item) return null
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes"
+    if (bytes === 0) return "N/A"
     const k = 1024
     const sizes = ["Bytes", "KB", "MB", "GB"]
     const i = Math.floor(Math.log(bytes) / Math.log(k))
@@ -35,6 +35,7 @@ export function MediaPreviewModal({ open, onOpenChange, item }: MediaPreviewModa
   const isImage = item.mime_type?.startsWith("image/")
   const isVideo = item.mime_type?.startsWith("video/")
   const isGoogleSlides =
+    item.mime_type === "application/vnd.google-apps.presentation" ||
     item.mime_type?.includes("presentation") ||
     item.name?.includes("slides") ||
     item.file_path?.includes("docs.google.com")
