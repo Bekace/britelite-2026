@@ -19,10 +19,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       .from("playlists")
       .select(`
         *,
-        playlist_items(
+        playlist_media(
           id,
-          duration_override,
-          position,
+          duration,
+          order_index,
           media(*)
         )
       `)
@@ -91,7 +91,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Delete playlist (cascade will handle playlist_items)
+    // Delete playlist (cascade will handle playlist_media)
     const { error } = await supabase.from("playlists").delete().eq("id", params.id).eq("user_id", user.id)
 
     if (error) {

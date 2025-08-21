@@ -6,11 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video, Eye } from "lucide-react"
+import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
-import { MediaPreviewModal } from "@/components/media-preview-modal"
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog" // Added import for custom confirmation dialog
 
 interface MediaItem {
   id: string
@@ -31,8 +30,6 @@ export default function MediaLibraryPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [tags, setTags] = useState("")
   const [authError, setAuthError] = useState(false)
-  const [googleSlidesUrl, setGoogleSlidesUrl] = useState("")
-  const [addingSlides, setAddingSlides] = useState(false)
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     itemId: string
@@ -41,13 +38,6 @@ export default function MediaLibraryPage() {
     open: false,
     itemId: "",
     itemName: "",
-  })
-  const [previewModal, setPreviewModal] = useState<{
-    open: boolean
-    item: MediaItem | null
-  }>({
-    open: false,
-    item: null,
   })
   const { toast } = useToast()
 
@@ -228,100 +218,6 @@ export default function MediaLibraryPage() {
     }
   }
 
-  const handlePreview = (item: MediaItem) => {
-    setPreviewModal({
-      open: true,
-      item: item,
-    })
-  }
-
-  const handleAddGoogleSlides = async () => {
-    if (!googleSlidesUrl.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a Google Slides URL",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Validate Google Slides URL
-    if (!googleSlidesUrl.includes("docs.google.com/presentation")) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid Google Slides URL",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      const supabase = createClient()
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser()
-
-      if (error || !user) {
-        toast({
-          title: "Authentication Error",
-          description: "Please log in to add Google Slides",
-          variant: "destructive",
-        })
-        return
-      }
-    } catch (error) {
-      console.error("Auth check error:", error)
-      toast({
-        title: "Error",
-        description: "Authentication failed",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setAddingSlides(true)
-    try {
-      const response = await fetch("/api/media/add-slides", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          url: googleSlidesUrl,
-          tags: tags ? tags.split(",").map((tag) => tag.trim()) : [],
-        }),
-      })
-
-      if (response.ok) {
-        const newMedia = await response.json()
-        setMedia((prev) => [newMedia, ...prev])
-        setGoogleSlidesUrl("")
-        setTags("")
-        toast({
-          title: "Success",
-          description: "Google Slides added successfully",
-        })
-      } else {
-        const error = await response.json()
-        toast({
-          title: "Error",
-          description: error.error || "Failed to add Google Slides",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Add slides error:", error)
-      toast({
-        title: "Error",
-        description: "Failed to add Google Slides",
-        variant: "destructive",
-      })
-    } finally {
-      setAddingSlides(false)
-    }
-  }
-
   const filteredMedia = media.filter((item) => {
     if (!item || !item.name) return false
 
@@ -386,48 +282,10 @@ export default function MediaLibraryPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            Add Media
+            Upload Media
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <Input
-                placeholder="Google Slides URL (e.g., https://docs.google.com/presentation/d/...)"
-                value={googleSlidesUrl}
-                onChange={(e) => setGoogleSlidesUrl(e.target.value)}
-                className="flex-1"
-              />
-              <Input
-                placeholder="Tags (comma separated)"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                className="w-64"
-              />
-              <Button
-                onClick={handleAddGoogleSlides}
-                disabled={!googleSlidesUrl.trim() || addingSlides}
-                className="bg-green-500 hover:bg-green-600"
-              >
-                {addingSlides ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                ) : (
-                  <Plus className="h-4 w-4" />
-                )}
-                Add Slides
-              </Button>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or upload file</span>
-              </div>
-            </div>
-          </div>
-
           <div className="flex items-center gap-4">
             <Input type="file" accept="image/*,video/*" onChange={handleFileSelect} className="flex-1" />
             <Input
@@ -508,14 +366,14 @@ export default function MediaLibraryPage() {
                         <Video className="h-12 w-12 text-gray-400" />
                       </div>
                     )}
-                    <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="secondary" size="sm" onClick={() => handlePreview(item)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id, item.name)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleDelete(item.id, item.name)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                   <CardContent className="p-4">
                     <h3 className="font-semibold truncate" title={item.name}>
@@ -563,14 +421,9 @@ export default function MediaLibraryPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handlePreview(item)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id, item.name)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id, item.name)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </CardContent>
               )}
@@ -588,12 +441,6 @@ export default function MediaLibraryPage() {
         cancelText="Cancel"
         onConfirm={handleConfirmDelete}
         variant="destructive"
-      />
-
-      <MediaPreviewModal
-        open={previewModal.open}
-        onOpenChange={(open) => setPreviewModal({ ...previewModal, open })}
-        item={previewModal.item}
       />
     </div>
   )
