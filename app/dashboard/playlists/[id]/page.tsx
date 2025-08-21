@@ -29,8 +29,8 @@ interface MediaItem {
 
 interface PlaylistMediaItem {
   id: string
-  duration: number
-  order_index: number
+  duration_override: number
+  position: number
   media: MediaItem
 }
 
@@ -38,7 +38,7 @@ interface Playlist {
   id: string
   name: string
   description: string
-  playlist_media: PlaylistMediaItem[]
+  playlist_items: PlaylistMediaItem[]
 }
 
 export default function PlaylistDetailPage() {
@@ -118,7 +118,7 @@ export default function PlaylistDetailPage() {
           if (!prev) return prev
           return {
             ...prev,
-            playlist_media: [...prev.playlist_media, data.playlistMedia],
+            playlist_items: [...(prev.playlist_items || []), data.playlistMedia],
           }
         })
         setSelectedMedia("")
@@ -155,8 +155,11 @@ export default function PlaylistDetailPage() {
   }
 
   const getTotalDuration = () => {
-    if (!playlist) return 0
-    return playlist.playlist_media.reduce((total, item) => total + item.duration, 0)
+    if (!playlist || !playlist.playlist_items) return 0
+    return playlist.playlist_items.reduce((total, item) => {
+      if (!item) return total
+      return total + (item.duration_override || 10)
+    }, 0)
   }
 
   if (loading) {
@@ -194,7 +197,7 @@ export default function PlaylistDetailPage() {
           <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
             <div className="flex items-center gap-1">
               <ImageIcon className="h-4 w-4" />
-              <span>{playlist.playlist_media.length} items</span>
+              <span>{playlist.playlist_items?.length || 0} items</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
@@ -239,10 +242,10 @@ export default function PlaylistDetailPage() {
                     >
                       <CardContent className="p-3">
                         <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-2">
-                          {media.file_type.startsWith("image/") ? (
+                          {media.file_type?.startsWith("image/") ? (
                             <img
                               src={media.blob_url || "/placeholder.svg"}
-                              alt={media.filename}
+                              alt={media.filename || "Media"}
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -251,10 +254,10 @@ export default function PlaylistDetailPage() {
                             </div>
                           )}
                         </div>
-                        <h4 className="font-medium text-sm truncate" title={media.filename}>
-                          {media.filename}
+                        <h4 className="font-medium text-sm truncate" title={media.filename || "Untitled"}>
+                          {media.filename || "Untitled"}
                         </h4>
-                        <p className="text-xs text-gray-600">{formatFileSize(media.file_size)}</p>
+                        <p className="text-xs text-gray-600">{formatFileSize(media.file_size || 0)}</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -274,7 +277,7 @@ export default function PlaylistDetailPage() {
       </div>
 
       {/* Playlist Items */}
-      {playlist.playlist_media.length === 0 ? (
+      {!playlist.playlist_items || playlist.playlist_items.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <ImageIcon className="h-12 w-12 text-gray-400 mb-4" />
@@ -290,60 +293,63 @@ export default function PlaylistDetailPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {playlist.playlist_media
-            .sort((a, b) => a.order_index - b.order_index)
-            .map((item, index) => (
-              <Card key={item.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <GripVertical className="h-4 w-4" />
-                      <span className="text-sm font-medium">{index + 1}</span>
-                    </div>
-                    <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                      {item.media.file_type.startsWith("image/") ? (
-                        <img
-                          src={item.media.blob_url || "/placeholder.svg"}
-                          alt={item.media.filename}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full">
-                          <Video className="h-6 w-6 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold truncate">{item.media.filename}</h3>
-                      <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                        <span>{formatFileSize(item.media.file_size)}</span>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>{item.duration}s</span>
-                        </div>
+          {playlist.playlist_items
+            .sort((a, b) => (a?.position || 0) - (b?.position || 0))
+            .map((item, index) => {
+              if (!item || !item.media) return null
+              return (
+                <Card key={item.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <GripVertical className="h-4 w-4" />
+                        <span className="text-sm font-medium">{index + 1}</span>
                       </div>
-                      {item.media.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {item.media.tags.slice(0, 3).map((tag, tagIndex) => (
-                            <Badge key={tagIndex} variant="secondary" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                          {item.media.tags.length > 3 && (
-                            <Badge variant="secondary" className="text-xs">
-                              +{item.media.tags.length - 3}
-                            </Badge>
-                          )}
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                        {item.media.file_type?.startsWith("image/") ? (
+                          <img
+                            src={item.media.blob_url || "/placeholder.svg"}
+                            alt={item.media.filename || "Media"}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full">
+                            <Video className="h-6 w-6 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold truncate">{item.media.filename || "Untitled"}</h3>
+                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                          <span>{formatFileSize(item.media.file_size || 0)}</span>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{item.duration_override || 10}s</span>
+                          </div>
                         </div>
-                      )}
+                        {item.media.tags && item.media.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {item.media.tags.slice(0, 3).map((tag, tagIndex) => (
+                              <Badge key={tagIndex} variant="secondary" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {item.media.tags.length > 3 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{item.media.tags.length - 3}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <Button variant="destructive" size="sm">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button variant="destructive" size="sm">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              )
+            })}
         </div>
       )}
     </div>
