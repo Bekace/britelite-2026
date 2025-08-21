@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Plus, Trash2, Clock, ImageIcon, Video, GripVertical } from "lucide-react"
+import { ArrowLeft, Plus, Trash2, Clock, ImageIcon, Video, GripVertical, Edit } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface MediaItem {
@@ -48,6 +48,9 @@ export default function PlaylistDetailPage() {
   const [availableMedia, setAvailableMedia] = useState<MediaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddMediaDialog, setShowAddMediaDialog] = useState(false)
+  const [showEditDurationDialog, setShowEditDurationDialog] = useState(false)
+  const [editingItem, setEditingItem] = useState<PlaylistMediaItem | null>(null)
+  const [editDuration, setEditDuration] = useState(10)
   const [selectedMedia, setSelectedMedia] = useState<string>("")
   const [duration, setDuration] = useState(10)
   const { toast } = useToast()
@@ -205,6 +208,53 @@ export default function PlaylistDetailPage() {
     }
   }
 
+  const handleEditDuration = async () => {
+    if (!editingItem) return
+
+    try {
+      const response = await fetch(`/api/playlists/${params.id}/media`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playlist_item_id: editingItem.id,
+          duration_override: editDuration,
+        }),
+      })
+
+      if (response.ok) {
+        await fetchPlaylist()
+        setShowEditDurationDialog(false)
+        setEditingItem(null)
+        toast({
+          title: "Success",
+          description: "Duration updated successfully",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to update duration",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Edit duration error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update duration",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const openEditDurationDialog = (item: PlaylistMediaItem) => {
+    setEditingItem(item)
+    setEditDuration(item.duration_override || 10)
+    setShowEditDurationDialog(true)
+  }
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes"
     const k = 1024
@@ -347,6 +397,36 @@ export default function PlaylistDetailPage() {
         </Dialog>
       </div>
 
+      <Dialog open={showEditDurationDialog} onOpenChange={setShowEditDurationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Duration</DialogTitle>
+            <DialogDescription>
+              Set the display duration for "{editingItem?.media ? getMediaDisplayName(editingItem.media) : ""}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-duration">Display Duration (seconds)</Label>
+              <Input
+                id="edit-duration"
+                type="number"
+                min="1"
+                max="300"
+                value={editDuration}
+                onChange={(e) => setEditDuration(Number(e.target.value))}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowEditDurationDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditDuration}>Update Duration</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {playlistItems.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -414,9 +494,14 @@ export default function PlaylistDetailPage() {
                           </div>
                         )}
                       </div>
-                      <Button variant="destructive" size="sm" onClick={() => handleDeleteMedia(item.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openEditDurationDialog(item)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleDeleteMedia(item.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
