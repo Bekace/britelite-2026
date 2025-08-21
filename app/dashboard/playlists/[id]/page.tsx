@@ -156,7 +156,10 @@ export default function PlaylistDetailPage() {
 
   const getTotalDuration = () => {
     if (!playlist) return 0
-    return playlist.playlist_items.reduce((total, item) => total + (item.duration_override || 10), 0)
+    return playlist.playlist_items.reduce((total, item) => {
+      if (!item) return total
+      return total + (item.duration_override || 10)
+    }, 0)
   }
 
   if (loading) {
@@ -319,7 +322,7 @@ export default function PlaylistDetailPage() {
                         <span>{formatFileSize(item.media.file_size || 0)}</span>
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          <span>{item.duration_override || 10}s</span>
+                          <span>{item?.duration_override || 10}s</span>
                         </div>
                       </div>
                       {item.media.tags && item.media.tags.length > 0 && (
