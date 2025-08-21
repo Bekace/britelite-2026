@@ -33,7 +33,7 @@ import { CSS } from "@dnd-kit/utilities"
 interface MediaItem {
   id: string
   name: string
-  file_type: string
+  mime_type: string
   file_size: number
   file_path: string
   tags: string[]
@@ -79,7 +79,7 @@ function SortableItem({
   if (!item?.media) return null
 
   const renderThumbnail = (media: MediaItem) => {
-    if (media.file_type?.startsWith("image/")) {
+    if (media.mime_type?.startsWith("image/")) {
       return (
         <img
           src={media.file_path || "/placeholder.svg"}
@@ -91,7 +91,7 @@ function SortableItem({
           }}
         />
       )
-    } else if (media.file_type?.startsWith("video/")) {
+    } else if (media.mime_type?.startsWith("video/")) {
       return (
         <video
           src={media.file_path}
@@ -107,7 +107,7 @@ function SortableItem({
           }}
         />
       )
-    } else if (media.file_type === "application/vnd.google-apps.presentation") {
+    } else if (media.mime_type === "application/vnd.google-apps.presentation") {
       return (
         <div className="flex items-center justify-center h-full bg-gradient-to-br from-blue-50 to-blue-100">
           <div className="text-center">
@@ -224,7 +224,7 @@ export default function PlaylistDetailPage() {
               id: item.id,
               media: item.media,
               mediaName: item.media?.name,
-              mediaFileType: item.media?.file_type,
+              mediaMimeType: item.media?.mime_type,
               mediaFileSize: item.media?.file_size,
             })
           })
@@ -264,7 +264,7 @@ export default function PlaylistDetailPage() {
             console.log(`[v0] Media ${index}:`, {
               id: media.id,
               name: media.name,
-              file_type: media.file_type,
+              mime_type: media.mime_type,
               file_size: media.file_size,
             })
           })
@@ -422,8 +422,8 @@ export default function PlaylistDetailPage() {
     if (media.name && media.name.trim()) {
       return media.name
     }
-    if (media.file_type) {
-      const extension = media.file_type.split("/")[1] || "file"
+    if (media.mime_type) {
+      const extension = media.mime_type.split("/")[1] || "file"
       return `Untitled.${extension}`
     }
     return "Untitled"
@@ -496,7 +496,7 @@ export default function PlaylistDetailPage() {
   }
 
   const renderMediaThumbnail = (media: MediaItem) => {
-    if (media.file_type?.startsWith("image/")) {
+    if (media.mime_type?.startsWith("image/")) {
       return (
         <img
           src={media.file_path || "/placeholder.svg"}
@@ -508,7 +508,7 @@ export default function PlaylistDetailPage() {
           }}
         />
       )
-    } else if (media.file_type?.startsWith("video/")) {
+    } else if (media.mime_type?.startsWith("video/")) {
       return (
         <video
           src={media.file_path}
@@ -521,7 +521,7 @@ export default function PlaylistDetailPage() {
           }}
         />
       )
-    } else if (media.file_type === "application/vnd.google-apps.presentation") {
+    } else if (media.mime_type === "application/vnd.google-apps.presentation") {
       return (
         <div className="flex items-center justify-center h-full bg-gradient-to-br from-blue-50 to-blue-100">
           <div className="text-center">
