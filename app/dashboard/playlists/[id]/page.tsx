@@ -17,6 +17,18 @@ import {
 import { Label } from "@/components/ui/label"
 import { ArrowLeft, Plus, Trash2, Clock, ImageIcon, Video, GripVertical, Edit } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable"
+import { useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
 interface MediaItem {
   id: string
@@ -41,6 +53,96 @@ interface Playlist {
   playlist_items: PlaylistMediaItem[]
 }
 
+function SortableItem({
+  item,
+  index,
+  onEdit,
+  onDelete,
+  formatFileSize,
+  getMediaDisplayName,
+}: {
+  item: PlaylistMediaItem
+  index: number
+  onEdit: (item: PlaylistMediaItem) => void
+  onDelete: (id: string) => void
+  formatFileSize: (bytes: number) => string
+  getMediaDisplayName: (media: MediaItem) => string
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  if (!item?.media) return null
+
+  return (
+    <Card ref={setNodeRef} style={style} className={isDragging ? "z-50" : ""}>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-4">
+          <div
+            className="flex items-center gap-2 text-gray-400 cursor-grab active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4" />
+            <span className="text-sm font-medium">{index + 1}</span>
+          </div>
+          <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+            {item.media.file_type?.startsWith("image/") ? (
+              <img
+                src={item.media.file_path || "/placeholder.svg"}
+                alt={item.media.name || "Media"}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <Video className="h-6 w-6 text-gray-400" />
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold truncate" title={getMediaDisplayName(item.media)}>
+              {getMediaDisplayName(item.media)}
+            </h3>
+            <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+              <span>{formatFileSize(item.media.file_size || 0)}</span>
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>{item.duration_override || 10}s</span>
+              </div>
+            </div>
+            {(item.media.tags?.length || 0) > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {(item.media.tags || []).slice(0, 3).map((tag, tagIndex) => (
+                  <Badge key={tagIndex} variant="secondary" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+                {(item.media.tags?.length || 0) > 3 && (
+                  <Badge variant="secondary" className="text-xs">
+                    +{(item.media.tags?.length || 0) - 3}
+                  </Badge>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button variant="destructive" size="sm" onClick={() => onDelete(item.id)}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function PlaylistDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -54,6 +156,13 @@ export default function PlaylistDetailPage() {
   const [selectedMedia, setSelectedMedia] = useState<string>("")
   const [duration, setDuration] = useState(10)
   const { toast } = useToast()
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
 
   useEffect(() => {
     if (params.id) {
@@ -281,6 +390,72 @@ export default function PlaylistDetailPage() {
     return "Untitled"
   }
 
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (!over || active.id === over.id) {
+      return
+    }
+
+    const playlistItems = playlist?.playlist_items || []
+    const sortedItems = playlistItems.sort((a, b) => (a?.position || 0) - (b?.position || 0))
+
+    const oldIndex = sortedItems.findIndex((item) => item.id === active.id)
+    const newIndex = sortedItems.findIndex((item) => item.id === over.id)
+
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const newItems = arrayMove(sortedItems, oldIndex, newIndex)
+
+      // Update local state immediately for better UX
+      setPlaylist((prev) =>
+        prev
+          ? {
+              ...prev,
+              playlist_items: newItems.map((item, index) => ({
+                ...item,
+                position: index + 1,
+              })),
+            }
+          : null,
+      )
+
+      try {
+        // Send reorder request to API
+        const response = await fetch(`/api/playlists/${params.id}/reorder`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            items: newItems.map((item, index) => ({
+              id: item.id,
+              position: index + 1,
+            })),
+          }),
+        })
+
+        if (!response.ok) {
+          // Revert on error
+          await fetchPlaylist()
+          toast({
+            title: "Error",
+            description: "Failed to reorder items",
+            variant: "destructive",
+          })
+        }
+      } catch (error) {
+        console.error("Reorder error:", error)
+        // Revert on error
+        await fetchPlaylist()
+        toast({
+          title: "Error",
+          description: "Failed to reorder items",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -442,72 +617,28 @@ export default function PlaylistDetailPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {playlistItems
-            .sort((a, b) => (a?.position || 0) - (b?.position || 0))
-            .map((item, index) => {
-              if (!item?.media) return null
-              return (
-                <Card key={item.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <GripVertical className="h-4 w-4" />
-                        <span className="text-sm font-medium">{index + 1}</span>
-                      </div>
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                        {item.media.file_type?.startsWith("image/") ? (
-                          <img
-                            src={item.media.file_path || "/placeholder.svg"}
-                            alt={item.media.name || "Media"}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center h-full">
-                            <Video className="h-6 w-6 text-gray-400" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold truncate" title={getMediaDisplayName(item.media)}>
-                          {getMediaDisplayName(item.media)}
-                        </h3>
-                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                          <span>{formatFileSize(item.media.file_size || 0)}</span>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            <span>{item.duration_override || 10}s</span>
-                          </div>
-                        </div>
-                        {(item.media.tags?.length || 0) > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {(item.media.tags || []).slice(0, 3).map((tag, tagIndex) => (
-                              <Badge key={tagIndex} variant="secondary" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                            {(item.media.tags?.length || 0) > 3 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{(item.media.tags?.length || 0) - 3}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEditDurationDialog(item)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => handleDeleteMedia(item.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext
+            items={playlistItems.sort((a, b) => (a?.position || 0) - (b?.position || 0)).map((item) => item.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-4">
+              {playlistItems
+                .sort((a, b) => (a?.position || 0) - (b?.position || 0))
+                .map((item, index) => (
+                  <SortableItem
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    onEdit={openEditDurationDialog}
+                    onDelete={handleDeleteMedia}
+                    formatFileSize={formatFileSize}
+                    getMediaDisplayName={getMediaDisplayName}
+                  />
+                ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   )
