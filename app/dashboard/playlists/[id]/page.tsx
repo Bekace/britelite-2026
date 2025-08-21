@@ -78,6 +78,55 @@ function SortableItem({
 
   if (!item?.media) return null
 
+  const renderThumbnail = (media: MediaItem) => {
+    if (media.file_type?.startsWith("image/")) {
+      return (
+        <img
+          src={media.file_path || "/placeholder.svg"}
+          alt={media.name || "Media"}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement
+            target.src = "/abstract-colorful-swirls.png"
+          }}
+        />
+      )
+    } else if (media.file_type?.startsWith("video/")) {
+      return (
+        <video
+          src={media.file_path}
+          className="w-full h-full object-cover"
+          muted
+          preload="metadata"
+          onError={() => {
+            // Fallback to icon if video fails to load
+          }}
+          onLoadedMetadata={(e) => {
+            const video = e.target as HTMLVideoElement
+            video.currentTime = 1 // Seek to 1 second for thumbnail
+          }}
+        />
+      )
+    } else if (media.file_type === "application/vnd.google-apps.presentation") {
+      return (
+        <div className="flex items-center justify-center h-full bg-gradient-to-br from-blue-50 to-blue-100">
+          <div className="text-center">
+            <div className="w-8 h-8 mx-auto mb-1 bg-blue-500 rounded flex items-center justify-center">
+              <span className="text-white text-xs font-bold">G</span>
+            </div>
+            <span className="text-xs text-blue-600 font-medium">Slides</span>
+          </div>
+        </div>
+      )
+    } else {
+      return (
+        <div className="flex items-center justify-center h-full bg-gray-100">
+          <Video className="h-6 w-6 text-gray-400" />
+        </div>
+      )
+    }
+  }
+
   return (
     <Card ref={setNodeRef} style={style} className={isDragging ? "z-50" : ""}>
       <CardContent className="p-4">
@@ -91,17 +140,7 @@ function SortableItem({
             <span className="text-sm font-medium">{index + 1}</span>
           </div>
           <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-            {item.media.file_type?.startsWith("image/") ? (
-              <img
-                src={item.media.file_path || "/placeholder.svg"}
-                alt={item.media.name || "Media"}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <Video className="h-6 w-6 text-gray-400" />
-              </div>
-            )}
+            {renderThumbnail(item.media)}
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold truncate" title={getMediaDisplayName(item.media)}>
@@ -456,6 +495,52 @@ export default function PlaylistDetailPage() {
     }
   }
 
+  const renderMediaThumbnail = (media: MediaItem) => {
+    if (media.file_type?.startsWith("image/")) {
+      return (
+        <img
+          src={media.file_path || "/placeholder.svg"}
+          alt={media.name || "Media"}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement
+            target.src = "/abstract-colorful-swirls.png"
+          }}
+        />
+      )
+    } else if (media.file_type?.startsWith("video/")) {
+      return (
+        <video
+          src={media.file_path}
+          className="w-full h-full object-cover"
+          muted
+          preload="metadata"
+          onLoadedMetadata={(e) => {
+            const video = e.target as HTMLVideoElement
+            video.currentTime = 1 // Seek to 1 second for thumbnail
+          }}
+        />
+      )
+    } else if (media.file_type === "application/vnd.google-apps.presentation") {
+      return (
+        <div className="flex items-center justify-center h-full bg-gradient-to-br from-blue-50 to-blue-100">
+          <div className="text-center">
+            <div className="w-12 h-12 mx-auto mb-2 bg-blue-500 rounded-lg flex items-center justify-center">
+              <span className="text-white text-lg font-bold">G</span>
+            </div>
+            <span className="text-sm text-blue-600 font-medium">Google Slides</span>
+          </div>
+        </div>
+      )
+    } else {
+      return (
+        <div className="flex items-center justify-center h-full bg-gray-100">
+          <Video className="h-8 w-8 text-gray-400" />
+        </div>
+      )
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -538,17 +623,7 @@ export default function PlaylistDetailPage() {
                     >
                       <CardContent className="p-3">
                         <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-2">
-                          {media.file_type?.startsWith("image/") ? (
-                            <img
-                              src={media.file_path || "/placeholder.svg"}
-                              alt={media.name || "Media"}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center h-full">
-                              <Video className="h-8 w-8 text-gray-400" />
-                            </div>
-                          )}
+                          {renderMediaThumbnail(media)}
                         </div>
                         <h4 className="font-medium text-sm truncate" title={getMediaDisplayName(media)}>
                           {getMediaDisplayName(media)}
