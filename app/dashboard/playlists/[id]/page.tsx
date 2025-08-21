@@ -61,11 +61,14 @@ export default function PlaylistDetailPage() {
 
   const fetchPlaylist = async () => {
     try {
+      console.log("[v0] Fetching playlist for ID:", params.id)
       const response = await fetch(`/api/playlists/${params.id}`)
       if (response.ok) {
         const data = await response.json()
+        console.log("[v0] Playlist data received:", data)
         setPlaylist(data.playlist)
       } else {
+        console.log("[v0] Playlist fetch failed with status:", response.status)
         toast({
           title: "Error",
           description: "Failed to fetch playlist",
@@ -87,10 +90,14 @@ export default function PlaylistDetailPage() {
 
   const fetchAvailableMedia = async () => {
     try {
+      console.log("[v0] Fetching available media")
       const response = await fetch("/api/media/list")
       if (response.ok) {
         const data = await response.json()
+        console.log("[v0] Available media received:", data)
         setAvailableMedia(data.media || [])
+      } else {
+        console.log("[v0] Media fetch failed with status:", response.status)
       }
     } catch (error) {
       console.error("Error fetching media:", error)
@@ -141,6 +148,48 @@ export default function PlaylistDetailPage() {
       toast({
         title: "Error",
         description: "Failed to add media",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteMedia = async (playlistItemId: string) => {
+    try {
+      const response = await fetch(`/api/playlists/${params.id}/media`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playlist_item_id: playlistItemId,
+        }),
+      })
+
+      if (response.ok) {
+        setPlaylist((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            playlist_items: (prev.playlist_items || []).filter((item) => item.id !== playlistItemId),
+          }
+        })
+        toast({
+          title: "Success",
+          description: "Media removed from playlist",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to remove media",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Delete media error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to remove media",
         variant: "destructive",
       })
     }
@@ -343,7 +392,7 @@ export default function PlaylistDetailPage() {
                           </div>
                         )}
                       </div>
-                      <Button variant="destructive" size="sm">
+                      <Button variant="destructive" size="sm" onClick={() => handleDeleteMedia(item.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
