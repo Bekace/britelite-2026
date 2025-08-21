@@ -3,8 +3,7 @@ import { redirect } from "next/navigation"
 import LoginForm from "@/components/login-form"
 
 export default async function LoginPage() {
-  // If Supabase is not configured, show setup message directly
-  if (!isSupabaseConfigured) {
+  if (!isSupabaseConfigured()) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <h1 className="text-2xl font-bold mb-4 text-foreground">Connect Supabase to get started</h1>
@@ -13,7 +12,16 @@ export default async function LoginPage() {
   }
 
   // Check if user is already logged in
-  const supabase = createClient()
+  const supabase = await createClient()
+
+  if (!supabase) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <h1 className="text-2xl font-bold mb-4 text-foreground">Supabase client initialization failed</h1>
+      </div>
+    )
+  }
+
   const {
     data: { session },
   } = await supabase.auth.getSession()

@@ -90,7 +90,7 @@ export default function PlaylistDetailPage() {
       const response = await fetch("/api/media/list")
       if (response.ok) {
         const data = await response.json()
-        setAvailableMedia(data.media)
+        setAvailableMedia(data.media || [])
       }
     } catch (error) {
       console.error("Error fetching media:", error)
@@ -155,10 +155,9 @@ export default function PlaylistDetailPage() {
   }
 
   const getTotalDuration = () => {
-    if (!playlist || !playlist.playlist_items) return 0
+    if (!playlist?.playlist_items) return 0
     return playlist.playlist_items.reduce((total, item) => {
-      if (!item) return total
-      return total + (item.duration_override || 10)
+      return total + (item?.duration_override || 10)
     }, 0)
   }
 
@@ -181,6 +180,8 @@ export default function PlaylistDetailPage() {
     )
   }
 
+  const playlistItems = playlist.playlist_items || []
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -197,7 +198,7 @@ export default function PlaylistDetailPage() {
           <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
             <div className="flex items-center gap-1">
               <ImageIcon className="h-4 w-4" />
-              <span>{playlist.playlist_items?.length || 0} items</span>
+              <span>{playlistItems.length} items</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
@@ -232,7 +233,7 @@ export default function PlaylistDetailPage() {
               <div>
                 <Label>Select Media</Label>
                 <div className="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto mt-2">
-                  {availableMedia.map((media) => (
+                  {(availableMedia || []).map((media) => (
                     <Card
                       key={media.id}
                       className={`cursor-pointer transition-colors ${
@@ -277,7 +278,7 @@ export default function PlaylistDetailPage() {
       </div>
 
       {/* Playlist Items */}
-      {!playlist.playlist_items || playlist.playlist_items.length === 0 ? (
+      {playlistItems.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <ImageIcon className="h-12 w-12 text-gray-400 mb-4" />
@@ -293,10 +294,10 @@ export default function PlaylistDetailPage() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {playlist.playlist_items
+          {playlistItems
             .sort((a, b) => (a?.position || 0) - (b?.position || 0))
             .map((item, index) => {
-              if (!item || !item.media) return null
+              if (!item?.media) return null
               return (
                 <Card key={item.id}>
                   <CardContent className="p-4">
@@ -327,16 +328,16 @@ export default function PlaylistDetailPage() {
                             <span>{item.duration_override || 10}s</span>
                           </div>
                         </div>
-                        {item.media.tags && item.media.tags.length > 0 && (
+                        {(item.media.tags?.length || 0) > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
-                            {item.media.tags.slice(0, 3).map((tag, tagIndex) => (
+                            {(item.media.tags || []).slice(0, 3).map((tag, tagIndex) => (
                               <Badge key={tagIndex} variant="secondary" className="text-xs">
                                 {tag}
                               </Badge>
                             ))}
-                            {item.media.tags.length > 3 && (
+                            {(item.media.tags?.length || 0) > 3 && (
                               <Badge variant="secondary" className="text-xs">
-                                +{item.media.tags.length - 3}
+                                +{(item.media.tags?.length || 0) - 3}
                               </Badge>
                             )}
                           </div>
