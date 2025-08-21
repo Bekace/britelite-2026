@@ -66,6 +66,18 @@ export default function PlaylistDetailPage() {
       if (response.ok) {
         const data = await response.json()
         console.log("[v0] Playlist data received:", data)
+        if (data.playlist?.playlist_items) {
+          console.log("[v0] Playlist items count:", data.playlist.playlist_items.length)
+          data.playlist.playlist_items.forEach((item, index) => {
+            console.log(`[v0] Item ${index}:`, {
+              id: item.id,
+              media: item.media,
+              mediaFilename: item.media?.filename,
+              mediaFileType: item.media?.file_type,
+              mediaFileSize: item.media?.file_size,
+            })
+          })
+        }
         setPlaylist(data.playlist)
       } else {
         console.log("[v0] Playlist fetch failed with status:", response.status)
@@ -95,6 +107,17 @@ export default function PlaylistDetailPage() {
       if (response.ok) {
         const data = await response.json()
         console.log("[v0] Available media received:", data)
+        if (data.media) {
+          console.log("[v0] Available media count:", data.media.length)
+          data.media.slice(0, 3).forEach((media, index) => {
+            console.log(`[v0] Media ${index}:`, {
+              id: media.id,
+              filename: media.filename,
+              file_type: media.file_type,
+              file_size: media.file_size,
+            })
+          })
+        }
         setAvailableMedia(data.media || [])
       } else {
         console.log("[v0] Media fetch failed with status:", response.status)
@@ -210,6 +233,18 @@ export default function PlaylistDetailPage() {
     }, 0)
   }
 
+  const getMediaDisplayName = (media: MediaItem) => {
+    if (media.filename && media.filename.trim()) {
+      return media.filename
+    }
+    // Fallback to file type if filename is missing
+    if (media.file_type) {
+      const extension = media.file_type.split("/")[1] || "file"
+      return `Untitled.${extension}`
+    }
+    return "Untitled"
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -304,8 +339,8 @@ export default function PlaylistDetailPage() {
                             </div>
                           )}
                         </div>
-                        <h4 className="font-medium text-sm truncate" title={media.filename || "Untitled"}>
-                          {media.filename || "Untitled"}
+                        <h4 className="font-medium text-sm truncate" title={getMediaDisplayName(media)}>
+                          {getMediaDisplayName(media)}
                         </h4>
                         <p className="text-xs text-gray-600">{formatFileSize(media.file_size || 0)}</p>
                       </CardContent>
@@ -369,7 +404,9 @@ export default function PlaylistDetailPage() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold truncate">{item.media.filename || "Untitled"}</h3>
+                        <h3 className="font-semibold truncate" title={getMediaDisplayName(item.media)}>
+                          {getMediaDisplayName(item.media)}
+                        </h3>
                         <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
                           <span>{formatFileSize(item.media.file_size || 0)}</span>
                           <div className="flex items-center gap-1">
