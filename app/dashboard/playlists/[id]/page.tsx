@@ -20,10 +20,10 @@ import { useToast } from "@/hooks/use-toast"
 
 interface MediaItem {
   id: string
-  filename: string
+  name: string
   file_type: string
   file_size: number
-  blob_url: string
+  file_path: string
   tags: string[]
 }
 
@@ -72,7 +72,7 @@ export default function PlaylistDetailPage() {
             console.log(`[v0] Item ${index}:`, {
               id: item.id,
               media: item.media,
-              mediaFilename: item.media?.filename,
+              mediaName: item.media?.name,
               mediaFileType: item.media?.file_type,
               mediaFileSize: item.media?.file_size,
             })
@@ -112,7 +112,7 @@ export default function PlaylistDetailPage() {
           data.media.slice(0, 3).forEach((media, index) => {
             console.log(`[v0] Media ${index}:`, {
               id: media.id,
-              filename: media.filename,
+              name: media.name,
               file_type: media.file_type,
               file_size: media.file_size,
             })
@@ -143,14 +143,7 @@ export default function PlaylistDetailPage() {
       })
 
       if (response.ok) {
-        const data = await response.json()
-        setPlaylist((prev) => {
-          if (!prev) return prev
-          return {
-            ...prev,
-            playlist_items: [...(prev.playlist_items || []), data.playlistMedia],
-          }
-        })
+        await fetchPlaylist()
         setSelectedMedia("")
         setDuration(10)
         setShowAddMediaDialog(false)
@@ -189,13 +182,7 @@ export default function PlaylistDetailPage() {
       })
 
       if (response.ok) {
-        setPlaylist((prev) => {
-          if (!prev) return prev
-          return {
-            ...prev,
-            playlist_items: (prev.playlist_items || []).filter((item) => item.id !== playlistItemId),
-          }
-        })
+        await fetchPlaylist()
         toast({
           title: "Success",
           description: "Media removed from playlist",
@@ -234,10 +221,9 @@ export default function PlaylistDetailPage() {
   }
 
   const getMediaDisplayName = (media: MediaItem) => {
-    if (media.filename && media.filename.trim()) {
-      return media.filename
+    if (media.name && media.name.trim()) {
+      return media.name
     }
-    // Fallback to file type if filename is missing
     if (media.file_type) {
       const extension = media.file_type.split("/")[1] || "file"
       return `Untitled.${extension}`
@@ -329,8 +315,8 @@ export default function PlaylistDetailPage() {
                         <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-2">
                           {media.file_type?.startsWith("image/") ? (
                             <img
-                              src={media.blob_url || "/placeholder.svg"}
-                              alt={media.filename || "Media"}
+                              src={media.file_path || "/placeholder.svg"}
+                              alt={media.name || "Media"}
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -361,7 +347,6 @@ export default function PlaylistDetailPage() {
         </Dialog>
       </div>
 
-      {/* Playlist Items */}
       {playlistItems.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -393,8 +378,8 @@ export default function PlaylistDetailPage() {
                       <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                         {item.media.file_type?.startsWith("image/") ? (
                           <img
-                            src={item.media.blob_url || "/placeholder.svg"}
-                            alt={item.media.filename || "Media"}
+                            src={item.media.file_path || "/placeholder.svg"}
+                            alt={item.media.name || "Media"}
                             className="w-full h-full object-cover"
                           />
                         ) : (
