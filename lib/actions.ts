@@ -63,7 +63,7 @@ export async function signUp(prevState: any, formData: FormData) {
       options: {
         emailRedirectTo:
           process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-          `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-pointer-ai-landing-page-psi-six-73.vercel.app"}/dashboard`,
+          `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/dashboard`,
         data: {
           full_name: fullName?.toString() || "",
         },
