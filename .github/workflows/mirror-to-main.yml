@@ -1,0 +1,37 @@
+name: Auto PR: release -> main
+
+on:
+  push:
+    branches: [ Login-and-Media-Library ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create-and-merge-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create/Update PR release -> main
+        uses: peter-evans/create-pull-request@v6
+        with:
+          base: main
+          branch: Login-and-Media-Library
+          title: "Auto: Sync release -> main"
+          body: "Automated PR to keep main in sync with release."
+          commit-message: "chore: auto PR release -> main"
+          labels: automated
+
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # enable auto-merge if repo has it enabled (GitHub setting)
+          pr_number=$(gh pr list --base main --head release --state open --json number -q '.[0].number' || true)
+          if [ -n "$pr_number" ]; then
+            gh pr merge "$pr_number" --auto --merge
+          fi
