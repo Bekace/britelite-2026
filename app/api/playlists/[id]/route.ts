@@ -3,7 +3,11 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
+
+    if (!supabase) {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
+    }
 
     // Check authentication
     const {
@@ -19,10 +23,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       .from("playlists")
       .select(`
         *,
-        playlist_media(
+        playlist_items(
           id,
-          duration,
-          order_index,
+          duration_override,
+          position,
           media(*)
         )
       `)
@@ -44,15 +48,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!supabase) {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
     }
 
     const { name, description } = await request.json()
@@ -62,7 +61,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       .from("playlists")
       .update({ name, description })
       .eq("id", params.id)
-      .eq("user_id", user.id)
+      .eq("user_id", params.id)
       .select()
       .single()
 
@@ -80,19 +79,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
 
-    // Check authentication
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!supabase) {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
     }
 
-    // Delete playlist (cascade will handle playlist_media)
-    const { error } = await supabase.from("playlists").delete().eq("id", params.id).eq("user_id", user.id)
+    // Delete playlist (cascade will handle playlist_items)
+    const { error } = await supabase.from("playlists").delete().eq("id", params.id).eq("user_id", params.id)
 
     if (error) {
       console.error("Database error:", error)

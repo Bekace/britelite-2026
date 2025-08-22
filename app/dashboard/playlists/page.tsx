@@ -1,5 +1,7 @@
 "use client"
 
+import { DialogFooter } from "@/components/ui/dialog"
+import { DialogTrigger } from "@/components/ui/dialog"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -7,17 +9,22 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { PlayCircle, Plus, Search, Edit, Trash2, Clock, ImageIcon } from "lucide-react"
+import {
+  PlayCircle,
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Clock,
+  ImageIcon,
+  Eye,
+  Play,
+  Pause,
+  SkipForward,
+  RotateCcw,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Playlist {
@@ -28,6 +35,232 @@ interface Playlist {
   playlist_media: { count: number }[]
 }
 
+interface PlaylistItem {
+  id: string
+  position: number
+  duration_override: number
+  media: {
+    id: string
+    name: string
+    file_path: string
+    mime_type: string
+    file_size: number
+  }
+}
+
+function PlaylistPreviewModal({
+  playlist,
+  isOpen,
+  onClose,
+}: { playlist: Playlist; isOpen: boolean; onClose: () => void }) {
+  const [items, setItems] = useState<PlaylistItem[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [timeRemaining, setTimeRemaining] = useState(0)
+  const [loading, setLoading] = useState(false)
+
+  // Fetch playlist items when modal opens
+  useEffect(() => {
+    if (isOpen && playlist) {
+      fetchPlaylistItems()
+    } else {
+      // Reset state when modal closes
+      setCurrentIndex(0)
+      setIsPlaying(false)
+      setTimeRemaining(0)
+      setItems([])
+    }
+  }, [isOpen, playlist])
+
+  // Timer logic - completely isolated
+  useEffect(() => {
+    if (!isPlaying || timeRemaining <= 0 || items.length === 0) return
+
+    const timer = setTimeout(() => {
+      if (timeRemaining > 1) {
+        setTimeRemaining(timeRemaining - 1)
+      } else {
+        // Move to next item
+        const nextIndex = currentIndex + 1
+        if (nextIndex < items.length) {
+          setCurrentIndex(nextIndex)
+          setTimeRemaining(items[nextIndex].duration_override || 10)
+        } else {
+          // End of playlist
+          setIsPlaying(false)
+          setCurrentIndex(0)
+          setTimeRemaining(items[0]?.duration_override || 10)
+        }
+      }
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [isPlaying, timeRemaining, currentIndex, items])
+
+  const fetchPlaylistItems = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/playlists/${playlist.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        const sortedItems =
+          data.playlist.playlist_items?.sort((a: PlaylistItem, b: PlaylistItem) => a.position - b.position) || []
+        setItems(sortedItems)
+        setCurrentIndex(0)
+        setTimeRemaining(sortedItems[0]?.duration_override || 10)
+      }
+    } catch (error) {
+      console.error("Error fetching playlist items:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePlay = () => {
+    if (items.length === 0) return
+    setIsPlaying(true)
+  }
+
+  const handlePause = () => {
+    setIsPlaying(false)
+  }
+
+  const handleNext = () => {
+    if (currentIndex < items.length - 1) {
+      const nextIndex = currentIndex + 1
+      setCurrentIndex(nextIndex)
+      setTimeRemaining(items[nextIndex].duration_override || 10)
+    }
+  }
+
+  const handleReset = () => {
+    setIsPlaying(false)
+    setCurrentIndex(0)
+    setTimeRemaining(items[0]?.duration_override || 10)
+  }
+
+  // Simple media rendering without automatic behaviors
+  const renderSimpleMedia = (item: PlaylistItem) => {
+    if (item.media.mime_type?.startsWith("image/")) {
+      return (
+        <img
+          src={item.media.file_path || "/placeholder.svg"}
+          alt={item.media.name}
+          className="w-full h-full object-contain"
+          style={{ pointerEvents: "none" }}
+        />
+      )
+    }
+
+    if (item.media.mime_type?.startsWith("video/")) {
+      return (
+        <video
+          src={item.media.file_path}
+          className="w-full h-full object-contain"
+          muted
+          playsInline
+          style={{ pointerEvents: "none" }}
+        />
+      )
+    }
+
+    if (item.media.mime_type === "application/vnd.google-apps.presentation") {
+      const embedUrl = item.media.file_path.includes("/edit")
+        ? item.media.file_path.replace("/edit", "/embed")
+        : `${item.media.file_path}/embed`
+
+      return (
+        <iframe
+          src={embedUrl}
+          className="w-full h-full border-0"
+          title={item.media.name}
+          style={{ pointerEvents: "none" }}
+        />
+      )
+    }
+
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-100">
+        <div className="text-center">
+          <ImageIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">Unsupported media type</p>
+        </div>
+      </div>
+    )
+  }
+
+  const currentItem = items[currentIndex]
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-6xl p-0" style={{ height: "calc(100vh - 100px)" }}>
+        <DialogHeader className="p-6 pb-4">
+          <DialogTitle>{playlist.name} Preview</DialogTitle>
+          <DialogDescription>
+            {items.length > 0 ? `${currentIndex + 1} of ${items.length} items` : "Loading..."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* 16:9 Media Display Area */}
+        <div className="mx-6 bg-black relative" style={{ aspectRatio: "16/9" }}>
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-white">
+              <div className="text-center">
+                <PlayCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                <p>No media items in this playlist</p>
+              </div>
+            </div>
+          ) : currentItem ? (
+            <>
+              {renderSimpleMedia(currentItem)}
+              {/* Info Overlay */}
+              <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded">
+                <p className="font-medium">{currentItem.media.name}</p>
+                <p className="text-sm opacity-75">
+                  {timeRemaining}s remaining • {currentItem.duration_override}s total
+                </p>
+              </div>
+            </>
+          ) : null}
+        </div>
+
+        {/* Controls */}
+        <div className="p-6 pt-4 border-t bg-gray-50">
+          <div className="flex items-center justify-center gap-3">
+            <Button variant="outline" size="sm" onClick={handleReset}>
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+
+            {isPlaying ? (
+              <Button onClick={handlePause} className="bg-cyan-500 hover:bg-cyan-600">
+                <Pause className="h-4 w-4 mr-2" />
+                Pause
+              </Button>
+            ) : (
+              <Button onClick={handlePlay} disabled={items.length === 0} className="bg-cyan-500 hover:bg-cyan-600">
+                <Play className="h-4 w-4 mr-2" />
+                Play
+              </Button>
+            )}
+
+            <Button variant="outline" size="sm" onClick={handleNext} disabled={currentIndex >= items.length - 1}>
+              <SkipForward className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="text-center text-sm text-gray-600 mt-2">
+            Total: {items.reduce((sum, item) => sum + (item.duration_override || 10), 0)}s
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function PlaylistsPage() {
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [loading, setLoading] = useState(true)
@@ -35,6 +268,7 @@ export default function PlaylistsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [newPlaylist, setNewPlaylist] = useState({ name: "", description: "" })
   const [creating, setCreating] = useState(false)
+  const [previewPlaylist, setPreviewPlaylist] = useState<Playlist | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -141,6 +375,16 @@ export default function PlaylistsPage() {
     playlist.name.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
+  const handlePreviewPlaylist = (playlist: Playlist) => {
+    setShowCreateDialog(false)
+    setPreviewPlaylist(playlist)
+  }
+
+  const handleOpenCreateDialog = () => {
+    setPreviewPlaylist(null)
+    setShowCreateDialog(true)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -158,7 +402,7 @@ export default function PlaylistsPage() {
         </div>
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
-            <Button className="bg-cyan-500 hover:bg-cyan-600">
+            <Button className="bg-cyan-500 hover:bg-cyan-600" onClick={handleOpenCreateDialog}>
               <Plus className="h-4 w-4 mr-2" />
               Create Playlist
             </Button>
@@ -231,7 +475,7 @@ export default function PlaylistsPage() {
                 : "No playlists match your search criteria"}
             </p>
             {playlists.length === 0 && (
-              <Button onClick={() => setShowCreateDialog(true)} className="bg-cyan-500 hover:bg-cyan-600">
+              <Button onClick={handleOpenCreateDialog} className="bg-cyan-500 hover:bg-cyan-600">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Playlist
               </Button>
@@ -253,6 +497,14 @@ export default function PlaylistsPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 ml-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handlePreviewPlaylist(playlist)}
+                      className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/dashboard/playlists/${playlist.id}`}>
                         <Edit className="h-4 w-4" />
@@ -274,11 +526,11 @@ export default function PlaylistsPage() {
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1">
                       <ImageIcon className="h-4 w-4" />
-                      <span>{playlist.playlist_media[0]?.count || 0} items</span>
+                      <span>{playlist.playlist_media?.[0]?.count || 0} items</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />
-                      <span>{(playlist.playlist_media[0]?.count || 0) * 10} sec</span>
+                      <span>{(playlist.playlist_media?.[0]?.count || 0) * 10} sec</span>
                     </div>
                   </div>
                   <Badge variant="secondary">{new Date(playlist.created_at).toLocaleDateString()}</Badge>
@@ -295,6 +547,15 @@ export default function PlaylistsPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewPlaylist && (
+        <PlaylistPreviewModal
+          playlist={previewPlaylist}
+          isOpen={!!previewPlaylist}
+          onClose={() => setPreviewPlaylist(null)}
+        />
       )}
     </div>
   )
