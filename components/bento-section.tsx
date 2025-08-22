@@ -42,17 +42,17 @@ export function BentoSection() {
     },
     {
       title: "Real-Time Signage Previews",
-      description: "Chat, collaborate, and instantly preview changes together.",
+      description: "Collaborate, adjust, and instantly see updates on your screens.",
       Component: RealtimeCodingPreviews,
     },
     {
       title: "One-click integrations",
-      description: "Easily connect your workflow with popular dev tools.",
+      description: "Quickly connect your signage system with popular apps and tools.",
       Component: OneClickIntegrationsIllustration,
     },
     {
-      title: "Flexible MCP connectivity",
-      description: "Effortlessly manage and configure MCP server access.",
+      title: "Flexible Screen Connectivity",
+      description: "Easily manage and configure access for all your signage devices.",
       Component: MCPConnectivityIllustration, // Updated component
     },
     {
