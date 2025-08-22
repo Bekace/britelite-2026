@@ -19,7 +19,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { PlayCircle, Plus, Search, Edit, Trash2, Clock, ImageIcon, Eye, X, Play, Pause } from "lucide-react"
+import { PlayCircle, Plus, Search, Edit, Trash2, Clock, ImageIcon, Eye, Play, Pause } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Playlist {
@@ -201,9 +201,6 @@ function PlaylistPreviewModal({
                 {currentIndex + 1} of {items.length} items
               </p>
             </div>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
           </div>
 
           {/* Media Display */}
