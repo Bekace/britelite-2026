@@ -56,8 +56,8 @@ export function BentoSection() {
       Component: MCPConnectivityIllustration, // Updated component
     },
     {
-      title: "Launch parallel coding agents", // Swapped position
-      description: "Solve complex problems faster with multiple AI agents.",
+      title: "Launch Parallel AI Assistants", // Swapped position
+      description: "Optimize multiple screens simultaneously for faster, smarter updates.",
       Component: ParallelCodingAgents, // Updated component
     },
     {
