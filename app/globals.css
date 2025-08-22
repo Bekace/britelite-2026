@@ -36,8 +36,8 @@
     /*--muted: 249 250 251; */ /* #f9fafb - Light Gray for muted backgrounds */
     /*--muted-foreground: 107 114 128; */ /* #6b7280 - Medium Gray for muted text */
 
-    --accent: 245 158 11; /* #f59e0b - Amber for highlights or indicators */
-    --accent-foreground: 75 85 99; /* #4b5563 - Dark Gray for accent text */
+    --accent: 240 2% 25%; /* #3f3f42 */
+    --accent-foreground: 240 2% 96%; /* #f4f4f5 */
 
     --destructive: 220 38 38; /* #dc2626 - Red for destructive actions */
     --destructive-foreground: 255 255 255; /* #ffffff - White for text on destructive buttons */
