@@ -30,8 +30,8 @@
     --primary: 8 145 178; /* #0891b2 - Cyan for primary actions and buttons */
     --primary-foreground: 255 255 255; /* #ffffff - White for text on primary buttons */
 
-    --secondary: 245 158 11; /* #f59e0b - Amber for secondary actions */
-    --secondary-foreground: 75 85 99; /* #4b5563 - Dark Gray for text on secondary actions */
+    --secondary: 160 14% 93%; /* #e7eceb */
+    --secondary-foreground: 165 14% 8%; /* #141a18 */
 
     /*--muted: 249 250 251; */ /* #f9fafb - Light Gray for muted backgrounds */
     /*--muted-foreground: 107 114 128; */ /* #6b7280 - Medium Gray for muted text */
