@@ -62,7 +62,7 @@ export function BentoSection() {
     },
     {
       title: "Deployment made easy", // Swapped position
-      description: "Go from code to live deployment on Vercel instantly.",
+      description: "Publish your signage content live across screens instantly.",
       Component: EasyDeployment,
     },
   ]
