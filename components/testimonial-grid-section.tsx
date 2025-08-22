@@ -108,7 +108,7 @@ const TestimonialCard = ({ quote, name, company, avatar, type }) => {
   return (
     <div className={`${cardClasses} ${cardWidth} ${cardHeight}`}>
       {backgroundElements}
-      <div className={`relative z-10 font-normal break-words ${quoteClasses}`}>{quote}</div>
+      <div className={`relative z-10 font-normal break-words opacity-100 ${quoteClasses}`}>{quote}</div>
       <div className="relative z-10 flex justify-start items-center gap-3">
         <Image
           src={avatar || "/placeholder.svg"}
