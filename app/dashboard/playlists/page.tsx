@@ -64,6 +64,7 @@ function PlaylistPreviewModal({
       interval = setInterval(() => {
         setTimeRemaining((prev) => {
           if (prev <= 1) {
+            // Move to next item
             setCurrentIndex((currentIdx) => {
               const nextIndex = currentIdx + 1
               if (nextIndex >= items.length) {
@@ -73,19 +74,23 @@ function PlaylistPreviewModal({
               }
               return nextIndex
             })
-            // Return the duration for the next item immediately
-            const nextIndex = currentIndex + 1
-            if (nextIndex < items.length) {
-              return items[nextIndex]?.duration_override || 10
-            }
-            return 0
+            return 0 // Will be set by the next useEffect
           }
           return prev - 1
         })
       }, 1000)
     }
     return () => clearInterval(interval)
-  }, [isPlaying, items, currentIndex]) // Removed timeRemaining from dependencies to prevent timer resets
+  }, [isPlaying, timeRemaining, items.length])
+
+  useEffect(() => {
+    if (items.length > 0 && currentIndex < items.length) {
+      const currentItem = items[currentIndex]
+      if (currentItem && timeRemaining === 0 && isPlaying) {
+        setTimeRemaining(currentItem.duration_override || 10)
+      }
+    }
+  }, [currentIndex, items, isPlaying])
 
   const fetchPlaylistItems = async () => {
     setLoading(true)
@@ -173,6 +178,7 @@ function PlaylistPreviewModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl h-[80vh] p-0">
+        <DialogDescription className="sr-only">Preview playlist with media items playing in sequence</DialogDescription>
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b">
