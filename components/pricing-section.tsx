@@ -69,8 +69,7 @@ export function PricingSection() {
             Get the AI Player or Stick with Software Only
           </h2>
           <p className="self-stretch text-center text-muted-foreground text-sm font-medium leading-tight">
-            Choose a plan that fits your coding workflow, from individuals starting out to <br /> growing professionals
-            and large organizations.
+            Choose a plan that fits your digital signage needs, whether you’re starting small, scaling up, or managing screens across multiple locations.
           </p>
         </div>
         <div className="pt-4">
