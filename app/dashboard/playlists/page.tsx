@@ -372,6 +372,16 @@ export default function PlaylistsPage() {
     playlist.name.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
+  const handlePreviewPlaylist = (playlist: Playlist) => {
+    setShowCreateDialog(false) // Close create dialog first
+    setPreviewPlaylist(playlist)
+  }
+
+  const handleOpenCreateDialog = () => {
+    setPreviewPlaylist(null) // Close preview dialog first
+    setShowCreateDialog(true)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -389,7 +399,7 @@ export default function PlaylistsPage() {
         </div>
         <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
           <DialogTrigger asChild>
-            <Button className="bg-cyan-500 hover:bg-cyan-600">
+            <Button className="bg-cyan-500 hover:bg-cyan-600" onClick={handleOpenCreateDialog}>
               <Plus className="h-4 w-4 mr-2" />
               Create Playlist
             </Button>
@@ -462,7 +472,7 @@ export default function PlaylistsPage() {
                 : "No playlists match your search criteria"}
             </p>
             {playlists.length === 0 && (
-              <Button onClick={() => setShowCreateDialog(true)} className="bg-cyan-500 hover:bg-cyan-600">
+              <Button onClick={handleOpenCreateDialog} className="bg-cyan-500 hover:bg-cyan-600">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Playlist
               </Button>
@@ -487,7 +497,7 @@ export default function PlaylistsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setPreviewPlaylist(playlist)}
+                      onClick={() => handlePreviewPlaylist(playlist)}
                       className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50"
                     >
                       <Eye className="h-4 w-4" />
