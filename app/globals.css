@@ -13,8 +13,8 @@
     --muted-foreground-light: 160 14% 93% / 0.5; /* rgba(231, 236, 235, 0.5) */
     --muted-foreground-dark: 160 14% 93% / 0.6; /* rgba(231, 236, 235, 0.6) */
 
-    /* Updated font configuration to use Google Fonts Inter instead of local Geist fonts */
-    --font-sans: var(--font-inter);
+    /* Updated font configuration to use Google Fonts Inter directly */
+    --font-sans: "Inter", sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
     /* Updated design tokens to match XKREEN dashboard design brief */
@@ -113,5 +113,14 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Added Inter font utility class for consistent usage */
+@layer utilities {
+  .font-inter {
+    font-family: "Inter", sans-serif;
+    font-optical-sizing: auto;
+    font-style: normal;
   }
 }
