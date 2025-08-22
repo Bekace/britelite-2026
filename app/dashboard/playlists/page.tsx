@@ -138,6 +138,12 @@ function PlaylistPreviewModal({
     const handleMediaClick = (e: React.MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
+      e.stopImmediatePropagation()
+    }
+
+    const handleMediaEvent = (e: React.SyntheticEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
     }
 
     if (item.media.mime_type?.startsWith("image/")) {
@@ -145,8 +151,10 @@ function PlaylistPreviewModal({
         <img
           src={item.media.file_path || "/placeholder.svg"}
           alt={item.media.name}
-          className="w-full h-full object-contain cursor-default"
+          className="w-full h-full object-contain cursor-default pointer-events-none"
           onClick={handleMediaClick}
+          onDoubleClick={handleMediaClick}
+          onContextMenu={handleMediaEvent}
           onError={(e) => {
             e.currentTarget.src = "/placeholder.svg?height=400&width=600&text=Image+Not+Found"
           }}
@@ -156,11 +164,13 @@ function PlaylistPreviewModal({
       return (
         <video
           src={item.media.file_path}
-          className="w-full h-full object-contain cursor-default"
-          autoPlay
+          className="w-full h-full object-contain cursor-default pointer-events-none"
+          autoPlay={false}
           muted
-          loop
+          playsInline
           onClick={handleMediaClick}
+          onDoubleClick={handleMediaClick}
+          onContextMenu={handleMediaEvent}
           onError={(e) => {
             e.currentTarget.style.display = "none"
           }}
@@ -172,14 +182,24 @@ function PlaylistPreviewModal({
         : `${item.media.file_path}/embed`
 
       return (
-        <div onClick={handleMediaClick} className="w-full h-full cursor-default">
-          <iframe src={embedUrl} className="w-full h-full border-0" title={item.media.name} />
+        <div
+          onClick={handleMediaClick}
+          onDoubleClick={handleMediaClick}
+          onContextMenu={handleMediaEvent}
+          className="w-full h-full cursor-default pointer-events-none"
+        >
+          <iframe src={embedUrl} className="w-full h-full border-0 pointer-events-none" title={item.media.name} />
         </div>
       )
     }
 
     return (
-      <div className="flex items-center justify-center h-full bg-gray-100 cursor-default" onClick={handleMediaClick}>
+      <div
+        className="flex items-center justify-center h-full bg-gray-100 cursor-default pointer-events-none"
+        onClick={handleMediaClick}
+        onDoubleClick={handleMediaClick}
+        onContextMenu={handleMediaEvent}
+      >
         <div className="text-center">
           <ImageIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">Unsupported media type</p>
@@ -188,9 +208,18 @@ function PlaylistPreviewModal({
     )
   }
 
+  const handleModalClose = (open: boolean) => {
+    if (!open) {
+      setIsPlaying(false)
+      setCurrentIndex(0)
+      setTimeRemaining(0)
+      onClose()
+    }
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[80vh] p-0">
+    <Dialog open={isOpen} onOpenChange={handleModalClose}>
+      <DialogContent className="max-w-4xl h-[80vh] p-0" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogDescription className="sr-only">Preview playlist with media items playing in sequence</DialogDescription>
         <div className="flex flex-col h-full">
           {/* Header */}
@@ -204,7 +233,7 @@ function PlaylistPreviewModal({
           </div>
 
           {/* Media Display */}
-          <div className="flex-1 bg-black relative">
+          <div className="flex-1 bg-black relative" onClick={(e) => e.stopPropagation()}>
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -220,7 +249,7 @@ function PlaylistPreviewModal({
               <>
                 {renderMediaPreview(currentItem)}
                 {/* Media Info Overlay */}
-                <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded">
+                <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded pointer-events-none">
                   <p className="font-medium">{currentItem.media.name}</p>
                   <p className="text-sm opacity-75">
                     Duration: {currentItem.duration_override}s | Remaining: {timeRemaining}s
