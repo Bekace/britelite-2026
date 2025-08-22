@@ -3,7 +3,7 @@ import Image from "next/image"
 const testimonials = [
   {
     quote:
-      "The real-time code suggestions from Pointer feel like having a senior engineer reviewing every line of code as you write. The accuracy of its recommendations has improved our overall code quality, reduced review time.",
+      "The real-time code suggestions from Xkreen feel like having a senior engineer reviewing every line of code as you write. The accuracy of its recommendations has improved our overall code quality, reduced review time.",
     name: "Annette Black",
     company: "Sony",
     avatar: "/images/avatars/annette-black.png",
@@ -11,7 +11,7 @@ const testimonials = [
   },
   {
     quote:
-      "Integrating Pointer into our stack was smooth, and the MCP server connections saved us days of configuration work",
+      "Integrating Xkreen into our stack was smooth, and the MCP server connections saved us days of configuration work",
     name: "Dianne Russell",
     company: "McDonald's",
     avatar: "/images/avatars/dianne-russell.png",
@@ -19,7 +19,7 @@ const testimonials = [
   },
   {
     quote:
-      "Pointer’s multi-agent coding feature has been a game changer. We’re fixing complex bugs in hours instead of spending entire sprints on them.",
+      "Xkreen’s multi-agent coding feature has been a game changer. We’re fixing complex bugs in hours instead of spending entire sprints on them.",
     name: "Cameron Williamson",
     company: "IBM",
     avatar: "/images/avatars/cameron-williamson.png",
@@ -27,7 +27,7 @@ const testimonials = [
   },
   {
     quote:
-      "We no longer juggle multiple tools. Pointer brought all our integrations together in one place, which simplified our entire workflow.",
+      "We no longer juggle multiple tools. Xkreen brought all our integrations together in one place, which simplified our entire workflow.",
     name: "Robert Fox",
     company: "MasterCard",
     avatar: "/images/avatars/robert-fox.png",
@@ -43,7 +43,7 @@ const testimonials = [
   },
   {
     quote:
-      "Collaborative coding feels effortless now. With Pointer’s real-time previews, pair programming has become faster and more productive.",
+      "Collaborative coding feels effortless now. With Xkreen’s real-time previews, pair programming has become faster and more productive.",
     name: "Cody Fisher",
     company: "Apple",
     avatar: "/images/avatars/cody-fisher.png",
@@ -51,7 +51,7 @@ const testimonials = [
   },
   {
     quote:
-      "Deploying on Vercel with Pointer was not just simple, it felt seamless. We went from coding to seeing our changes live in minutes without worrying about build pipelines or configuration issues.",
+      "Deploying on Vercel with Xkreen was not just simple, it felt seamless. We went from coding to seeing our changes live in minutes without worrying about build pipelines or configuration issues.",
     name: "Albert Flores",
     company: "Louis Vuitton",
     avatar: "/images/avatars/albert-flores.png",
@@ -137,7 +137,7 @@ export function TestimonialGridSection() {
           </h2>
           <p className="self-stretch text-center text-muted-foreground text-sm md:text-sm lg:text-base font-medium leading-[18.20px] md:leading-relaxed lg:leading-relaxed">
             {"Hear how developers ship products faster, collaborate seamlessly,"} <br />{" "}
-            {"and build with confidence using Pointer's powerful AI tools"}
+            {"and build with confidence using Xkreen's powerful AI tools"}
           </p>
         </div>
       </div>
