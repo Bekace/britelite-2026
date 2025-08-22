@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -133,12 +135,18 @@ function PlaylistPreviewModal({
   const currentItem = items[currentIndex]
 
   const renderMediaPreview = (item: PlaylistItem) => {
+    const handleMediaClick = (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
     if (item.media.mime_type?.startsWith("image/")) {
       return (
         <img
           src={item.media.file_path || "/placeholder.svg"}
           alt={item.media.name}
-          className="w-full h-full object-contain"
+          className="w-full h-full object-contain cursor-default"
+          onClick={handleMediaClick}
           onError={(e) => {
             e.currentTarget.src = "/placeholder.svg?height=400&width=600&text=Image+Not+Found"
           }}
@@ -148,10 +156,11 @@ function PlaylistPreviewModal({
       return (
         <video
           src={item.media.file_path}
-          className="w-full h-full object-contain"
+          className="w-full h-full object-contain cursor-default"
           autoPlay
           muted
           loop
+          onClick={handleMediaClick}
           onError={(e) => {
             e.currentTarget.style.display = "none"
           }}
@@ -162,11 +171,15 @@ function PlaylistPreviewModal({
         ? item.media.file_path.replace("/edit", "/embed")
         : `${item.media.file_path}/embed`
 
-      return <iframe src={embedUrl} className="w-full h-full border-0" title={item.media.name} />
+      return (
+        <div onClick={handleMediaClick} className="w-full h-full cursor-default">
+          <iframe src={embedUrl} className="w-full h-full border-0" title={item.media.name} />
+        </div>
+      )
     }
 
     return (
-      <div className="flex items-center justify-center h-full bg-gray-100">
+      <div className="flex items-center justify-center h-full bg-gray-100 cursor-default" onClick={handleMediaClick}>
         <div className="text-center">
           <ImageIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">Unsupported media type</p>
