@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -19,7 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { PlayCircle, Plus, Search, Edit, Trash2, Clock, ImageIcon, Eye, Play, Pause } from "lucide-react"
+import { PlayCircle, Plus, Search, Edit, Trash2, Clock, ImageIcon, Eye, Play, Pause, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Playlist {
@@ -135,26 +133,12 @@ function PlaylistPreviewModal({
   const currentItem = items[currentIndex]
 
   const renderMediaPreview = (item: PlaylistItem) => {
-    const handleMediaClick = (e: React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      e.stopImmediatePropagation()
-    }
-
-    const handleMediaEvent = (e: React.SyntheticEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-    }
-
     if (item.media.mime_type?.startsWith("image/")) {
       return (
         <img
           src={item.media.file_path || "/placeholder.svg"}
           alt={item.media.name}
-          className="w-full h-full object-contain cursor-default pointer-events-none"
-          onClick={handleMediaClick}
-          onDoubleClick={handleMediaClick}
-          onContextMenu={handleMediaEvent}
+          className="w-full h-full object-contain"
           onError={(e) => {
             e.currentTarget.src = "/placeholder.svg?height=400&width=600&text=Image+Not+Found"
           }}
@@ -164,13 +148,9 @@ function PlaylistPreviewModal({
       return (
         <video
           src={item.media.file_path}
-          className="w-full h-full object-contain cursor-default pointer-events-none"
-          autoPlay={false}
+          className="w-full h-full object-contain"
           muted
           playsInline
-          onClick={handleMediaClick}
-          onDoubleClick={handleMediaClick}
-          onContextMenu={handleMediaEvent}
           onError={(e) => {
             e.currentTarget.style.display = "none"
           }}
@@ -182,24 +162,14 @@ function PlaylistPreviewModal({
         : `${item.media.file_path}/embed`
 
       return (
-        <div
-          onClick={handleMediaClick}
-          onDoubleClick={handleMediaClick}
-          onContextMenu={handleMediaEvent}
-          className="w-full h-full cursor-default pointer-events-none"
-        >
-          <iframe src={embedUrl} className="w-full h-full border-0 pointer-events-none" title={item.media.name} />
+        <div className="w-full h-full">
+          <iframe src={embedUrl} className="w-full h-full border-0" title={item.media.name} />
         </div>
       )
     }
 
     return (
-      <div
-        className="flex items-center justify-center h-full bg-gray-100 cursor-default pointer-events-none"
-        onClick={handleMediaClick}
-        onDoubleClick={handleMediaClick}
-        onContextMenu={handleMediaEvent}
-      >
+      <div className="flex items-center justify-center h-full bg-gray-100">
         <div className="text-center">
           <ImageIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">Unsupported media type</p>
@@ -208,82 +178,75 @@ function PlaylistPreviewModal({
     )
   }
 
-  const handleModalClose = (open: boolean) => {
-    if (!open) {
-      setIsPlaying(false)
-      setCurrentIndex(0)
-      setTimeRemaining(0)
-      onClose()
-    }
-  }
+  if (!isOpen) return null
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleModalClose}>
-      <DialogContent className="max-w-4xl h-[80vh] p-0" onPointerDownOutside={(e) => e.preventDefault()}>
-        <DialogDescription className="sr-only">Preview playlist with media items playing in sequence</DialogDescription>
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b">
-            <div>
-              <h2 className="text-xl font-semibold">{playlist.name} Preview</h2>
-              <p className="text-sm text-gray-600">
-                {currentIndex + 1} of {items.length} items
-              </p>
+    <div className="fixed inset-0 z-[9999] bg-black bg-opacity-75 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <div>
+            <h2 className="text-xl font-semibold">{playlist.name} Preview</h2>
+            <p className="text-sm text-gray-600">
+              {currentIndex + 1} of {items.length} items
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Media Display */}
+        <div className="flex-1 bg-black relative">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
             </div>
-          </div>
-
-          {/* Media Display */}
-          <div className="flex-1 bg-black relative" onClick={(e) => e.stopPropagation()}>
-            {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          ) : items.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-white">
+              <div className="text-center">
+                <PlayCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                <p>No media items in this playlist</p>
               </div>
-            ) : items.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-white">
-                <div className="text-center">
-                  <PlayCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <p>No media items in this playlist</p>
-                </div>
+            </div>
+          ) : currentItem ? (
+            <>
+              {renderMediaPreview(currentItem)}
+              {/* Media Info Overlay */}
+              <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded">
+                <p className="font-medium">{currentItem.media.name}</p>
+                <p className="text-sm opacity-75">
+                  Duration: {currentItem.duration_override}s | Remaining: {timeRemaining}s
+                </p>
               </div>
-            ) : currentItem ? (
-              <>
-                {renderMediaPreview(currentItem)}
-                {/* Media Info Overlay */}
-                <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded pointer-events-none">
-                  <p className="font-medium">{currentItem.media.name}</p>
-                  <p className="text-sm opacity-75">
-                    Duration: {currentItem.duration_override}s | Remaining: {timeRemaining}s
-                  </p>
-                </div>
-              </>
-            ) : null}
-          </div>
+            </>
+          ) : null}
+        </div>
 
-          {/* Controls */}
-          <div className="p-4 border-t bg-gray-50">
-            <div className="flex items-center justify-center gap-4">
-              <Button variant="outline" size="sm" onClick={handleReset} disabled={items.length === 0}>
-                Reset
+        {/* Controls */}
+        <div className="p-4 border-t bg-gray-50">
+          <div className="flex items-center justify-center gap-4">
+            <Button variant="outline" size="sm" onClick={handleReset} disabled={items.length === 0}>
+              Reset
+            </Button>
+            {isPlaying ? (
+              <Button onClick={handlePause} className="bg-cyan-500 hover:bg-cyan-600">
+                <Pause className="h-4 w-4 mr-2" />
+                Pause
               </Button>
-              {isPlaying ? (
-                <Button onClick={handlePause} className="bg-cyan-500 hover:bg-cyan-600">
-                  <Pause className="h-4 w-4 mr-2" />
-                  Pause
-                </Button>
-              ) : (
-                <Button onClick={handlePlay} disabled={items.length === 0} className="bg-cyan-500 hover:bg-cyan-600">
-                  <Play className="h-4 w-4 mr-2" />
-                  Play
-                </Button>
-              )}
-              <div className="text-sm text-gray-600">
-                Total Duration: {items.reduce((sum, item) => sum + (item.duration_override || 10), 0)}s
-              </div>
+            ) : (
+              <Button onClick={handlePlay} disabled={items.length === 0} className="bg-cyan-500 hover:bg-cyan-600">
+                <Play className="h-4 w-4 mr-2" />
+                Play
+              </Button>
+            )}
+            <div className="text-sm text-gray-600">
+              Total Duration: {items.reduce((sum, item) => sum + (item.duration_override || 10), 0)}s
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   )
 }
 
