@@ -101,7 +101,7 @@ export function PricingSection() {
         {pricingPlans.map((plan) => (
           <div
             key={plan.name}
-            className={`flex-1 p-4 overflow-hidden rounded-xl flex flex-col justify-start items-start gap-6 ${plan.popular ? "bg-primary shadow-[0px_4px_8px_-2px_rgba(0,0,0,0.10)]" : "bg-gradient-to-b from-gray-50/5 to-gray-50/0"}`}
+            className={`flex-1 p-4 overflow-hidden rounded-xl flex flex-col justify-start items-start gap-6 bg-slate-800 ${plan.popular ? "bg-primary shadow-[0px_4px_8px_-2px_rgba(0,0,0,0.10)]" : "bg-gradient-to-b from-gray-50/5 to-gray-50/0"}`}
             style={plan.popular ? {} : { outline: "1px solid hsl(var(--border))", outlineOffset: "-1px" }}
           >
             <div className="self-stretch flex flex-col justify-start items-start gap-6">
