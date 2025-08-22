@@ -1,5 +1,9 @@
 "use client"
 
+import { DialogFooter } from "@/components/ui/dialog"
+
+import { DialogTrigger } from "@/components/ui/dialog"
+
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -7,17 +11,22 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { PlayCircle, Plus, Search, Edit, Trash2, Clock, ImageIcon, Eye, Play, Pause, X } from "lucide-react"
+import {
+  PlayCircle,
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Clock,
+  ImageIcon,
+  Eye,
+  Play,
+  Pause,
+  SkipForward,
+  RotateCcw,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Playlist {
@@ -52,45 +61,43 @@ function PlaylistPreviewModal({
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [loading, setLoading] = useState(false)
 
+  // Fetch playlist items when modal opens
   useEffect(() => {
     if (isOpen && playlist) {
       fetchPlaylistItems()
+    } else {
+      // Reset state when modal closes
+      setCurrentIndex(0)
+      setIsPlaying(false)
+      setTimeRemaining(0)
+      setItems([])
     }
   }, [isOpen, playlist])
 
+  // Simple timer logic
   useEffect(() => {
     let interval: NodeJS.Timeout
+
     if (isPlaying && timeRemaining > 0) {
       interval = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev <= 1) {
-            // Move to next item
-            setCurrentIndex((currentIdx) => {
-              const nextIndex = currentIdx + 1
-              if (nextIndex >= items.length) {
-                // End of playlist
-                setIsPlaying(false)
-                return 0
-              }
-              return nextIndex
-            })
-            return 0 // Will be set by the next useEffect
-          }
-          return prev - 1
-        })
+        setTimeRemaining((prev) => prev - 1)
       }, 1000)
-    }
-    return () => clearInterval(interval)
-  }, [isPlaying, timeRemaining, items.length])
-
-  useEffect(() => {
-    if (items.length > 0 && currentIndex < items.length) {
-      const currentItem = items[currentIndex]
-      if (currentItem && timeRemaining === 0 && isPlaying) {
-        setTimeRemaining(currentItem.duration_override || 10)
+    } else if (isPlaying && timeRemaining === 0 && items.length > 0) {
+      // Move to next item
+      const nextIndex = currentIndex + 1
+      if (nextIndex < items.length) {
+        setCurrentIndex(nextIndex)
+        setTimeRemaining(items[nextIndex].duration_override || 10)
+      } else {
+        // End of playlist
+        setIsPlaying(false)
+        setCurrentIndex(0)
+        setTimeRemaining(items[0]?.duration_override || 10)
       }
     }
-  }, [currentIndex, items, isPlaying])
+
+    return () => clearInterval(interval)
+  }, [isPlaying, timeRemaining, currentIndex, items])
 
   const fetchPlaylistItems = async () => {
     setLoading(true)
@@ -101,9 +108,8 @@ function PlaylistPreviewModal({
         const sortedItems =
           data.playlist.playlist_items?.sort((a: PlaylistItem, b: PlaylistItem) => a.position - b.position) || []
         setItems(sortedItems)
-        if (sortedItems.length > 0) {
-          setTimeRemaining(sortedItems[0].duration_override || 10)
-        }
+        setCurrentIndex(0)
+        setTimeRemaining(sortedItems[0]?.duration_override || 10)
       }
     } catch (error) {
       console.error("Error fetching playlist items:", error)
@@ -115,13 +121,18 @@ function PlaylistPreviewModal({
   const handlePlay = () => {
     if (items.length === 0) return
     setIsPlaying(true)
-    if (timeRemaining === 0) {
-      setTimeRemaining(items[currentIndex]?.duration_override || 10)
-    }
   }
 
   const handlePause = () => {
     setIsPlaying(false)
+  }
+
+  const handleNext = () => {
+    if (currentIndex < items.length - 1) {
+      const nextIndex = currentIndex + 1
+      setCurrentIndex(nextIndex)
+      setTimeRemaining(items[nextIndex].duration_override || 10)
+    }
   }
 
   const handleReset = () => {
@@ -130,9 +141,7 @@ function PlaylistPreviewModal({
     setTimeRemaining(items[0]?.duration_override || 10)
   }
 
-  const currentItem = items[currentIndex]
-
-  const renderMediaPreview = (item: PlaylistItem) => {
+  const renderMedia = (item: PlaylistItem) => {
     if (item.media.mime_type?.startsWith("image/")) {
       return (
         <img
@@ -140,32 +149,22 @@ function PlaylistPreviewModal({
           alt={item.media.name}
           className="w-full h-full object-contain"
           onError={(e) => {
-            e.currentTarget.src = "/placeholder.svg?height=400&width=600&text=Image+Not+Found"
+            e.currentTarget.src = "/placeholder.svg?height=400&width=600&text=Image+Error"
           }}
         />
       )
-    } else if (item.media.mime_type?.startsWith("video/")) {
-      return (
-        <video
-          src={item.media.file_path}
-          className="w-full h-full object-contain"
-          muted
-          playsInline
-          onError={(e) => {
-            e.currentTarget.style.display = "none"
-          }}
-        />
-      )
-    } else if (item.media.mime_type === "application/vnd.google-apps.presentation") {
+    }
+
+    if (item.media.mime_type?.startsWith("video/")) {
+      return <video src={item.media.file_path} className="w-full h-full object-contain" muted playsInline />
+    }
+
+    if (item.media.mime_type === "application/vnd.google-apps.presentation") {
       const embedUrl = item.media.file_path.includes("/edit")
         ? item.media.file_path.replace("/edit", "/embed")
         : `${item.media.file_path}/embed`
 
-      return (
-        <div className="w-full h-full">
-          <iframe src={embedUrl} className="w-full h-full border-0" title={item.media.name} />
-        </div>
-      )
+      return <iframe src={embedUrl} className="w-full h-full border-0" title={item.media.name} />
     }
 
     return (
@@ -178,26 +177,20 @@ function PlaylistPreviewModal({
     )
   }
 
-  if (!isOpen) return null
+  const currentItem = items[currentIndex]
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black bg-opacity-75 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <div>
-            <h2 className="text-xl font-semibold">{playlist.name} Preview</h2>
-            <p className="text-sm text-gray-600">
-              {currentIndex + 1} of {items.length} items
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl h-[80vh] p-0">
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle>{playlist.name} Preview</DialogTitle>
+          <DialogDescription>
+            {items.length > 0 ? `${currentIndex + 1} of ${items.length} items` : "Loading..."}
+          </DialogDescription>
+        </DialogHeader>
 
-        {/* Media Display */}
-        <div className="flex-1 bg-black relative">
+        {/* Media Display Area */}
+        <div className="flex-1 bg-black relative mx-6">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -211,12 +204,12 @@ function PlaylistPreviewModal({
             </div>
           ) : currentItem ? (
             <>
-              {renderMediaPreview(currentItem)}
-              {/* Media Info Overlay */}
+              {renderMedia(currentItem)}
+              {/* Info Overlay */}
               <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded">
                 <p className="font-medium">{currentItem.media.name}</p>
                 <p className="text-sm opacity-75">
-                  Duration: {currentItem.duration_override}s | Remaining: {timeRemaining}s
+                  {timeRemaining}s remaining • {currentItem.duration_override}s total
                 </p>
               </div>
             </>
@@ -224,11 +217,12 @@ function PlaylistPreviewModal({
         </div>
 
         {/* Controls */}
-        <div className="p-4 border-t bg-gray-50">
-          <div className="flex items-center justify-center gap-4">
-            <Button variant="outline" size="sm" onClick={handleReset} disabled={items.length === 0}>
-              Reset
+        <div className="p-6 pt-4 border-t bg-gray-50">
+          <div className="flex items-center justify-center gap-3">
+            <Button variant="outline" size="sm" onClick={handleReset}>
+              <RotateCcw className="h-4 w-4" />
             </Button>
+
             {isPlaying ? (
               <Button onClick={handlePause} className="bg-cyan-500 hover:bg-cyan-600">
                 <Pause className="h-4 w-4 mr-2" />
@@ -240,13 +234,18 @@ function PlaylistPreviewModal({
                 Play
               </Button>
             )}
-            <div className="text-sm text-gray-600">
-              Total Duration: {items.reduce((sum, item) => sum + (item.duration_override || 10), 0)}s
-            </div>
+
+            <Button variant="outline" size="sm" onClick={handleNext} disabled={currentIndex >= items.length - 1}>
+              <SkipForward className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="text-center text-sm text-gray-600 mt-2">
+            Total: {items.reduce((sum, item) => sum + (item.duration_override || 10), 0)}s
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -365,12 +364,12 @@ export default function PlaylistsPage() {
   )
 
   const handlePreviewPlaylist = (playlist: Playlist) => {
-    setShowCreateDialog(false) // Close create dialog first
+    setShowCreateDialog(false)
     setPreviewPlaylist(playlist)
   }
 
   const handleOpenCreateDialog = () => {
-    setPreviewPlaylist(null) // Close preview dialog first
+    setPreviewPlaylist(null)
     setShowCreateDialog(true)
   }
 
