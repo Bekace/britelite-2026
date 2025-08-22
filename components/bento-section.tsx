@@ -36,12 +36,12 @@ const BentoCard = ({ title, description, Component }) => (
 export function BentoSection() {
   const cards = [
     {
-      title: "AI-powered code reviews.",
-      description: "Get real-time, smart suggestions for cleaner code.",
+      title: "AI-Powered Content Optimization",
+      description: "Receive real-time, intelligent recommendations to make your signage more engaging and effective.",
       Component: AiCodeReviews,
     },
     {
-      title: "Real-time coding previews",
+      title: "Real-Time Signage Previews",
       description: "Chat, collaborate, and instantly preview changes together.",
       Component: RealtimeCodingPreviews,
     },
