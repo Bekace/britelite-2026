@@ -1,9 +1,7 @@
 "use client"
 
 import { DialogFooter } from "@/components/ui/dialog"
-
 import { DialogTrigger } from "@/components/ui/dialog"
-
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -74,29 +72,29 @@ function PlaylistPreviewModal({
     }
   }, [isOpen, playlist])
 
-  // Simple timer logic
+  // Timer logic - completely isolated
   useEffect(() => {
-    let interval: NodeJS.Timeout
+    if (!isPlaying || timeRemaining <= 0 || items.length === 0) return
 
-    if (isPlaying && timeRemaining > 0) {
-      interval = setInterval(() => {
-        setTimeRemaining((prev) => prev - 1)
-      }, 1000)
-    } else if (isPlaying && timeRemaining === 0 && items.length > 0) {
-      // Move to next item
-      const nextIndex = currentIndex + 1
-      if (nextIndex < items.length) {
-        setCurrentIndex(nextIndex)
-        setTimeRemaining(items[nextIndex].duration_override || 10)
+    const timer = setTimeout(() => {
+      if (timeRemaining > 1) {
+        setTimeRemaining(timeRemaining - 1)
       } else {
-        // End of playlist
-        setIsPlaying(false)
-        setCurrentIndex(0)
-        setTimeRemaining(items[0]?.duration_override || 10)
+        // Move to next item
+        const nextIndex = currentIndex + 1
+        if (nextIndex < items.length) {
+          setCurrentIndex(nextIndex)
+          setTimeRemaining(items[nextIndex].duration_override || 10)
+        } else {
+          // End of playlist
+          setIsPlaying(false)
+          setCurrentIndex(0)
+          setTimeRemaining(items[0]?.duration_override || 10)
+        }
       }
-    }
+    }, 1000)
 
-    return () => clearInterval(interval)
+    return () => clearTimeout(timer)
   }, [isPlaying, timeRemaining, currentIndex, items])
 
   const fetchPlaylistItems = async () => {
@@ -141,22 +139,29 @@ function PlaylistPreviewModal({
     setTimeRemaining(items[0]?.duration_override || 10)
   }
 
-  const renderMedia = (item: PlaylistItem) => {
+  // Simple media rendering without automatic behaviors
+  const renderSimpleMedia = (item: PlaylistItem) => {
     if (item.media.mime_type?.startsWith("image/")) {
       return (
         <img
           src={item.media.file_path || "/placeholder.svg"}
           alt={item.media.name}
           className="w-full h-full object-contain"
-          onError={(e) => {
-            e.currentTarget.src = "/placeholder.svg?height=400&width=600&text=Image+Error"
-          }}
+          style={{ pointerEvents: "none" }}
         />
       )
     }
 
     if (item.media.mime_type?.startsWith("video/")) {
-      return <video src={item.media.file_path} className="w-full h-full object-contain" muted playsInline />
+      return (
+        <video
+          src={item.media.file_path}
+          className="w-full h-full object-contain"
+          muted
+          playsInline
+          style={{ pointerEvents: "none" }}
+        />
+      )
     }
 
     if (item.media.mime_type === "application/vnd.google-apps.presentation") {
@@ -164,7 +169,14 @@ function PlaylistPreviewModal({
         ? item.media.file_path.replace("/edit", "/embed")
         : `${item.media.file_path}/embed`
 
-      return <iframe src={embedUrl} className="w-full h-full border-0" title={item.media.name} />
+      return (
+        <iframe
+          src={embedUrl}
+          className="w-full h-full border-0"
+          title={item.media.name}
+          style={{ pointerEvents: "none" }}
+        />
+      )
     }
 
     return (
@@ -181,16 +193,16 @@ function PlaylistPreviewModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[80vh] p-0">
-        <DialogHeader className="p-6 pb-0">
+      <DialogContent className="max-w-6xl p-0" style={{ height: "calc(100vh - 100px)" }}>
+        <DialogHeader className="p-6 pb-4">
           <DialogTitle>{playlist.name} Preview</DialogTitle>
           <DialogDescription>
             {items.length > 0 ? `${currentIndex + 1} of ${items.length} items` : "Loading..."}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Media Display Area */}
-        <div className="flex-1 bg-black relative mx-6">
+        {/* 16:9 Media Display Area */}
+        <div className="mx-6 bg-black relative" style={{ aspectRatio: "16/9" }}>
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -204,7 +216,7 @@ function PlaylistPreviewModal({
             </div>
           ) : currentItem ? (
             <>
-              {renderMedia(currentItem)}
+              {renderSimpleMedia(currentItem)}
               {/* Info Overlay */}
               <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded">
                 <p className="font-medium">{currentItem.media.name}</p>
