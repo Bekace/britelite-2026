@@ -64,7 +64,6 @@ function PlaylistPreviewModal({
       interval = setInterval(() => {
         setTimeRemaining((prev) => {
           if (prev <= 1) {
-            // Move to next item
             setCurrentIndex((currentIdx) => {
               const nextIndex = currentIdx + 1
               if (nextIndex >= items.length) {
@@ -72,29 +71,21 @@ function PlaylistPreviewModal({
                 setIsPlaying(false)
                 return 0
               }
-              // Set the duration for the next item
-              const nextItem = items[nextIndex]
-              if (nextItem) {
-                setTimeout(() => {
-                  setTimeRemaining(nextItem.duration_override || 10)
-                }, 0)
-              }
               return nextIndex
             })
-            return 0 // This will be overridden by the setTimeout above
+            // Return the duration for the next item immediately
+            const nextIndex = currentIndex + 1
+            if (nextIndex < items.length) {
+              return items[nextIndex]?.duration_override || 10
+            }
+            return 0
           }
           return prev - 1
         })
       }, 1000)
     }
     return () => clearInterval(interval)
-  }, [isPlaying, timeRemaining, items])
-
-  useEffect(() => {
-    if (items.length > 0 && !isPlaying) {
-      setTimeRemaining(items[currentIndex]?.duration_override || 10)
-    }
-  }, [currentIndex, items])
+  }, [isPlaying, items, currentIndex]) // Removed timeRemaining from dependencies to prevent timer resets
 
   const fetchPlaylistItems = async () => {
     setLoading(true)
