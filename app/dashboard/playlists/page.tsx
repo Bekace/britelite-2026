@@ -3,27 +3,27 @@
 import { DialogFooter } from "@/components/ui/dialog"
 import { DialogTrigger } from "@/components/ui/dialog"
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   PlayCircle,
   Plus,
   Search,
-  Edit,
   Trash2,
-  Clock,
   ImageIcon,
   Eye,
   Play,
   Pause,
   SkipForward,
   RotateCcw,
+  Settings,
+  FileText,
+  GripVertical,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -48,6 +48,15 @@ interface PlaylistItem {
   }
 }
 
+interface Media {
+  id: string
+  name: string
+  file_path: string
+  mime_type: string
+  file_size: number
+  created_at: string
+}
+
 function PlaylistPreviewModal({
   playlist,
   isOpen,
@@ -59,12 +68,10 @@ function PlaylistPreviewModal({
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [loading, setLoading] = useState(false)
 
-  // Fetch playlist items when modal opens
   useEffect(() => {
     if (isOpen && playlist) {
       fetchPlaylistItems()
     } else {
-      // Reset state when modal closes
       setCurrentIndex(0)
       setIsPlaying(false)
       setTimeRemaining(0)
@@ -72,7 +79,6 @@ function PlaylistPreviewModal({
     }
   }, [isOpen, playlist])
 
-  // Timer logic - completely isolated
   useEffect(() => {
     if (!isPlaying || timeRemaining <= 0 || items.length === 0) return
 
@@ -80,13 +86,11 @@ function PlaylistPreviewModal({
       if (timeRemaining > 1) {
         setTimeRemaining(timeRemaining - 1)
       } else {
-        // Move to next item
         const nextIndex = currentIndex + 1
         if (nextIndex < items.length) {
           setCurrentIndex(nextIndex)
           setTimeRemaining(items[nextIndex].duration_override || 10)
         } else {
-          // End of playlist
           setIsPlaying(false)
           setCurrentIndex(0)
           setTimeRemaining(items[0]?.duration_override || 10)
@@ -139,7 +143,6 @@ function PlaylistPreviewModal({
     setTimeRemaining(items[0]?.duration_override || 10)
   }
 
-  // Simple media rendering without automatic behaviors
   const renderSimpleMedia = (item: PlaylistItem) => {
     if (item.media.mime_type?.startsWith("image/")) {
       return (
@@ -201,7 +204,6 @@ function PlaylistPreviewModal({
           </DialogDescription>
         </DialogHeader>
 
-        {/* 16:9 Media Display Area */}
         <div className="mx-6 bg-black relative" style={{ aspectRatio: "16/9" }}>
           {loading ? (
             <div className="flex items-center justify-center h-full">
@@ -217,7 +219,6 @@ function PlaylistPreviewModal({
           ) : currentItem ? (
             <>
               {renderSimpleMedia(currentItem)}
-              {/* Info Overlay */}
               <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded">
                 <p className="font-medium">{currentItem.media.name}</p>
                 <p className="text-sm opacity-75">
@@ -228,7 +229,6 @@ function PlaylistPreviewModal({
           ) : null}
         </div>
 
-        {/* Controls */}
         <div className="p-6 pt-4 border-t bg-gray-50">
           <div className="flex items-center justify-center gap-3">
             <Button variant="outline" size="sm" onClick={handleReset}>
@@ -269,11 +269,24 @@ export default function PlaylistsPage() {
   const [newPlaylist, setNewPlaylist] = useState({ name: "", description: "" })
   const [creating, setCreating] = useState(false)
   const [previewPlaylist, setPreviewPlaylist] = useState<Playlist | null>(null)
+  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null)
+  const [playlistItems, setPlaylistItems] = useState<PlaylistItem[]>([])
+  const [availableMedia, setAvailableMedia] = useState<Media[]>([])
+  const [loadingItems, setLoadingItems] = useState(false)
+  const [loadingMedia, setLoadingMedia] = useState(false)
+
   const { toast } = useToast()
 
   useEffect(() => {
     fetchPlaylists()
+    fetchAvailableMedia()
   }, [])
+
+  useEffect(() => {
+    if (selectedPlaylist) {
+      fetchPlaylistItems(selectedPlaylist.id)
+    }
+  }, [selectedPlaylist])
 
   const fetchPlaylists = async () => {
     try {
@@ -300,6 +313,96 @@ export default function PlaylistsPage() {
     }
   }
 
+  const fetchPlaylistItems = async (playlistId: string) => {
+    setLoadingItems(true)
+    try {
+      const response = await fetch(`/api/playlists/${playlistId}`)
+      if (response.ok) {
+        const data = await response.json()
+        const sortedItems =
+          data.playlist.playlist_items?.sort((a: PlaylistItem, b: PlaylistItem) => a.position - b.position) || []
+        setPlaylistItems(sortedItems)
+      }
+    } catch (error) {
+      console.error("Error fetching playlist items:", error)
+    } finally {
+      setLoadingItems(false)
+    }
+  }
+
+  const fetchAvailableMedia = async () => {
+    setLoadingMedia(true)
+    try {
+      const response = await fetch("/api/media")
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableMedia(data.media || [])
+      }
+    } catch (error) {
+      console.error("Error fetching media:", error)
+    } finally {
+      setLoadingMedia(false)
+    }
+  }
+
+  const handleAddMediaToPlaylist = async (mediaId: string) => {
+    if (!selectedPlaylist) return
+
+    try {
+      const response = await fetch(`/api/playlists/${selectedPlaylist.id}/items`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          media_id: mediaId,
+          position: playlistItems.length,
+          duration_override: 10,
+        }),
+      })
+
+      if (response.ok) {
+        fetchPlaylistItems(selectedPlaylist.id)
+        toast({
+          title: "Success",
+          description: "Media added to playlist",
+        })
+      }
+    } catch (error) {
+      console.error("Error adding media:", error)
+      toast({
+        title: "Error",
+        description: "Failed to add media to playlist",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRemoveFromPlaylist = async (itemId: string) => {
+    if (!selectedPlaylist) return
+
+    try {
+      const response = await fetch(`/api/playlists/${selectedPlaylist.id}/items/${itemId}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        fetchPlaylistItems(selectedPlaylist.id)
+        toast({
+          title: "Success",
+          description: "Item removed from playlist",
+        })
+      }
+    } catch (error) {
+      console.error("Error removing item:", error)
+      toast({
+        title: "Error",
+        description: "Failed to remove item",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleCreatePlaylist = async () => {
     if (!newPlaylist.name.trim()) return
 
@@ -315,9 +418,11 @@ export default function PlaylistsPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setPlaylists((prev) => [{ ...data.playlist, playlist_media: [{ count: 0 }] }, ...prev])
+        const newPlaylistData = { ...data.playlist, playlist_media: [{ count: 0 }] }
+        setPlaylists((prev) => [newPlaylistData, ...prev])
         setNewPlaylist({ name: "", description: "" })
         setShowCreateDialog(false)
+        setSelectedPlaylist(newPlaylistData)
         toast({
           title: "Success",
           description: "Playlist created successfully",
@@ -350,6 +455,10 @@ export default function PlaylistsPage() {
 
       if (response.ok) {
         setPlaylists((prev) => prev.filter((playlist) => playlist.id !== id))
+        if (selectedPlaylist?.id === id) {
+          setSelectedPlaylist(null)
+          setPlaylistItems([])
+        }
         toast({
           title: "Success",
           description: "Playlist deleted successfully",
@@ -394,62 +503,61 @@ export default function PlaylistsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Playlists</h1>
-          <p className="text-gray-600 mt-1">Create and manage content playlists for your screens</p>
-        </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button className="bg-cyan-500 hover:bg-cyan-600" onClick={handleOpenCreateDialog}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Playlist
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Playlist</DialogTitle>
-              <DialogDescription>Create a new playlist to organize your media content.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter playlist name"
-                  value={newPlaylist.name}
-                  onChange={(e) => setNewPlaylist((prev) => ({ ...prev, name: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Enter playlist description (optional)"
-                  value={newPlaylist.description}
-                  onChange={(e) => setNewPlaylist((prev) => ({ ...prev, description: e.target.value }))}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreatePlaylist} disabled={!newPlaylist.name.trim() || creating}>
-                {creating ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                ) : null}
+    <div className="flex h-full gap-6">
+      <div className="w-1/3 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Playlists</h1>
+            <p className="text-gray-600 mt-1">Create and manage content playlists</p>
+          </div>
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button className="bg-cyan-500 hover:bg-cyan-600" onClick={handleOpenCreateDialog}>
+                <Plus className="h-4 w-4 mr-2" />
                 Create
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Playlist</DialogTitle>
+                <DialogDescription>Create a new playlist to organize your media content.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="Enter playlist name"
+                    value={newPlaylist.name}
+                    onChange={(e) => setNewPlaylist((prev) => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Enter playlist description (optional)"
+                    value={newPlaylist.description}
+                    onChange={(e) => setNewPlaylist((prev) => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreatePlaylist} disabled={!newPlaylist.name.trim() || creating}>
+                  {creating ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  ) : null}
+                  Create
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
 
-      {/* Search */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search playlists..."
@@ -458,98 +566,247 @@ export default function PlaylistsPage() {
             className="pl-10"
           />
         </div>
-        <div className="text-sm text-gray-600">
-          {filteredPlaylists.length} of {playlists.length} playlists
+
+        <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-300px)]">
+          {filteredPlaylists.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-8">
+                <PlayCircle className="h-8 w-8 text-gray-400 mb-2" />
+                <p className="text-sm text-gray-600 text-center">
+                  {playlists.length === 0 ? "No playlists yet" : "No playlists match your search"}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredPlaylists.map((playlist) => (
+              <Card
+                key={playlist.id}
+                className={`cursor-pointer transition-all hover:shadow-md ${
+                  selectedPlaylist?.id === playlist.id ? "ring-2 ring-cyan-500 bg-cyan-50" : ""
+                }`}
+                onClick={() => setSelectedPlaylist(playlist)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold truncate" title={playlist.name}>
+                        {playlist.name}
+                      </h3>
+                      {playlist.description && (
+                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">{playlist.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+                        <span>{playlist.playlist_media?.[0]?.count || 0} items</span>
+                        <span>{new Date(playlist.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 ml-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handlePreviewPlaylist(playlist)
+                        }}
+                        className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeletePlaylist(playlist.id)
+                        }}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
       </div>
 
-      {/* Playlists Grid */}
-      {filteredPlaylists.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <PlayCircle className="h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No playlists found</h3>
-            <p className="text-gray-600 text-center mb-4">
-              {playlists.length === 0
-                ? "Create your first playlist to organize your media content"
-                : "No playlists match your search criteria"}
-            </p>
-            {playlists.length === 0 && (
-              <Button onClick={handleOpenCreateDialog} className="bg-cyan-500 hover:bg-cyan-600">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Playlist
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPlaylists.map((playlist) => (
-            <Card key={playlist.id} className="group hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg truncate" title={playlist.name}>
-                      {playlist.name}
-                    </CardTitle>
-                    {playlist.description && (
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">{playlist.description}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 ml-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handlePreviewPlaylist(playlist)}
-                      className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/dashboard/playlists/${playlist.id}`}>
-                        <Edit className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeletePlaylist(playlist.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between text-sm text-gray-600">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <ImageIcon className="h-4 w-4" />
-                      <span>{playlist.playlist_media?.[0]?.count || 0} items</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>{(playlist.playlist_media?.[0]?.count || 0) * 10} sec</span>
-                    </div>
-                  </div>
-                  <Badge variant="secondary">{new Date(playlist.created_at).toLocaleDateString()}</Badge>
-                </div>
-                <div className="mt-4">
-                  <Button asChild className="w-full bg-cyan-500 hover:bg-cyan-600">
-                    <Link href={`/dashboard/playlists/${playlist.id}`}>
-                      <PlayCircle className="h-4 w-4 mr-2" />
-                      Manage Playlist
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      <div className="flex-1">
+        {selectedPlaylist ? (
+          <div className="h-full">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">{selectedPlaylist.name}</h2>
+              {selectedPlaylist.description && <p className="text-gray-600 mt-1">{selectedPlaylist.description}</p>}
+            </div>
 
-      {/* Preview Modal */}
+            <Tabs defaultValue="content" className="h-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="content" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Content
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="content" className="mt-6 space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Available Media</h3>
+                  {loadingMedia ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-500"></div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-64 overflow-y-auto">
+                      {availableMedia.map((media) => (
+                        <Card key={media.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                          <CardContent className="p-3">
+                            <div className="aspect-video bg-gray-100 rounded mb-2 flex items-center justify-center">
+                              {media.mime_type?.startsWith("image/") ? (
+                                <img
+                                  src={media.file_path || "/placeholder.svg"}
+                                  alt={media.name}
+                                  className="w-full h-full object-cover rounded"
+                                />
+                              ) : (
+                                <ImageIcon className="h-8 w-8 text-gray-400" />
+                              )}
+                            </div>
+                            <p className="text-sm font-medium truncate" title={media.name}>
+                              {media.name}
+                            </p>
+                            <Button
+                              size="sm"
+                              className="w-full mt-2 bg-cyan-500 hover:bg-cyan-600"
+                              onClick={() => handleAddMediaToPlaylist(media.id)}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Playlist Items</h3>
+                  {loadingItems ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-500"></div>
+                    </div>
+                  ) : playlistItems.length === 0 ? (
+                    <Card>
+                      <CardContent className="flex flex-col items-center justify-center py-8">
+                        <PlayCircle className="h-8 w-8 text-gray-400 mb-2" />
+                        <p className="text-sm text-gray-600">No items in this playlist</p>
+                        <p className="text-xs text-gray-500 mt-1">Add media from the available media above</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="space-y-2">
+                      {playlistItems.map((item, index) => (
+                        <Card key={item.id}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <GripVertical className="h-4 w-4 text-gray-400" />
+                                <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                              </div>
+                              <div className="w-16 h-12 bg-gray-100 rounded flex items-center justify-center">
+                                {item.media.mime_type?.startsWith("image/") ? (
+                                  <img
+                                    src={item.media.file_path || "/placeholder.svg"}
+                                    alt={item.media.name}
+                                    className="w-full h-full object-cover rounded"
+                                  />
+                                ) : (
+                                  <ImageIcon className="h-6 w-6 text-gray-400" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{item.media.name}</p>
+                                <p className="text-sm text-gray-600">Duration: {item.duration_override}s</p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveFromPlaylist(item.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="settings" className="mt-6">
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Playlist Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label>Name</Label>
+                        <Input value={selectedPlaylist.name} readOnly />
+                      </div>
+                      <div>
+                        <Label>Description</Label>
+                        <Textarea value={selectedPlaylist.description || ""} readOnly />
+                      </div>
+                      <div>
+                        <Label>Created</Label>
+                        <Input value={new Date(selectedPlaylist.created_at).toLocaleString()} readOnly />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Statistics</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-600">Total Items</p>
+                          <p className="text-2xl font-bold">{playlistItems.length}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Total Duration</p>
+                          <p className="text-2xl font-bold">
+                            {playlistItems.reduce((sum, item) => sum + item.duration_override, 0)}s
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        ) : (
+          <Card className="h-full">
+            <CardContent className="flex flex-col items-center justify-center h-full">
+              <PlayCircle className="h-16 w-16 text-gray-400 mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Select a Playlist</h3>
+              <p className="text-gray-600 text-center">
+                Choose a playlist from the left panel to view and manage its content
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       {previewPlaylist && (
         <PlaylistPreviewModal
           playlist={previewPlaylist}
