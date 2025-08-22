@@ -72,16 +72,29 @@ function PlaylistPreviewModal({
                 setIsPlaying(false)
                 return 0
               }
+              // Set the duration for the next item
+              const nextItem = items[nextIndex]
+              if (nextItem) {
+                setTimeout(() => {
+                  setTimeRemaining(nextItem.duration_override || 10)
+                }, 0)
+              }
               return nextIndex
             })
-            return items[currentIndex + 1]?.duration_override || 10
+            return 0 // This will be overridden by the setTimeout above
           }
           return prev - 1
         })
       }, 1000)
     }
     return () => clearInterval(interval)
-  }, [isPlaying, timeRemaining, items, currentIndex])
+  }, [isPlaying, timeRemaining, items])
+
+  useEffect(() => {
+    if (items.length > 0 && !isPlaying) {
+      setTimeRemaining(items[currentIndex]?.duration_override || 10)
+    }
+  }, [currentIndex, items])
 
   const fetchPlaylistItems = async () => {
     setLoading(true)
