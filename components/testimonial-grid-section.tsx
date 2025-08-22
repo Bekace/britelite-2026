@@ -81,7 +81,7 @@ const TestimonialCard = ({ quote, name, company, avatar, type }) => {
     cardHeight = "h-[502px]"
     backgroundElements = (
       <div
-        className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat bg-slate-900"
         style={{ backgroundImage: "url('/images/large-card-background.svg')", zIndex: 0 }}
       />
     )
