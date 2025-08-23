@@ -333,7 +333,7 @@ export default function PlaylistsPage() {
   const fetchAvailableMedia = async () => {
     setLoadingMedia(true)
     try {
-      const response = await fetch("/api/media")
+      const response = await fetch("/api/media/list")
       if (response.ok) {
         const data = await response.json()
         setAvailableMedia(data.media || [])
