@@ -350,15 +350,14 @@ export default function PlaylistsPage() {
     if (!selectedPlaylist) return
 
     try {
-      const response = await fetch(`/api/playlists/${selectedPlaylist.id}/items`, {
+      const response = await fetch(`/api/playlists/${selectedPlaylist.id}/media`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           media_id: mediaId,
-          position: playlistItems.length,
-          duration_override: 10,
+          duration: 10,
         }),
       })
 
@@ -383,8 +382,14 @@ export default function PlaylistsPage() {
     if (!selectedPlaylist) return
 
     try {
-      const response = await fetch(`/api/playlists/${selectedPlaylist.id}/items/${itemId}`, {
+      const response = await fetch(`/api/playlists/${selectedPlaylist.id}/media`, {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playlist_item_id: itemId,
+        }),
       })
 
       if (response.ok) {
