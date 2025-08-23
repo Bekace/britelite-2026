@@ -33,6 +33,36 @@ function MediaPreviewModal({
 }) {
   if (!media) return null
 
+  const getGoogleSlidesEmbedUrl = (url: string) => {
+    // Handle various Google Slides URL formats
+    const patterns = [
+      /https:\/\/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9-_]+)\/edit/,
+      /https:\/\/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9-_]+)/,
+    ]
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern)
+      if (match) {
+        return `https://docs.google.com/presentation/d/${match[1]}/embed?start=false&loop=false&delayms=3000`
+      }
+    }
+
+    // If already an embed URL, return as is
+    if (url.includes("/embed")) {
+      return url
+    }
+
+    return url
+  }
+
+  const isGoogleSlides = (media: MediaItem) => {
+    return (
+      media.file_path?.includes("docs.google.com/presentation") ||
+      media.mime_type?.includes("presentation") ||
+      media.name?.toLowerCase().includes("slides")
+    )
+  }
+
   const renderMedia = () => {
     if (media.mime_type?.startsWith("image/")) {
       return (
@@ -42,6 +72,11 @@ function MediaPreviewModal({
 
     if (media.mime_type?.startsWith("video/")) {
       return <video src={media.file_path} className="w-full h-full object-contain" controls playsInline />
+    }
+
+    if (isGoogleSlides(media)) {
+      const embedUrl = getGoogleSlidesEmbedUrl(media.file_path || "")
+      return <iframe src={embedUrl} className="w-full h-full border-0" allowFullScreen title={media.name} />
     }
 
     return (
@@ -64,7 +99,7 @@ function MediaPreviewModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mx-6 bg-black relative flex-1" style={{ aspectRatio: "16/9" }}>
+        <div className="mx-6 bg-gray-50 relative flex-1 rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
           {renderMedia()}
         </div>
 
