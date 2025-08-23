@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video } from "lucide-react"
+import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video, Eye } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog" // Added import for custom confirmation dialog
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface MediaItem {
   id: string
@@ -19,6 +20,84 @@ interface MediaItem {
   file_path: string
   tags: string[] | null
   created_at: string
+}
+
+function MediaPreviewModal({
+  media,
+  isOpen,
+  onClose,
+}: {
+  media: MediaItem | null
+  isOpen: boolean
+  onClose: () => void
+}) {
+  if (!media) return null
+
+  const renderMedia = () => {
+    if (media.mime_type?.startsWith("image/")) {
+      return (
+        <img src={media.file_path || "/placeholder.svg"} alt={media.name} className="w-full h-full object-contain" />
+      )
+    }
+
+    if (media.mime_type?.startsWith("video/")) {
+      return <video src={media.file_path} className="w-full h-full object-contain" controls playsInline />
+    }
+
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-100">
+        <div className="text-center">
+          <ImageIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">Preview not available for this file type</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl p-0" style={{ height: "calc(100vh - 100px)" }}>
+        <DialogHeader className="p-6 pb-4">
+          <DialogTitle>{media.name}</DialogTitle>
+          <DialogDescription>
+            {media.mime_type} • {formatFileSize(media.file_size)}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="mx-6 bg-black relative flex-1" style={{ aspectRatio: "16/9" }}>
+          {renderMedia()}
+        </div>
+
+        <div className="p-6 pt-4 border-t bg-gray-50">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Created: {new Date(media.created_at).toLocaleString()}</p>
+              {media.tags && media.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {media.tags.map((tag, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button onClick={onClose} variant="outline">
+              Close
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes === 0) return "0 Bytes"
+  const k = 1024
+  const sizes = ["Bytes", "KB", "MB", "GB"]
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
 }
 
 export default function MediaLibraryPage() {
@@ -39,6 +118,7 @@ export default function MediaLibraryPage() {
     itemId: "",
     itemName: "",
   })
+  const [previewMedia, setPreviewMedia] = useState<MediaItem | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -218,6 +298,10 @@ export default function MediaLibraryPage() {
     }
   }
 
+  const handlePreview = (media: MediaItem) => {
+    setPreviewMedia(media)
+  }
+
   const filteredMedia = media.filter((item) => {
     if (!item || !item.name) return false
 
@@ -229,14 +313,6 @@ export default function MediaLibraryPage() {
 
     return nameMatch || tagMatch
   })
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
-  }
 
   if (authError) {
     return (
@@ -366,14 +442,19 @@ export default function MediaLibraryPage() {
                         <Video className="h-12 w-12 text-gray-400" />
                       </div>
                     )}
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleDelete(item.id, item.name)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handlePreview(item)}
+                        className="bg-white/90 hover:bg-white"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id, item.name)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <CardContent className="p-4">
                     <h3 className="font-semibold truncate" title={item.name}>
@@ -421,15 +502,29 @@ export default function MediaLibraryPage() {
                         </div>
                       )}
                     </div>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id, item.name)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handlePreview(item)}
+                        className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id, item.name)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               )}
             </Card>
           ))}
         </div>
+      )}
+
+      {previewMedia && (
+        <MediaPreviewModal media={previewMedia} isOpen={!!previewMedia} onClose={() => setPreviewMedia(null)} />
       )}
 
       <ConfirmationDialog
