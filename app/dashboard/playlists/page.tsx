@@ -16,6 +16,7 @@ import {
   Search,
   Trash2,
   ImageIcon,
+  Video,
   Eye,
   Play,
   Pause,
@@ -671,6 +672,8 @@ export default function PlaylistsPage() {
                                   alt={media.name}
                                   className="w-full h-full object-cover rounded"
                                 />
+                              ) : media.mime_type?.startsWith("video/") ? (
+                                <Video className="h-8 w-8 text-gray-400" />
                               ) : (
                                 <ImageIcon className="h-8 w-8 text-gray-400" />
                               )}
@@ -724,6 +727,8 @@ export default function PlaylistsPage() {
                                     alt={item.media.name}
                                     className="w-full h-full object-cover rounded"
                                   />
+                                ) : item.media.mime_type?.startsWith("video/") ? (
+                                  <Video className="h-6 w-6 text-gray-400" />
                                 ) : (
                                   <ImageIcon className="h-6 w-6 text-gray-400" />
                                 )}
