@@ -70,13 +70,17 @@ interface Media {
   created_at: string
 }
 
-interface PlaylistPreviewProps {
-  playlist: Playlist | null
+const PlaylistPreviewModal = ({
+  playlist,
+  isOpen,
+  onClose,
+  backgroundColor = "#000000",
+}: {
+  playlist: Playlist
   isOpen: boolean
   onClose: () => void
-}
-
-function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProps) {
+  backgroundColor?: string
+}) => {
   const [items, setItems] = useState<PlaylistItem[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -423,9 +427,8 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        ref={containerRef}
-        className={`max-w-6xl p-0 ${isFullscreen ? "fixed inset-0 max-w-none h-screen" : ""}`}
-        style={{ height: isFullscreen ? "100vh" : "calc(100vh - 100px)" }}
+        className="max-w-none w-full h-full p-0 bg-black border-none"
+        style={{ backgroundColor }} // Apply playlist-specific background color
       >
         <div className="absolute top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm">
           <div className="flex items-center justify-between p-4">
@@ -565,6 +568,17 @@ export default function PlaylistsPage() {
   useEffect(() => {
     if (selectedPlaylist) {
       fetchPlaylistItems(selectedPlaylist.id)
+    }
+  }, [selectedPlaylist])
+
+  useEffect(() => {
+    if (selectedPlaylist) {
+      console.log(
+        "[v0] Setting background color for playlist:",
+        selectedPlaylist.name,
+        selectedPlaylist.background_color,
+      )
+      setPlaylistBackgroundColor(selectedPlaylist.background_color || "#000000")
     }
   }, [selectedPlaylist])
 
@@ -1077,6 +1091,7 @@ export default function PlaylistsPage() {
     if (!selectedPlaylist) return
 
     try {
+      console.log("[v0] Updating background color for playlist:", selectedPlaylist.name, "to:", backgroundColor)
       const response = await fetch(`/api/playlists/${selectedPlaylist.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -1085,10 +1100,17 @@ export default function PlaylistsPage() {
 
       if (!response.ok) throw new Error("Failed to update background color")
 
-      // Update local state
+      const { playlist } = await response.json()
+      console.log("[v0] Background color updated successfully:", playlist.background_color)
+
       setPlaylists((prev) =>
         prev.map((p) => (p.id === selectedPlaylist.id ? { ...p, background_color: backgroundColor } : p)),
       )
+
+      // Update selectedPlaylist to reflect the change
+      if (selectedPlaylist.id === playlist.id) {
+        setSelectedPlaylist({ ...selectedPlaylist, background_color: backgroundColor })
+      }
     } catch (error) {
       console.error("Error updating background color:", error)
     }
@@ -1593,14 +1615,14 @@ export default function PlaylistsPage() {
         </DialogContent>
       </Dialog>
 
-      <PlaylistPreviewModal
-        playlist={previewPlaylist}
-        isOpen={!!previewPlaylist}
-        onClose={() => {
-          console.log("[v0] Closing preview modal")
-          setPreviewPlaylist(null)
-        }}
-      />
+      {previewPlaylist && (
+        <PlaylistPreviewModal
+          playlist={previewPlaylist}
+          isOpen={!!previewPlaylist}
+          onClose={() => setPreviewPlaylist(null)}
+          backgroundColor={previewPlaylist.background_color || "#000000"}
+        />
+      )}
     </div>
   )
 }

@@ -78,6 +78,46 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
+export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const supabase = await createClient()
+
+    if (!supabase) {
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
+    }
+
+    // Check authentication
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { background_color } = await request.json()
+
+    // Update playlist background color
+    const { data: playlist, error: updateError } = await supabase
+      .from("playlists")
+      .update({ background_color })
+      .eq("id", params.id)
+      .eq("user_id", user.id)
+      .select()
+      .single()
+
+    if (updateError) {
+      console.error("Database error:", updateError)
+      return NextResponse.json({ error: "Failed to update playlist background" }, { status: 500 })
+    }
+
+    return NextResponse.json({ playlist })
+  } catch (error) {
+    console.error("Error updating playlist background:", error)
+    return NextResponse.json({ error: "Failed to update playlist background" }, { status: 500 })
+  }
+}
+
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const supabase = await createClient()
