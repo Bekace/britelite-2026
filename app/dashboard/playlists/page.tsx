@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { DialogFooter } from "@/components/ui/dialog"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -27,6 +27,10 @@ import {
   FileText,
   GripVertical,
   Edit,
+  SkipBack,
+  Volume2,
+  Maximize2,
+  Minimize2,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -70,6 +74,12 @@ function PlaylistPreviewModal({
   const [isPlaying, setIsPlaying] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [volume, setVolume] = useState(1)
+  const [playbackSpeed, setPlaybackSpeed] = useState(1)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [autoLoop, setAutoLoop] = useState(true)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (isOpen && playlist) {
@@ -80,8 +90,16 @@ function PlaylistPreviewModal({
       setIsPlaying(false)
       setTimeRemaining(0)
       setItems([])
+      setIsFullscreen(false)
     }
   }, [isOpen, playlist])
+
+  useEffect(() => {
+    if (items.length > 0 && !isPlaying) {
+      console.log("[v0] Auto-starting playlist playback")
+      setIsPlaying(true)
+    }
+  }, [items])
 
   useEffect(() => {
     if (!isPlaying || timeRemaining <= 0 || items.length === 0) return
@@ -95,15 +113,70 @@ function PlaylistPreviewModal({
           setCurrentIndex(nextIndex)
           setTimeRemaining(items[nextIndex].duration_override || 10)
         } else {
-          setIsPlaying(false)
-          setCurrentIndex(0)
-          setTimeRemaining(items[0]?.duration_override || 10)
+          if (autoLoop) {
+            setCurrentIndex(0)
+            setTimeRemaining(items[0]?.duration_override || 10)
+          } else {
+            setIsPlaying(false)
+            setCurrentIndex(0)
+            setTimeRemaining(items[0]?.duration_override || 10)
+          }
         }
       }
     }, 1000)
 
     return () => clearTimeout(timer)
-  }, [isPlaying, timeRemaining, currentIndex, items])
+  }, [isPlaying, timeRemaining, currentIndex, items, autoLoop])
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (!isOpen) return
+
+      switch (e.code) {
+        case "Space":
+          e.preventDefault()
+          isPlaying ? handlePause() : handlePlay()
+          break
+        case "ArrowRight":
+          e.preventDefault()
+          handleNext()
+          break
+        case "ArrowLeft":
+          e.preventDefault()
+          handlePrevious()
+          break
+        case "KeyF":
+          e.preventDefault()
+          toggleFullscreen()
+          break
+        case "Escape":
+          if (isFullscreen) {
+            setIsFullscreen(false)
+          }
+          break
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyPress)
+    return () => document.removeEventListener("keydown", handleKeyPress)
+  }, [isOpen, isPlaying, isFullscreen])
+
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.play()
+      } else {
+        videoRef.current.pause()
+      }
+    }
+  }, [isPlaying, currentIndex])
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume
+      videoRef.current.playbackRate = playbackSpeed
+    }
+  }, [volume, playbackSpeed])
 
   const fetchPlaylistItems = async () => {
     if (!playlist) {
@@ -145,6 +218,21 @@ function PlaylistPreviewModal({
       const nextIndex = currentIndex + 1
       setCurrentIndex(nextIndex)
       setTimeRemaining(items[nextIndex].duration_override || 10)
+    } else if (autoLoop) {
+      setCurrentIndex(0)
+      setTimeRemaining(items[0]?.duration_override || 10)
+    }
+  }
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      const prevIndex = currentIndex - 1
+      setCurrentIndex(prevIndex)
+      setTimeRemaining(items[prevIndex].duration_override || 10)
+    } else if (autoLoop) {
+      const lastIndex = items.length - 1
+      setCurrentIndex(lastIndex)
+      setTimeRemaining(items[lastIndex]?.duration_override || 10)
     }
   }
 
@@ -152,6 +240,20 @@ function PlaylistPreviewModal({
     setIsPlaying(false)
     setCurrentIndex(0)
     setTimeRemaining(items[0]?.duration_override || 10)
+  }
+
+  const toggleFullscreen = () => {
+    if (!isFullscreen) {
+      if (containerRef.current?.requestFullscreen) {
+        containerRef.current.requestFullscreen()
+        setIsFullscreen(true)
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen()
+        setIsFullscreen(false)
+      }
+    }
   }
 
   const renderSimpleMedia = (item: PlaylistItem) => {
@@ -169,11 +271,21 @@ function PlaylistPreviewModal({
     if (item.media.mime_type?.startsWith("video/")) {
       return (
         <video
+          ref={videoRef}
           src={item.media.file_path}
           className="w-full h-full object-contain"
-          muted
           playsInline
-          style={{ pointerEvents: "none" }}
+          onEnded={() => {
+            // Auto-advance when video ends
+            if (currentIndex < items.length - 1) {
+              handleNext()
+            } else if (autoLoop) {
+              setCurrentIndex(0)
+              setTimeRemaining(items[0]?.duration_override || 10)
+            } else {
+              setIsPlaying(false)
+            }
+          }}
         />
       )
     }
@@ -211,11 +323,16 @@ function PlaylistPreviewModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl p-0" style={{ height: "calc(100vh - 100px)" }}>
+      <DialogContent
+        ref={containerRef}
+        className={`max-w-6xl p-0 ${isFullscreen ? "fixed inset-0 max-w-none h-screen" : ""}`}
+        style={{ height: isFullscreen ? "100vh" : "calc(100vh - 100px)" }}
+      >
         <DialogHeader className="p-6 pb-4">
           <DialogTitle>{playlist.name} Preview</DialogTitle>
           <DialogDescription>
             {items.length > 0 ? `${currentIndex + 1} of ${items.length} items` : "Loading..."}
+            {isPlaying && <span className="ml-2 text-green-600">● Auto-playing</span>}
           </DialogDescription>
         </DialogHeader>
 
@@ -240,35 +357,98 @@ function PlaylistPreviewModal({
                   {timeRemaining}s remaining • {currentItem.duration_override}s total
                 </p>
               </div>
+              <button
+                onClick={toggleFullscreen}
+                className="absolute top-4 right-4 bg-black bg-opacity-75 text-white p-2 rounded hover:bg-opacity-90"
+              >
+                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
             </>
           ) : null}
         </div>
 
         <div className="p-6 pt-4 border-t bg-gray-50">
-          <div className="flex items-center justify-center gap-3">
-            <Button variant="outline" size="sm" onClick={handleReset}>
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-
-            {isPlaying ? (
-              <Button onClick={handlePause} className="bg-cyan-500 hover:bg-cyan-600">
-                <Pause className="h-4 w-4 mr-2" />
-                Pause
+          <div className="space-y-4">
+            {/* Main playback controls */}
+            <div className="flex items-center justify-center gap-3">
+              <Button variant="outline" size="sm" onClick={handleReset}>
+                <RotateCcw className="h-4 w-4" />
               </Button>
-            ) : (
-              <Button onClick={handlePlay} disabled={items.length === 0} className="bg-cyan-500 hover:bg-cyan-600">
-                <Play className="h-4 w-4 mr-2" />
-                Play
-              </Button>
-            )}
 
-            <Button variant="outline" size="sm" onClick={handleNext} disabled={currentIndex >= items.length - 1}>
-              <SkipForward className="h-4 w-4" />
-            </Button>
+              <Button variant="outline" size="sm" onClick={handlePrevious} disabled={currentIndex === 0 && !autoLoop}>
+                <SkipBack className="h-4 w-4" />
+              </Button>
+
+              {isPlaying ? (
+                <Button onClick={handlePause} className="bg-cyan-500 hover:bg-cyan-600">
+                  <Pause className="h-4 w-4 mr-2" />
+                  Pause
+                </Button>
+              ) : (
+                <Button onClick={handlePlay} disabled={items.length === 0} className="bg-cyan-500 hover:bg-cyan-600">
+                  <Play className="h-4 w-4 mr-2" />
+                  Play
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNext}
+                disabled={currentIndex >= items.length - 1 && !autoLoop}
+              >
+                <SkipForward className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Additional controls */}
+            <div className="flex items-center justify-center gap-6 text-sm">
+              {/* Volume control */}
+              {currentItem?.media.mime_type?.startsWith("video/") && (
+                <div className="flex items-center gap-2">
+                  <Volume2 className="h-4 w-4" />
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    value={volume}
+                    onChange={(e) => setVolume(Number.parseFloat(e.target.value))}
+                    className="w-20"
+                  />
+                </div>
+              )}
+
+              {/* Speed control */}
+              <div className="flex items-center gap-2">
+                <span>Speed:</span>
+                <select
+                  value={playbackSpeed}
+                  onChange={(e) => setPlaybackSpeed(Number.parseFloat(e.target.value))}
+                  className="px-2 py-1 border rounded"
+                >
+                  <option value={0.5}>0.5x</option>
+                  <option value={1}>1x</option>
+                  <option value={1.5}>1.5x</option>
+                  <option value={2}>2x</option>
+                </select>
+              </div>
+
+              {/* Auto-loop toggle */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="autoLoop"
+                  checked={autoLoop}
+                  onChange={(e) => setAutoLoop(e.target.checked)}
+                />
+                <label htmlFor="autoLoop">Auto-loop</label>
+              </div>
+            </div>
           </div>
 
           <div className="text-center text-sm text-gray-600 mt-2">
-            Total: {items.reduce((sum, item) => sum + (item.duration_override || 10), 0)}s
+            <p>Keyboard shortcuts: Space (play/pause), ← → (navigate), F (fullscreen)</p>
           </div>
         </div>
       </DialogContent>
@@ -510,6 +690,8 @@ export default function PlaylistsPage() {
         description: "Failed to delete playlist",
         variant: "destructive",
       })
+    } finally {
+      setCreating(false)
     }
   }
 
