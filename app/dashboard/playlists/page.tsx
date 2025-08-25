@@ -29,6 +29,8 @@ import {
   Edit,
   SkipBack,
   Volume2,
+  Maximize,
+  Minimize,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -360,55 +362,60 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
         className={`max-w-6xl p-0 ${isFullscreen ? "fixed inset-0 max-w-none h-screen" : ""}`}
         style={{ height: isFullscreen ? "100vh" : "calc(100vh - 100px)" }}
       >
-        <DialogHeader className="p-6 pb-4">
-          <DialogTitle>{playlist.name} Preview</DialogTitle>
-          <DialogDescription>
-            {items.length > 0 ? `${currentIndex + 1} of ${items.length} items` : "Loading..."}
-            {isPlaying && <span className="ml-2 text-green-600">● Auto-playing</span>}
-          </DialogDescription>
-        </DialogHeader>
+        {/* Top overlay controls */}
+        <div className="absolute top-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm text-white p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h3 className="font-semibold">{playlist.name}</h3>
+              <span className="text-sm opacity-80">
+                {items.length > 0 ? `${currentIndex + 1} of ${items.length} items` : "Loading..."}
+                {isPlaying && <span className="ml-2 text-green-400">● Auto-playing</span>}
+              </span>
+            </div>
 
-        <div className="flex-1 relative bg-black overflow-hidden">{renderMedia()}</div>
-
-        <div className="p-6 pt-4 border-t bg-gray-50">
-          <div className="space-y-4">
-            {/* Main playback controls */}
-            <div className="flex items-center justify-center gap-3">
-              <Button variant="outline" size="sm" onClick={handleReset}>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={handleReset} className="text-white hover:bg-white/20">
                 <RotateCcw className="h-4 w-4" />
               </Button>
 
-              <Button variant="outline" size="sm" onClick={handlePrevious} disabled={currentIndex === 0 && !autoLoop}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePrevious}
+                disabled={currentIndex === 0 && !autoLoop}
+                className="text-white hover:bg-white/20"
+              >
                 <SkipBack className="h-4 w-4" />
               </Button>
 
               {isPlaying ? (
-                <Button onClick={handlePause} className="bg-cyan-500 hover:bg-cyan-600">
-                  <Pause className="h-4 w-4 mr-2" />
-                  Pause
+                <Button onClick={handlePause} size="sm" className="bg-cyan-500 hover:bg-cyan-600 text-white">
+                  <Pause className="h-4 w-4" />
                 </Button>
               ) : (
-                <Button onClick={handlePlay} disabled={items.length === 0} className="bg-cyan-500 hover:bg-cyan-600">
-                  <Play className="h-4 w-4 mr-2" />
-                  Play
+                <Button
+                  onClick={handlePlay}
+                  disabled={items.length === 0}
+                  size="sm"
+                  className="bg-cyan-500 hover:bg-cyan-600 text-white"
+                >
+                  <Play className="h-4 w-4" />
                 </Button>
               )}
 
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={handleNext}
                 disabled={currentIndex >= items.length - 1 && !autoLoop}
+                className="text-white hover:bg-white/20"
               >
                 <SkipForward className="h-4 w-4" />
               </Button>
-            </div>
 
-            {/* Additional controls */}
-            <div className="flex items-center justify-center gap-6 text-sm">
-              {/* Volume control */}
+              {/* Volume control for videos */}
               {currentItem?.media.mime_type?.startsWith("video/") && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ml-4">
                   <Volume2 className="h-4 w-4" />
                   <input
                     type="range"
@@ -417,59 +424,39 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
                     step="0.1"
                     value={volume}
                     onChange={(e) => setVolume(Number.parseFloat(e.target.value))}
-                    className="w-20"
+                    className="w-16"
                   />
                 </div>
               )}
 
-              {/* Speed control */}
-              <div className="flex items-center gap-2">
-                <span>Speed:</span>
-                <select
-                  value={playbackSpeed}
-                  onChange={(e) => setPlaybackSpeed(Number.parseFloat(e.target.value))}
-                  className="px-2 py-1 border rounded"
-                >
-                  <option value={0.5}>0.5x</option>
-                  <option value={1}>1x</option>
-                  <option value={1.5}>1.5x</option>
-                  <option value={2}>2x</option>
-                </select>
-              </div>
-
               {/* Auto-loop toggle */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 ml-4">
                 <input
                   type="checkbox"
                   id="autoLoop"
                   checked={autoLoop}
                   onChange={(e) => setAutoLoop(e.target.checked)}
+                  className="rounded"
                 />
-                <label htmlFor="autoLoop">Auto-loop</label>
+                <label htmlFor="autoLoop" className="text-sm">
+                  Loop
+                </label>
               </div>
-            </div>
-          </div>
 
-          <div className="text-center text-sm text-gray-600 mt-2">
-            <p>Keyboard shortcuts: Space (play/pause), ← → (navigate), F (fullscreen)</p>
-          </div>
-        </div>
-
-        <div className="p-4 bg-gray-900 border-t border-gray-700">
-          <div className="flex items-center justify-between mb-4">{/* ... existing playback controls ... */}</div>
-
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <label className="text-gray-300">Auto Loop:</label>
-              <input
-                type="checkbox"
-                checked={autoLoop}
-                onChange={(e) => setAutoLoop(e.target.checked)}
-                className="rounded"
-              />
+              {/* Fullscreen toggle */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+                className="text-white hover:bg-white/20 ml-2"
+              >
+                {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+              </Button>
             </div>
           </div>
         </div>
+
+        <div className="flex-1 relative bg-black overflow-hidden">{renderMedia()}</div>
       </DialogContent>
     </Dialog>
   )
