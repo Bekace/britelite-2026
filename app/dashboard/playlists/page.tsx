@@ -51,6 +51,11 @@ interface PlaylistItem {
     mime_type: string
     file_size: number
   }
+  start_time?: number
+  end_time?: number
+  notes?: string
+  transition_type?: "fade" | "slide-left" | "slide-right" | "cross-fade" | "zoom"
+  transition_duration?: number
 }
 
 interface Media {
@@ -81,8 +86,6 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const [transitionType, setTransitionType] = useState<"fade" | "slide" | "crossfade" | "zoom">("fade")
-  const [transitionDuration, setTransitionDuration] = useState(0.8)
   const [isTransitioning, setIsTransitioning] = useState(false)
 
   useEffect(() => {
@@ -263,7 +266,7 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
   const getTransitionTransform = () => {
     if (!isTransitioning) return "none"
 
-    switch (transitionType) {
+    switch ((items[currentIndex] as any)?.transition_type) {
       case "slide":
         return "translateX(100%)"
       case "zoom":
@@ -280,7 +283,7 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
 
     const item = items[currentIndex]
     const mediaStyle = {
-      transition: `all ${transitionDuration}s ease-in-out`,
+      transition: `all ${item.transition_duration}s ease-in-out`,
       opacity: isTransitioning ? 0 : 1,
       transform: getTransitionTransform(),
     }
@@ -457,31 +460,13 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
 
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <label className="text-gray-300">Transition:</label>
-              <select
-                value={transitionType}
-                onChange={(e) => setTransitionType(e.target.value as any)}
-                className="bg-gray-800 text-white px-2 py-1 rounded border border-gray-600"
-              >
-                <option value="fade">Fade</option>
-                <option value="slide">Slide</option>
-                <option value="crossfade">Cross Fade</option>
-                <option value="zoom">Zoom</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-gray-300">Duration:</label>
+              <label className="text-gray-300">Auto Loop:</label>
               <input
-                type="range"
-                min="0.3"
-                max="2"
-                step="0.1"
-                value={transitionDuration}
-                onChange={(e) => setTransitionDuration(Number.parseFloat(e.target.value))}
-                className="w-20"
+                type="checkbox"
+                checked={autoLoop}
+                onChange={(e) => setAutoLoop(e.target.checked)}
+                className="rounded"
               />
-              <span className="text-gray-400 w-8">{transitionDuration}s</span>
             </div>
           </div>
         </div>
@@ -512,6 +497,8 @@ export default function PlaylistsPage() {
     end_time: 0,
     notes: "",
     position: 1,
+    transition_type: "fade" as "fade" | "slide-left" | "slide-right" | "cross-fade" | "zoom",
+    transition_duration: 0.8,
   })
   const [updating, setUpdating] = useState(false)
   const [draggedItem, setDraggedItem] = useState<PlaylistItem | null>(null)
@@ -751,36 +738,42 @@ export default function PlaylistsPage() {
     try {
       const response = await fetch(`/api/playlists/${selectedPlaylist.id}/media`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           playlist_item_id: editingItem.id,
           duration_override: editForm.duration_override,
+          start_time: editForm.start_time,
+          end_time: editForm.end_time,
+          notes: editForm.notes,
+          transition_type: editForm.transition_type,
+          transition_duration: editForm.transition_duration,
         }),
       })
 
-      if (response.ok) {
-        fetchPlaylistItems(selectedPlaylist.id)
-        setShowEditDialog(false)
-        setEditingItem(null)
-        toast({
-          title: "Success",
-          description: "Playlist item updated successfully",
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to update playlist item",
-          variant: "destructive",
-        })
-      }
+      if (!response.ok) throw new Error("Failed to update item")
+
+      setPlaylistItems((prev) =>
+        prev.map((item) =>
+          item.id === editingItem.id
+            ? {
+                ...item,
+                duration_override: editForm.duration_override,
+                start_time: editForm.start_time,
+                end_time: editForm.end_time,
+                notes: editForm.notes,
+                transition_type: editForm.transition_type,
+                transition_duration: editForm.transition_duration,
+              }
+            : item,
+        ),
+      )
+
+      setShowEditDialog(false)
+      setEditingItem(null)
+      toast({ title: "Item updated successfully" })
     } catch (error) {
       console.error("Error updating item:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update playlist item",
-      })
+      toast({ title: "Failed to update item", variant: "destructive" })
     } finally {
       setUpdating(false)
     }
@@ -880,11 +873,13 @@ export default function PlaylistsPage() {
     setEditingItem(item)
     setEditForm({
       name: item.media.name,
-      duration_override: item.duration_override,
-      start_time: 0, // Default values - could be extended to store these in DB
-      end_time: item.duration_override,
-      notes: "", // Could be extended to store notes in DB
+      duration_override: item.duration_override || 10,
+      start_time: item.start_time || 0,
+      end_time: item.end_time || 0,
+      notes: item.notes || "",
       position: item.position,
+      transition_type: (item as any).transition_type || "fade",
+      transition_duration: (item as any).transition_duration || 0.8,
     })
     setShowEditDialog(true)
   }
@@ -1433,6 +1428,50 @@ export default function PlaylistsPage() {
                   placeholder="Add notes or description for this item"
                   rows={3}
                 />
+              </div>
+
+              <div className="space-y-3">
+                <Label>Transition Settings</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="transition-type" className="text-sm">
+                      Transition Type
+                    </Label>
+                    <select
+                      id="transition-type"
+                      value={editForm.transition_type}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, transition_type: e.target.value as any }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="fade">Fade</option>
+                      <option value="slide-left">Slide Left</option>
+                      <option value="slide-right">Slide Right</option>
+                      <option value="cross-fade">Cross Fade</option>
+                      <option value="zoom">Zoom</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="transition-duration" className="text-sm">
+                      Duration (seconds)
+                    </Label>
+                    <input
+                      id="transition-duration"
+                      type="number"
+                      min="0.1"
+                      max="3"
+                      step="0.1"
+                      value={editForm.transition_duration}
+                      onChange={(e) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          transition_duration: Number.parseFloat(e.target.value) || 0.8,
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">Set how this item transitions when it appears in the playlist</p>
               </div>
             </div>
           )}
