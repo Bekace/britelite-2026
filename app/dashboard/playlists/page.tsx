@@ -92,50 +92,45 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
   const [playlistItems, setPlaylistItems] = useState<PlaylistItem[]>([])
 
   const goToNext = useCallback(() => {
-    console.log("[v0] goToNext called, currentIndex:", currentIndex, "total items:", playlistItems.length)
+    console.log("[v0] goToNext called, currentIndex:", currentIndex, "total items:", items.length)
 
-    if (currentIndex < playlistItems.length - 1) {
-      const nextItem = playlistItems[currentIndex + 1]
+    if (items.length === 0) {
+      console.log("[v0] No items to advance to")
+      return
+    }
+
+    const currentItem = items[currentIndex]
+    const nextIndex = currentIndex + 1
+
+    if (nextIndex < items.length) {
+      const nextItem = items[nextIndex]
       const transitionType = nextItem?.transition_type || "fade"
       const transitionDuration = nextItem?.transition_duration || 0.8
 
-      console.log(
-        "[v0] Applying transition:",
-        transitionType,
-        "duration:",
-        transitionDuration,
-        "for item:",
-        nextItem.media?.name,
-        "Raw transition data:",
-        { transition_type: nextItem?.transition_type, transition_duration: nextItem?.transition_duration },
-      )
+      console.log("[v0] Applying transition:", transitionType, "duration:", transitionDuration)
+      console.log("[v0] Next item transition data:", {
+        transition_type: nextItem?.transition_type,
+        transition_duration: nextItem?.transition_duration,
+        name: nextItem?.media?.name,
+      })
 
       setIsTransitioning(true)
-      setTimeout(() => {
-        console.log("[v0] Transition complete, moving to next item")
-        setCurrentIndex((prev) => prev + 1)
-        setTimeRemaining(playlistItems[currentIndex + 1]?.duration_override || 10)
-        setIsTransitioning(false)
-      }, transitionDuration * 1000)
-    } else if (autoLoop) {
-      const firstItem = playlistItems[0]
-      const transitionType = firstItem?.transition_type || "fade"
-      const transitionDuration = firstItem?.transition_duration || 0.8
 
-      console.log("[v0] Loop transition:", transitionType, "duration:", transitionDuration)
-
-      setIsTransitioning(true)
       setTimeout(() => {
-        console.log("[v0] Loop transition complete, back to first item")
-        setCurrentIndex(0)
-        setTimeRemaining(playlistItems[0]?.duration_override || 10)
+        setCurrentIndex(nextIndex)
+        setTimeRemaining(nextItem?.duration_override || 10)
         setIsTransitioning(false)
+        console.log("[v0] Advanced to item", nextIndex + 1, "of", items.length)
       }, transitionDuration * 1000)
+    } else if (autoLoop && items.length > 0) {
+      console.log("[v0] Looping back to first item")
+      setCurrentIndex(0)
+      setTimeRemaining(items[0]?.duration_override || 10)
     } else {
-      console.log("[v0] Playlist finished, stopping playback")
+      console.log("[v0] Reached end of playlist, stopping")
       setIsPlaying(false)
     }
-  }, [autoLoop, currentIndex, playlistItems, setIsPlaying, setIsTransitioning, setTimeRemaining])
+  }, [currentIndex, items, autoLoop])
 
   useEffect(() => {
     if (isOpen && playlist) {
@@ -176,7 +171,7 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
           transition_type: sortedItems[0]?.transition_type,
           transition_duration: sortedItems[0]?.transition_duration,
         })
-        setPlaylistItems(sortedItems)
+        setItems(sortedItems)
         setCurrentIndex(0)
         setTimeRemaining(sortedItems[0]?.duration_override || 10)
       }
