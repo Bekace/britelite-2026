@@ -22,7 +22,6 @@ import {
   Play,
   Pause,
   SkipForward,
-  RotateCcw,
   Settings,
   FileText,
   GripVertical,
@@ -31,6 +30,7 @@ import {
   Volume2,
   Maximize,
   Minimize,
+  X,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -126,6 +126,36 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
       setIsTransitioning(false)
       console.log("[v0] Advanced to item", nextIndex + 1, "of", items.length)
     }, transitionDuration * 1000)
+  }, [currentIndex, items, autoLoop])
+
+  const goToPrevious = useCallback(() => {
+    if (currentIndex > 0) {
+      const prevIndex = currentIndex - 1
+      const prevItem = items[prevIndex]
+      const transitionType = prevItem?.transition_type || "fade"
+      const transitionDuration = prevItem?.transition_duration || 0.8
+
+      console.log("[v0] Previous transition:", transitionType, "duration:", transitionDuration)
+
+      setIsTransitioning(true)
+      setTimeout(() => {
+        setCurrentIndex(prevIndex)
+        setTimeRemaining(prevItem?.duration_override || 10)
+        setIsTransitioning(false)
+      }, transitionDuration * 1000)
+    } else if (autoLoop) {
+      const lastIndex = items.length - 1
+      const lastItem = items[lastIndex]
+      const transitionType = lastItem?.transition_type || "fade"
+      const transitionDuration = lastItem?.transition_duration || 0.8
+
+      setIsTransitioning(true)
+      setTimeout(() => {
+        setCurrentIndex(lastIndex)
+        setTimeRemaining(lastItem?.duration_override || 10)
+        setIsTransitioning(false)
+      }, transitionDuration * 1000)
+    }
   }, [currentIndex, items, autoLoop])
 
   useEffect(() => {
@@ -230,9 +260,7 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
     }
   }
 
-  const getTransitionStyles = () => {
-    if (!items.length || currentIndex >= items.length) return {}
-
+  const getTransitionStyles = (isTransitioning: boolean) => {
     const item = items[currentIndex]
     const transitionType = item?.transition_type || "fade"
     const transitionDuration = item?.transition_duration || 0.8
@@ -244,14 +272,16 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
       left: 0,
       width: "100%",
       height: "100%",
-      objectFit: "contain" as const,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
     }
 
     if (!isTransitioning) {
       return {
         ...baseStyle,
         opacity: 1,
-        transform: "none",
+        transform: "translateX(0) translateY(0) scale(1)",
       }
     }
 
@@ -260,28 +290,33 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
       case "slide-left":
         return {
           ...baseStyle,
-          opacity: 1,
+          opacity: 0,
           transform: "translateX(-100%)",
         }
       case "slide-right":
         return {
           ...baseStyle,
-          opacity: 1,
+          opacity: 0,
           transform: "translateX(100%)",
         }
       case "zoom":
         return {
           ...baseStyle,
           opacity: 0,
-          transform: "scale(1.2)",
+          transform: "scale(0.8)",
         }
       case "cross-fade":
+        return {
+          ...baseStyle,
+          opacity: 0,
+          transform: "scale(1.05)",
+        }
       case "fade":
       default:
         return {
           ...baseStyle,
           opacity: 0,
-          transform: "none",
+          transform: "translateX(0) translateY(0) scale(1)",
         }
     }
   }
@@ -290,7 +325,7 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
     if (!items.length || currentIndex >= items.length) return null
 
     const item = items[currentIndex]
-    const mediaStyle = getTransitionStyles()
+    const mediaStyle = getTransitionStyles(isTransitioning)
 
     return (
       <div className="relative w-full h-full overflow-hidden">
@@ -391,96 +426,76 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
         className={`max-w-6xl p-0 ${isFullscreen ? "fixed inset-0 max-w-none h-screen" : ""}`}
         style={{ height: isFullscreen ? "100vh" : "calc(100vh - 100px)" }}
       >
-        {/* Top overlay controls */}
-        <div className="absolute top-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm text-white p-4">
-          <div className="flex items-center justify-between">
+        <div className="absolute top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm">
+          <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-4">
-              <h3 className="font-semibold">{playlist.name}</h3>
-              <span className="text-sm opacity-80">
+              <h2 className="text-white font-semibold">{playlist?.name}</h2>
+              <span className="text-white/70 text-sm">
                 {items.length > 0 ? `${currentIndex + 1} of ${items.length} items` : "Loading..."}
-                {isPlaying && <span className="ml-2 text-green-400">● Auto-playing</span>}
               </span>
+              {isPlaying && <span className="text-cyan-400 text-sm">● Auto-playing</span>}
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={handleReset} className="text-white hover:bg-white/20">
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handlePrevious}
-                disabled={currentIndex === 0 && !autoLoop}
-                className="text-white hover:bg-white/20"
+              {/* Playback Controls */}
+              <button
+                onClick={() => setIsPlaying(!isPlaying)}
+                className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
               >
-                <SkipBack className="h-4 w-4" />
-              </Button>
+                {isPlaying ? <Pause className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white" />}
+              </button>
 
-              {isPlaying ? (
-                <Button onClick={handlePause} size="sm" className="bg-cyan-500 hover:bg-cyan-600 text-white">
-                  <Pause className="h-4 w-4" />
-                </Button>
-              ) : (
-                <Button
-                  onClick={handlePlay}
-                  disabled={items.length === 0}
-                  size="sm"
-                  className="bg-cyan-500 hover:bg-cyan-600 text-white"
-                >
-                  <Play className="h-4 w-4" />
-                </Button>
-              )}
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleNext}
-                disabled={currentIndex >= items.length - 1 && !autoLoop}
-                className="text-white hover:bg-white/20"
+              <button
+                onClick={goToPrevious}
+                className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
               >
-                <SkipForward className="h-4 w-4" />
-              </Button>
+                <SkipBack className="w-5 h-5 text-white" />
+              </button>
 
-              {/* Volume control for videos */}
-              {currentItem?.media.mime_type?.startsWith("video/") && (
-                <div className="flex items-center gap-2 ml-4">
-                  <Volume2 className="h-4 w-4" />
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.1"
-                    value={volume}
-                    onChange={(e) => setVolume(Number.parseFloat(e.target.value))}
-                    className="w-16"
-                  />
-                </div>
-              )}
+              <button onClick={goToNext} className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors">
+                <SkipForward className="w-5 h-5 text-white" />
+              </button>
 
-              {/* Auto-loop toggle */}
-              <div className="flex items-center gap-2 ml-4">
+              {/* Volume Control */}
+              <div className="flex items-center gap-2">
+                <Volume2 className="w-4 h-4 text-white" />
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={volume}
+                  onChange={(e) => setVolume(Number.parseFloat(e.target.value))}
+                  className="w-16 h-1 bg-white/30 rounded-lg appearance-none slider"
+                />
+              </div>
+
+              {/* Auto Loop */}
+              <label className="flex items-center gap-2 text-white text-sm">
                 <input
                   type="checkbox"
-                  id="autoLoop"
                   checked={autoLoop}
                   onChange={(e) => setAutoLoop(e.target.checked)}
                   className="rounded"
                 />
-                <label htmlFor="autoLoop" className="text-sm">
-                  Loop
-                </label>
-              </div>
+                Loop
+              </label>
 
-              {/* Fullscreen toggle */}
-              <Button
-                variant="ghost"
-                size="sm"
+              {/* Fullscreen */}
+              <button
                 onClick={toggleFullscreen}
-                className="text-white hover:bg-white/20 ml-2"
+                className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
               >
-                {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-              </Button>
+                {isFullscreen ? (
+                  <Minimize className="w-5 h-5 text-white" />
+                ) : (
+                  <Maximize className="w-5 h-5 text-white" />
+                )}
+              </button>
+
+              <button onClick={onClose} className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors">
+                <X className="w-5 h-5 text-white" />
+              </button>
             </div>
           </div>
         </div>

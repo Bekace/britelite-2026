@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     // Get playlist with media items
-    const { data: playlist, error } = await supabase
+    const { data: playlist, error: playlistError } = await supabase
       .from("playlists")
       .select(`
         *,
@@ -27,6 +27,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           id,
           duration_override,
           position,
+          start_time,
+          end_time,
+          notes,
+          transition_type,
+          transition_duration,
           media(*)
         )
       `)
@@ -34,8 +39,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       .eq("user_id", user.id)
       .single()
 
-    if (error) {
-      console.error("Database error:", error)
+    if (playlistError) {
+      console.error("Database error:", playlistError)
       return NextResponse.json({ error: "Playlist not found" }, { status: 404 })
     }
 
@@ -57,16 +62,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const { name, description } = await request.json()
 
     // Update playlist
-    const { data: playlist, error } = await supabase
+    const { data: playlist, error: updateError } = await supabase
       .from("playlists")
       .update({ name, description })
       .eq("id", params.id)
-      .eq("user_id", params.id)
       .select()
       .single()
 
-    if (error) {
-      console.error("Database error:", error)
+    if (updateError) {
+      console.error("Database error:", updateError)
       return NextResponse.json({ error: "Failed to update playlist" }, { status: 500 })
     }
 
@@ -86,10 +90,10 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Delete playlist (cascade will handle playlist_items)
-    const { error } = await supabase.from("playlists").delete().eq("id", params.id).eq("user_id", params.id)
+    const { error: deleteError } = await supabase.from("playlists").delete().eq("id", params.id)
 
-    if (error) {
-      console.error("Database error:", error)
+    if (deleteError) {
+      console.error("Database error:", deleteError)
       return NextResponse.json({ error: "Failed to delete playlist" }, { status: 500 })
     }
 
