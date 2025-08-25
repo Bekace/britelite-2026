@@ -626,6 +626,7 @@ export default function PlaylistsPage() {
   )
 
   const handlePreviewPlaylist = (playlist: Playlist) => {
+    console.log("[v0] Opening preview for playlist:", playlist.name)
     setShowCreateDialog(false)
     setPreviewPlaylist(playlist)
   }
@@ -1118,6 +1119,15 @@ export default function PlaylistsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PlaylistPreviewModal
+        playlist={previewPlaylist!}
+        isOpen={!!previewPlaylist}
+        onClose={() => {
+          console.log("[v0] Closing preview modal")
+          setPreviewPlaylist(null)
+        }}
+      />
     </div>
   )
 }
