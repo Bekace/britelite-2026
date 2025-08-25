@@ -91,7 +91,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { playlist_item_id, duration_override } = await request.json()
+    const { playlist_item_id, duration_override, transition_type, transition_duration } = await request.json()
 
     if (!playlist_item_id || duration_override === undefined) {
       return NextResponse.json({ error: "Playlist item ID and duration are required" }, { status: 400 })
@@ -112,10 +112,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Playlist item not found or unauthorized" }, { status: 404 })
     }
 
-    // Update the duration
+    const updateData: any = { duration_override }
+    if (transition_type !== undefined) {
+      updateData.transition_type = transition_type
+    }
+    if (transition_duration !== undefined) {
+      updateData.transition_duration = transition_duration
+    }
+
+    // Update the playlist item with all provided fields
     const { data: updatedItem, error: updateError } = await supabase
       .from("playlist_items")
-      .update({ duration_override })
+      .update(updateData)
       .eq("id", playlist_item_id)
       .select(`
         *,
@@ -125,13 +133,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     if (updateError) {
       console.error("Database error:", updateError)
-      return NextResponse.json({ error: "Failed to update duration" }, { status: 500 })
+      return NextResponse.json({ error: "Failed to update playlist item" }, { status: 500 })
     }
 
     return NextResponse.json({ playlistItem: updatedItem })
   } catch (error) {
-    console.error("Error updating playlist item duration:", error)
-    return NextResponse.json({ error: "Failed to update duration" }, { status: 500 })
+    console.error("Error updating playlist item:", error)
+    return NextResponse.json({ error: "Failed to update playlist item" }, { status: 500 })
   }
 }
 
