@@ -27,9 +27,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           id,
           duration_override,
           position,
-          start_time,
-          end_time,
-          notes,
           transition_type,
           transition_duration,
           media(*)
