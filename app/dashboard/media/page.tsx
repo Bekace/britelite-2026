@@ -10,7 +10,7 @@ import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video, Eye } from 
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog" // Added import for custom confirmation dialog
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 
 interface MediaItem {
   id: string
@@ -91,37 +91,45 @@ function MediaPreviewModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl p-0" style={{ height: "calc(100vh - 100px)" }}>
-        <DialogHeader className="p-6 pb-4">
-          <DialogTitle>{media.name}</DialogTitle>
-          <DialogDescription>
-            {media.mime_type} • {formatFileSize(media.file_size)}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="mx-6 bg-gray-50 relative flex-1 rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
-          {renderMedia()}
-        </div>
-
-        <div className="p-6 pt-4 border-t bg-gray-50">
+      <DialogContent className="max-w-full max-h-full p-0 m-0" style={{ width: "100vw", height: "100vh" }}>
+        <div className="absolute top-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm text-white p-4">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Created: {new Date(media.created_at).toLocaleString()}</p>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-semibold truncate">{media.name}</h2>
+              <div className="flex items-center gap-4 text-sm text-white/80 mt-1">
+                <span>{media.mime_type}</span>
+                <span>{formatFileSize(media.file_size)}</span>
+                <span>Created: {new Date(media.created_at).toLocaleDateString()}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 ml-4">
               {media.tags && media.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {media.tags.map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
+                <div className="flex flex-wrap gap-1">
+                  {media.tags.slice(0, 3).map((tag, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs bg-white/20 text-white border-white/30">
                       {tag}
                     </Badge>
                   ))}
+                  {media.tags.length > 3 && (
+                    <Badge variant="secondary" className="text-xs bg-white/20 text-white border-white/30">
+                      +{media.tags.length - 3}
+                    </Badge>
+                  )}
                 </div>
               )}
+              <Button
+                onClick={onClose}
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/20 border border-white/30"
+              >
+                Close
+              </Button>
             </div>
-            <Button onClick={onClose} variant="outline">
-              Close
-            </Button>
           </div>
         </div>
+
+        <div className="w-full h-full bg-black flex items-center justify-center pt-20">{renderMedia()}</div>
       </DialogContent>
     </Dialog>
   )
