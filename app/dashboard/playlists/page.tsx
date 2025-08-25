@@ -89,14 +89,15 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
   const containerRef = useRef<HTMLDivElement>(null)
 
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [playlistItems, setPlaylistItems] = useState<PlaylistItem[]>([])
 
   const goToNext = useCallback(() => {
-    console.log("[v0] goToNext called, currentIndex:", currentIndex, "total items:", items.length)
+    console.log("[v0] goToNext called, currentIndex:", currentIndex, "total items:", playlistItems.length)
 
-    if (currentIndex < items.length - 1) {
-      const nextItem = items[currentIndex + 1]
-      const transitionType = (nextItem as any)?.transition_type || "fade"
-      const transitionDuration = (nextItem as any)?.transition_duration || 0.8
+    if (currentIndex < playlistItems.length - 1) {
+      const nextItem = playlistItems[currentIndex + 1]
+      const transitionType = nextItem?.transition_type || "fade"
+      const transitionDuration = nextItem?.transition_duration || 0.8
 
       console.log(
         "[v0] Applying transition:",
@@ -105,19 +106,21 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
         transitionDuration,
         "for item:",
         nextItem.media?.name,
+        "Raw transition data:",
+        { transition_type: nextItem?.transition_type, transition_duration: nextItem?.transition_duration },
       )
 
       setIsTransitioning(true)
       setTimeout(() => {
         console.log("[v0] Transition complete, moving to next item")
         setCurrentIndex((prev) => prev + 1)
-        setTimeRemaining((nextItem as any)?.duration_override || nextItem.duration_override || 10)
+        setTimeRemaining(playlistItems[currentIndex + 1]?.duration_override || 10)
         setIsTransitioning(false)
       }, transitionDuration * 1000)
     } else if (autoLoop) {
-      const firstItem = items[0]
-      const transitionType = (firstItem as any)?.transition_type || "fade"
-      const transitionDuration = (firstItem as any)?.transition_duration || 0.8
+      const firstItem = playlistItems[0]
+      const transitionType = firstItem?.transition_type || "fade"
+      const transitionDuration = firstItem?.transition_duration || 0.8
 
       console.log("[v0] Loop transition:", transitionType, "duration:", transitionDuration)
 
@@ -125,14 +128,14 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
       setTimeout(() => {
         console.log("[v0] Loop transition complete, back to first item")
         setCurrentIndex(0)
-        setTimeRemaining((firstItem as any)?.duration_override || firstItem.duration_override || 10)
+        setTimeRemaining(playlistItems[0]?.duration_override || 10)
         setIsTransitioning(false)
       }, transitionDuration * 1000)
     } else {
       console.log("[v0] Playlist finished, stopping playback")
       setIsPlaying(false)
     }
-  }, [autoLoop, currentIndex, items])
+  }, [autoLoop, currentIndex, playlistItems, setIsPlaying, setIsTransitioning, setTimeRemaining])
 
   useEffect(() => {
     if (isOpen && playlist) {
@@ -154,78 +157,6 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
     }
   }, [items, isPlaying])
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout
-    if (isPlaying && timeRemaining > 0) {
-      console.log("[v0] Timer running, time remaining:", timeRemaining)
-      timer = setTimeout(() => {
-        setTimeRemaining((prev) => {
-          const newTime = prev - 1
-          console.log("[v0] Timer tick, new time:", newTime)
-          if (newTime <= 0) {
-            console.log("[v0] Timer finished, calling goToNext")
-            goToNext()
-            return 0
-          }
-          return newTime
-        })
-      }, 1000)
-    }
-    return () => {
-      if (timer) clearTimeout(timer)
-    }
-  }, [isPlaying, timeRemaining, currentIndex, items.length, autoLoop, goToNext])
-
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (!isOpen) return
-
-      switch (e.code) {
-        case "Space":
-          e.preventDefault()
-          isPlaying ? handlePause() : handlePlay()
-          break
-        case "ArrowRight":
-          e.preventDefault()
-          handleNext()
-          break
-        case "ArrowLeft":
-          e.preventDefault()
-          handlePrevious()
-          break
-        case "KeyF":
-          e.preventDefault()
-          toggleFullscreen()
-          break
-        case "Escape":
-          if (isFullscreen) {
-            setIsFullscreen(false)
-          }
-          break
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyPress)
-    return () => document.removeEventListener("keydown", handleKeyPress)
-  }, [isOpen, isPlaying, isFullscreen])
-
-  useEffect(() => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.play()
-      } else {
-        videoRef.current.pause()
-      }
-    }
-  }, [isPlaying, currentIndex])
-
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.volume = volume
-      videoRef.current.playbackRate = playbackSpeed
-    }
-  }, [volume, playbackSpeed])
-
   const fetchPlaylistItems = async () => {
     if (!playlist) {
       console.log("[v0] Cannot fetch items: playlist is null")
@@ -241,7 +172,11 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
         const sortedItems =
           data.playlist.playlist_items?.sort((a: PlaylistItem, b: PlaylistItem) => a.position - b.position) || []
         console.log("[v0] Loaded playlist items:", sortedItems.length)
-        setItems(sortedItems)
+        console.log("[v0] First item transition data:", {
+          transition_type: sortedItems[0]?.transition_type,
+          transition_duration: sortedItems[0]?.transition_duration,
+        })
+        setPlaylistItems(sortedItems)
         setCurrentIndex(0)
         setTimeRemaining(sortedItems[0]?.duration_override || 10)
       }
@@ -389,6 +324,70 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
   }
 
   const currentItem = items[currentIndex]
+
+  useEffect(() => {
+    if (isPlaying && timeRemaining > 0) {
+      console.log("[v0] Timer running, time remaining:", timeRemaining)
+      const timer = setTimeout(() => {
+        console.log("[v0] Timer tick, new time:", timeRemaining - 1)
+        setTimeRemaining((prev) => prev - 1)
+      }, 1000)
+      return () => clearTimeout(timer)
+    } else if (isPlaying && timeRemaining === 0) {
+      console.log("[v0] Timer finished, calling goToNext")
+      goToNext()
+    }
+  }, [isPlaying, timeRemaining, goToNext])
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (!isOpen) return
+
+      switch (e.code) {
+        case "Space":
+          e.preventDefault()
+          isPlaying ? handlePause() : handlePlay()
+          break
+        case "ArrowRight":
+          e.preventDefault()
+          handleNext()
+          break
+        case "ArrowLeft":
+          e.preventDefault()
+          handlePrevious()
+          break
+        case "KeyF":
+          e.preventDefault()
+          toggleFullscreen()
+          break
+        case "Escape":
+          if (isFullscreen) {
+            setIsFullscreen(false)
+          }
+          break
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyPress)
+    return () => document.removeEventListener("keydown", handleKeyPress)
+  }, [isOpen, isPlaying, isFullscreen])
+
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.play()
+      } else {
+        videoRef.current.pause()
+      }
+    }
+  }, [isPlaying, currentIndex])
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume
+      videoRef.current.playbackRate = playbackSpeed
+    }
+  }, [volume, playbackSpeed])
 
   if (!playlist) {
     return null
