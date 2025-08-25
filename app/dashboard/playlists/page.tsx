@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { DialogFooter } from "@/components/ui/dialog"
 import { DialogTrigger } from "@/components/ui/dialog"
 import { useState, useEffect } from "react"
@@ -287,6 +289,8 @@ export default function PlaylistsPage() {
     position: 1,
   })
   const [updating, setUpdating] = useState(false)
+  const [draggedItem, setDraggedItem] = useState<PlaylistItem | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   const { toast } = useToast()
 
@@ -498,47 +502,19 @@ export default function PlaylistsPage() {
     }
   }
 
-  const filteredPlaylists = playlists.filter((playlist) =>
-    playlist.name.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
-
-  const handlePreviewPlaylist = (playlist: Playlist) => {
-    setShowCreateDialog(false)
-    setPreviewPlaylist(playlist)
-  }
-
-  const handleOpenCreateDialog = () => {
-    setPreviewPlaylist(null)
-    setShowCreateDialog(true)
-  }
-
-  const handleEditItem = (item: PlaylistItem) => {
-    setEditingItem(item)
-    setEditForm({
-      name: item.media.name,
-      duration_override: item.duration_override,
-      start_time: 0, // Default values - could be extended to store these in DB
-      end_time: item.duration_override,
-      notes: "", // Could be extended to store notes in DB
-      position: item.position,
-    })
-    setShowEditDialog(true)
-  }
-
   const handleUpdateItem = async () => {
     if (!editingItem || !selectedPlaylist) return
 
     setUpdating(true)
     try {
       const response = await fetch(`/api/playlists/${selectedPlaylist.id}/media`, {
-        method: "PATCH",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           playlist_item_id: editingItem.id,
           duration_override: editForm.duration_override,
-          position: editForm.position,
         }),
       })
 
@@ -567,6 +543,109 @@ export default function PlaylistsPage() {
     } finally {
       setUpdating(false)
     }
+  }
+
+  const handleDragStart = (e: React.DragEvent, item: PlaylistItem) => {
+    setDraggedItem(item)
+    e.dataTransfer.effectAllowed = "move"
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    setDragOverIndex(index)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null)
+  }
+
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    setDragOverIndex(null)
+
+    if (!draggedItem || !selectedPlaylist) return
+
+    const currentItems = [...playlistItems]
+    const draggedIndex = currentItems.findIndex((item) => item.id === draggedItem.id)
+
+    if (draggedIndex === dropIndex) return
+
+    // Remove dragged item and insert at new position
+    const [removed] = currentItems.splice(draggedIndex, 1)
+    currentItems.splice(dropIndex, 0, removed)
+
+    // Update positions
+    const updatedItems = currentItems.map((item, index) => ({
+      ...item,
+      position: index + 1,
+    }))
+
+    // Optimistic update
+    setPlaylistItems(updatedItems)
+
+    // Update positions in database
+    try {
+      const response = await fetch(`/api/playlists/${selectedPlaylist.id}/reorder`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: updatedItems.map((item) => ({
+            id: item.id,
+            position: item.position,
+          })),
+        }),
+      })
+
+      if (!response.ok) {
+        // Revert on error
+        fetchPlaylistItems(selectedPlaylist.id)
+        toast({
+          title: "Error",
+          description: "Failed to reorder items",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error reordering items:", error)
+      fetchPlaylistItems(selectedPlaylist.id)
+      toast({
+        title: "Error",
+        description: "Failed to reorder items",
+        variant: "destructive",
+      })
+    }
+
+    setDraggedItem(null)
+  }
+
+  const filteredPlaylists = playlists.filter((playlist) =>
+    playlist.name.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  const handlePreviewPlaylist = (playlist: Playlist) => {
+    setShowCreateDialog(false)
+    setPreviewPlaylist(playlist)
+  }
+
+  const handleOpenCreateDialog = () => {
+    setPreviewPlaylist(null)
+    setShowCreateDialog(true)
+  }
+
+  const handleEditItem = (item: PlaylistItem) => {
+    setEditingItem(item)
+    setEditForm({
+      name: item.media.name,
+      duration_override: item.duration_override,
+      start_time: 0, // Default values - could be extended to store these in DB
+      end_time: item.duration_override,
+      notes: "", // Could be extended to store notes in DB
+      position: item.position,
+    })
+    setShowEditDialog(true)
   }
 
   if (loading) {
@@ -787,14 +866,24 @@ export default function PlaylistsPage() {
                   ) : (
                     <div className="space-y-2">
                       {playlistItems.map((item, index) => (
-                        <Card key={item.id}>
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-4">
-                              <div className="flex items-center gap-2">
-                                <GripVertical className="h-4 w-4 text-gray-400" />
-                                <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                        <Card
+                          key={item.id}
+                          className={`transition-all duration-200 ${
+                            dragOverIndex === index ? "border-blue-500 bg-blue-50" : ""
+                          } ${draggedItem?.id === item.id ? "opacity-50" : ""}`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, item)}
+                          onDragOver={(e) => handleDragOver(e, index)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, index)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="cursor-move text-gray-400 hover:text-gray-600">
+                                <GripVertical className="h-4 w-4" />
                               </div>
-                              <div className="w-16 h-12 bg-gray-100 rounded flex items-center justify-center">
+                              <span className="text-sm font-medium text-gray-500 w-6">{item.position}</span>
+                              <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
                                 {item.media.mime_type?.startsWith("image/") ? (
                                   <img
                                     src={item.media.file_path || "/placeholder.svg"}
