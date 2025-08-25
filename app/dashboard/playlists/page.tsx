@@ -99,37 +99,33 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
       return
     }
 
-    const currentItem = items[currentIndex]
-    const nextIndex = currentIndex + 1
+    const nextIndex = currentIndex + 1 < items.length ? currentIndex + 1 : autoLoop ? 0 : currentIndex
 
-    if (nextIndex < items.length) {
-      const nextItem = items[nextIndex]
-      const transitionType = nextItem?.transition_type || "fade"
-      const transitionDuration = nextItem?.transition_duration || 0.8
-
-      console.log("[v0] Applying transition:", transitionType, "duration:", transitionDuration)
-      console.log("[v0] Next item transition data:", {
-        transition_type: nextItem?.transition_type,
-        transition_duration: nextItem?.transition_duration,
-        name: nextItem?.media?.name,
-      })
-
-      setIsTransitioning(true)
-
-      setTimeout(() => {
-        setCurrentIndex(nextIndex)
-        setTimeRemaining(nextItem?.duration_override || 10)
-        setIsTransitioning(false)
-        console.log("[v0] Advanced to item", nextIndex + 1, "of", items.length)
-      }, transitionDuration * 1000)
-    } else if (autoLoop && items.length > 0) {
-      console.log("[v0] Looping back to first item")
-      setCurrentIndex(0)
-      setTimeRemaining(items[0]?.duration_override || 10)
-    } else {
+    if (nextIndex === currentIndex && !autoLoop) {
       console.log("[v0] Reached end of playlist, stopping")
       setIsPlaying(false)
+      return
     }
+
+    const nextItem = items[nextIndex]
+    const transitionType = nextItem?.transition_type || "fade"
+    const transitionDuration = nextItem?.transition_duration || 0.8
+
+    console.log("[v0] Applying transition:", transitionType, "duration:", transitionDuration)
+    console.log("[v0] Next item transition data:", {
+      transition_type: nextItem?.transition_type,
+      transition_duration: nextItem?.transition_duration,
+      name: nextItem?.media?.name,
+    })
+
+    setIsTransitioning(true)
+
+    setTimeout(() => {
+      setCurrentIndex(nextIndex)
+      setTimeRemaining(nextItem?.duration_override || 10)
+      setIsTransitioning(false)
+      console.log("[v0] Advanced to item", nextIndex + 1, "of", items.length)
+    }, transitionDuration * 1000)
   }, [currentIndex, items, autoLoop])
 
   useEffect(() => {
@@ -234,18 +230,59 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
     }
   }
 
-  const getTransitionTransform = () => {
-    if (!isTransitioning) return "none"
+  const getTransitionStyles = () => {
+    if (!items.length || currentIndex >= items.length) return {}
 
-    switch ((items[currentIndex] as any)?.transition_type) {
-      case "slide":
-        return "translateX(100%)"
+    const item = items[currentIndex]
+    const transitionType = item?.transition_type || "fade"
+    const transitionDuration = item?.transition_duration || 0.8
+
+    const baseStyle = {
+      transition: `all ${transitionDuration}s ease-in-out`,
+      position: "absolute" as const,
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      objectFit: "contain" as const,
+    }
+
+    if (!isTransitioning) {
+      return {
+        ...baseStyle,
+        opacity: 1,
+        transform: "none",
+      }
+    }
+
+    // Apply different transition effects based on type
+    switch (transitionType) {
+      case "slide-left":
+        return {
+          ...baseStyle,
+          opacity: 1,
+          transform: "translateX(-100%)",
+        }
+      case "slide-right":
+        return {
+          ...baseStyle,
+          opacity: 1,
+          transform: "translateX(100%)",
+        }
       case "zoom":
-        return "scale(0.8)"
-      case "crossfade":
+        return {
+          ...baseStyle,
+          opacity: 0,
+          transform: "scale(1.2)",
+        }
+      case "cross-fade":
       case "fade":
       default:
-        return "none"
+        return {
+          ...baseStyle,
+          opacity: 0,
+          transform: "none",
+        }
     }
   }
 
@@ -253,67 +290,26 @@ function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProp
     if (!items.length || currentIndex >= items.length) return null
 
     const item = items[currentIndex]
-    const mediaStyle = {
-      transition: `all ${item.transition_duration}s ease-in-out`,
-      opacity: isTransitioning ? 0 : 1,
-      transform: getTransitionTransform(),
-    }
-
-    if (item.media.mime_type?.startsWith("image/")) {
-      return (
-        <img
-          src={item.media.file_path || "/placeholder.svg"}
-          alt={item.media.name}
-          className="w-full h-full object-contain"
-          style={{ ...mediaStyle, pointerEvents: "none" }}
-        />
-      )
-    }
-
-    if (item.media.mime_type?.startsWith("video/")) {
-      return (
-        <video
-          ref={videoRef}
-          src={item.media.file_path}
-          className="w-full h-full object-contain"
-          playsInline
-          style={mediaStyle}
-          onEnded={() => {
-            // Auto-advance when video ends
-            if (currentIndex < items.length - 1) {
-              handleNext()
-            } else if (autoLoop) {
-              setCurrentIndex(0)
-              setTimeRemaining(items[0]?.duration_override || 10)
-            } else {
-              setIsPlaying(false)
-            }
-          }}
-        />
-      )
-    }
-
-    if (item.media.mime_type === "application/vnd.google-apps.presentation") {
-      const embedUrl = item.media.file_path.includes("/edit")
-        ? item.media.file_path.replace("/edit", "/embed")
-        : `${item.media.file_path}/embed`
-
-      return (
-        <iframe
-          src={embedUrl}
-          className="w-full h-full border-0"
-          title={item.media.name}
-          style={{ ...mediaStyle, pointerEvents: "none" }}
-        />
-      )
-    }
+    const mediaStyle = getTransitionStyles()
 
     return (
-      <div className="flex items-center justify-center h-full bg-gray-100" style={mediaStyle}>
-        <div className="text-center">
-          <ImageIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">Unsupported media type</p>
-        </div>
+      <div className="relative w-full h-full overflow-hidden">
+        {item.media.mime_type?.startsWith("image/") ? (
+          <img src={item.media.file_path || "/placeholder.svg"} alt={item.media.name} style={mediaStyle} />
+        ) : item.media.mime_type?.startsWith("video/") ? (
+          <video src={item.media.file_path} style={mediaStyle} autoPlay muted={volume === 0} onEnded={goToNext} />
+        ) : item.media.file_path?.includes("docs.google.com/presentation") ? (
+          <iframe
+            src={item.media.file_path.replace("/edit", "/embed")}
+            style={mediaStyle}
+            frameBorder="0"
+            allowFullScreen
+          />
+        ) : (
+          <div style={mediaStyle} className="flex items-center justify-center bg-gray-100 text-gray-500">
+            <p>Unsupported media type</p>
+          </div>
+        )}
       </div>
     )
   }
