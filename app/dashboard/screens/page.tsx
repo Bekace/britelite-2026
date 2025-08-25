@@ -16,7 +16,26 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { Monitor, Plus, Search, Edit, Trash2, MapPin, Smartphone, Tv, Copy, CheckCircle } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import {
+  Monitor,
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  MapPin,
+  Smartphone,
+  Tv,
+  Copy,
+  CheckCircle,
+  ArrowRight,
+  ArrowLeft,
+  Wifi,
+  RotateCw,
+  ImageIcon,
+  PlayCircle,
+  Calendar,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Screen {
@@ -37,26 +56,74 @@ interface Playlist {
   name: string
 }
 
+interface MediaItem {
+  id: string
+  name: string
+  mime_type: string
+  file_size: number
+}
+
+interface WizardState {
+  step: number
+  pairingCode: string
+  isPaired: boolean
+  contentType: "playlist" | "asset" | "schedule" | ""
+  selectedContentId: string
+  screenName: string
+  location: string
+  resolution: string
+  orientation: "landscape" | "rotate-90" | "rotate-180" | "rotate-270"
+  advancedOptions: {
+    locationEnabled: boolean
+    backgroundType: "color" | "image" | "transparent"
+    defaultColor: string
+    syncPlay: boolean
+    showDownloadingStatus: boolean
+    preloadAssets: boolean
+    showOfflineIndicator: boolean
+    mute: boolean
+  }
+}
+
 export default function ScreensPage() {
   const [screens, setScreens] = useState<Screen[]>([])
   const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingScreen, setEditingScreen] = useState<Screen | null>(null)
-  const [newScreen, setNewScreen] = useState({
-    name: "",
+  const [creating, setCreating] = useState(false)
+  const [updating, setUpdating] = useState(false)
+
+  const [wizardState, setWizardState] = useState<WizardState>({
+    step: 1,
+    pairingCode: "",
+    isPaired: false,
+    contentType: "",
+    selectedContentId: "",
+    screenName: "",
     location: "",
     resolution: "1920x1080",
     orientation: "landscape",
+    advancedOptions: {
+      locationEnabled: false,
+      backgroundType: "color",
+      defaultColor: "#000000",
+      syncPlay: false,
+      showDownloadingStatus: true,
+      preloadAssets: false,
+      showOfflineIndicator: true,
+      mute: false,
+    },
   })
-  const [creating, setCreating] = useState(false)
-  const [updating, setUpdating] = useState(false)
+
   const { toast } = useToast()
 
   useEffect(() => {
     fetchScreens()
     fetchPlaylists()
+    fetchMediaItems()
   }, [])
 
   const fetchScreens = async () => {
@@ -96,9 +163,66 @@ export default function ScreensPage() {
     }
   }
 
-  const handleCreateScreen = async () => {
-    if (!newScreen.name.trim()) return
+  const fetchMediaItems = async () => {
+    try {
+      const response = await fetch("/api/media/list")
+      if (response.ok) {
+        const data = await response.json()
+        setMediaItems(data.media || [])
+      }
+    } catch (error) {
+      console.error("Error fetching media items:", error)
+    }
+  }
 
+  const generatePairingCode = () => {
+    const code = `SCR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`
+    setWizardState((prev) => ({ ...prev, pairingCode: code }))
+  }
+
+  const handlePairDevice = () => {
+    if (wizardState.pairingCode.trim()) {
+      setWizardState((prev) => ({ ...prev, isPaired: true }))
+      toast({
+        title: "Device Paired",
+        description: "Screen successfully connected to the platform",
+      })
+    }
+  }
+
+  const nextStep = () => {
+    setWizardState((prev) => ({ ...prev, step: prev.step + 1 }))
+  }
+
+  const prevStep = () => {
+    setWizardState((prev) => ({ ...prev, step: prev.step - 1 }))
+  }
+
+  const resetWizard = () => {
+    setWizardState({
+      step: 1,
+      pairingCode: "",
+      isPaired: false,
+      contentType: "",
+      selectedContentId: "",
+      screenName: "",
+      location: "",
+      resolution: "1920x1080",
+      orientation: "landscape",
+      advancedOptions: {
+        locationEnabled: false,
+        backgroundType: "color",
+        defaultColor: "#000000",
+        syncPlay: false,
+        showDownloadingStatus: true,
+        preloadAssets: false,
+        showOfflineIndicator: true,
+        mute: false,
+      },
+    })
+  }
+
+  const handleCreateScreen = async () => {
     setCreating(true)
     try {
       const response = await fetch("/api/screens", {
@@ -106,14 +230,23 @@ export default function ScreensPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(newScreen),
+        body: JSON.stringify({
+          name: wizardState.screenName,
+          location: wizardState.location,
+          resolution: wizardState.resolution,
+          orientation: wizardState.orientation,
+          screen_code: wizardState.pairingCode,
+          playlist_id: wizardState.contentType === "playlist" ? wizardState.selectedContentId : null,
+          media_id: wizardState.contentType === "asset" ? wizardState.selectedContentId : null,
+          advanced_options: wizardState.advancedOptions,
+        }),
       })
 
       if (response.ok) {
         const data = await response.json()
         setScreens((prev) => [data.screen, ...prev])
-        setNewScreen({ name: "", location: "", resolution: "1920x1080", orientation: "landscape" })
         setShowCreateDialog(false)
+        resetWizard()
         toast({
           title: "Success",
           description: "Screen created successfully",
@@ -137,6 +270,378 @@ export default function ScreensPage() {
       setCreating(false)
     }
   }
+
+  const renderStep1 = () => (
+    <div className="space-y-4">
+      <div className="text-center">
+        <Wifi className="h-12 w-12 mx-auto text-cyan-500 mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Connect Your Screen</h3>
+        <p className="text-gray-600 mb-6">
+          Enter the pairing code from your device player or generate a temporary one for development.
+        </p>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="pairing-code">Pairing Code</Label>
+          <div className="flex gap-2">
+            <Input
+              id="pairing-code"
+              placeholder="Enter pairing code"
+              value={wizardState.pairingCode}
+              onChange={(e) => setWizardState((prev) => ({ ...prev, pairingCode: e.target.value }))}
+            />
+            <Button variant="outline" onClick={generatePairingCode}>
+              Generate
+            </Button>
+          </div>
+        </div>
+
+        {wizardState.isPaired && (
+          <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            <span className="text-green-800 font-medium">Paired</span>
+          </div>
+        )}
+
+        <Button
+          onClick={handlePairDevice}
+          disabled={!wizardState.pairingCode.trim() || wizardState.isPaired}
+          className="w-full"
+        >
+          {wizardState.isPaired ? "Device Connected" : "Connect Device"}
+        </Button>
+      </div>
+    </div>
+  )
+
+  const renderStep2 = () => (
+    <div className="space-y-4">
+      <div className="text-center mb-6">
+        <h3 className="text-lg font-semibold mb-2">Select Content Type</h3>
+        <p className="text-gray-600">Choose what type of content this screen will display.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        <Card
+          className={`cursor-pointer transition-colors ${wizardState.contentType === "playlist" ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+          onClick={() => setWizardState((prev) => ({ ...prev, contentType: "playlist", selectedContentId: "" }))}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <PlayCircle className="h-8 w-8 text-cyan-500" />
+              <div>
+                <h4 className="font-semibold">Playlist</h4>
+                <p className="text-sm text-gray-600">Display a sequence of media items</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-colors ${wizardState.contentType === "asset" ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+          onClick={() => setWizardState((prev) => ({ ...prev, contentType: "asset", selectedContentId: "" }))}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <ImageIcon className="h-8 w-8 text-cyan-500" />
+              <div>
+                <h4 className="font-semibold">Asset</h4>
+                <p className="text-sm text-gray-600">Display a single media item</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-colors opacity-50 ${wizardState.contentType === "schedule" ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+          onClick={() => setWizardState((prev) => ({ ...prev, contentType: "schedule", selectedContentId: "" }))}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-8 w-8 text-gray-400" />
+              <div>
+                <h4 className="font-semibold text-gray-400">Schedule</h4>
+                <p className="text-sm text-gray-400">Time-based content scheduling (Coming Soon)</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+
+  const renderStep3 = () => (
+    <div className="space-y-4">
+      <div className="text-center mb-6">
+        <h3 className="text-lg font-semibold mb-2">Select Content</h3>
+        <p className="text-gray-600">Choose the {wizardState.contentType} to display on this screen.</p>
+      </div>
+
+      {wizardState.contentType === "playlist" && (
+        <div className="space-y-3 max-h-64 overflow-y-auto">
+          {playlists.map((playlist) => (
+            <Card
+              key={playlist.id}
+              className={`cursor-pointer transition-colors ${wizardState.selectedContentId === playlist.id ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+              onClick={() => setWizardState((prev) => ({ ...prev, selectedContentId: playlist.id }))}
+            >
+              <CardContent className="p-3">
+                <div className="flex items-center gap-3">
+                  <PlayCircle className="h-6 w-6 text-cyan-500" />
+                  <div>
+                    <h4 className="font-medium">{playlist.name}</h4>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {wizardState.contentType === "asset" && (
+        <div className="space-y-3 max-h-64 overflow-y-auto">
+          {mediaItems.map((media) => (
+            <Card
+              key={media.id}
+              className={`cursor-pointer transition-colors ${wizardState.selectedContentId === media.id ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+              onClick={() => setWizardState((prev) => ({ ...prev, selectedContentId: media.id }))}
+            >
+              <CardContent className="p-3">
+                <div className="flex items-center gap-3">
+                  <ImageIcon className="h-6 w-6 text-cyan-500" />
+                  <div>
+                    <h4 className="font-medium">{media.name}</h4>
+                    <p className="text-sm text-gray-600">{media.mime_type}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {wizardState.contentType === "schedule" && (
+        <div className="text-center py-8">
+          <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+          <p className="text-gray-500">Schedule functionality will be available soon.</p>
+        </div>
+      )}
+    </div>
+  )
+
+  const renderStep4 = () => (
+    <div className="space-y-4">
+      <div className="text-center mb-6">
+        <RotateCw className="h-12 w-12 mx-auto text-cyan-500 mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Screen Orientation</h3>
+        <p className="text-gray-600">Select how the content should be oriented on your screen.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { value: "landscape", label: "Landscape", icon: Tv },
+          { value: "rotate-90", label: "Rotate 90°", icon: Smartphone },
+          { value: "rotate-180", label: "Rotate 180°", icon: Tv },
+          { value: "rotate-270", label: "Rotate 270°", icon: Smartphone },
+        ].map(({ value, label, icon: Icon }) => (
+          <Card
+            key={value}
+            className={`cursor-pointer transition-colors ${wizardState.orientation === value ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+            onClick={() => setWizardState((prev) => ({ ...prev, orientation: value as any }))}
+          >
+            <CardContent className="p-4 text-center">
+              <Icon className="h-8 w-8 mx-auto text-cyan-500 mb-2" />
+              <h4 className="font-medium">{label}</h4>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="space-y-4 pt-4">
+        <div>
+          <Label htmlFor="screen-name">Screen Name</Label>
+          <Input
+            id="screen-name"
+            placeholder="Enter screen name"
+            value={wizardState.screenName}
+            onChange={(e) => setWizardState((prev) => ({ ...prev, screenName: e.target.value }))}
+          />
+        </div>
+        <div>
+          <Label htmlFor="screen-location">Location (Optional)</Label>
+          <Input
+            id="screen-location"
+            placeholder="Enter location"
+            value={wizardState.location}
+            onChange={(e) => setWizardState((prev) => ({ ...prev, location: e.target.value }))}
+          />
+        </div>
+        <div>
+          <Label htmlFor="screen-resolution">Resolution</Label>
+          <Select
+            value={wizardState.resolution}
+            onValueChange={(value) => setWizardState((prev) => ({ ...prev, resolution: value }))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1920x1080">1920x1080 (Full HD)</SelectItem>
+              <SelectItem value="3840x2160">3840x2160 (4K)</SelectItem>
+              <SelectItem value="1366x768">1366x768 (HD)</SelectItem>
+              <SelectItem value="1280x720">1280x720 (HD Ready)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderStep5 = () => (
+    <div className="space-y-4">
+      <div className="text-center mb-6">
+        <h3 className="text-lg font-semibold mb-2">Advanced Options</h3>
+        <p className="text-gray-600">Configure additional settings for your screen.</p>
+      </div>
+
+      <div className="space-y-4 max-h-64 overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Location Services</Label>
+            <p className="text-sm text-gray-600">Enable location-based features</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.locationEnabled}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, locationEnabled: checked },
+              }))
+            }
+          />
+        </div>
+
+        <div>
+          <Label>Background Type</Label>
+          <Select
+            value={wizardState.advancedOptions.backgroundType}
+            onValueChange={(value: "color" | "image" | "transparent") =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, backgroundType: value },
+              }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="color">Solid Color</SelectItem>
+              <SelectItem value="image">Background Image</SelectItem>
+              <SelectItem value="transparent">Transparent</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {wizardState.advancedOptions.backgroundType === "color" && (
+          <div>
+            <Label>Default Color</Label>
+            <Input
+              type="color"
+              value={wizardState.advancedOptions.defaultColor}
+              onChange={(e) =>
+                setWizardState((prev) => ({
+                  ...prev,
+                  advancedOptions: { ...prev.advancedOptions, defaultColor: e.target.value },
+                }))
+              }
+            />
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Sync Play</Label>
+            <p className="text-sm text-gray-600">Synchronize playback across screens</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.syncPlay}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, syncPlay: checked },
+              }))
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Show Downloading Status</Label>
+            <p className="text-sm text-gray-600">Display download progress</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.showDownloadingStatus}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, showDownloadingStatus: checked },
+              }))
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Preload Assets in Playlist</Label>
+            <p className="text-sm text-gray-600">Cache content for smoother playback</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.preloadAssets}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, preloadAssets: checked },
+              }))
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Show Offline Indicator</Label>
+            <p className="text-sm text-gray-600">Display connection status</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.showOfflineIndicator}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, showOfflineIndicator: checked },
+              }))
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Mute</Label>
+            <p className="text-sm text-gray-600">Disable audio playback</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.mute}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, mute: checked },
+              }))
+            }
+          />
+        </div>
+      </div>
+    </div>
+  )
 
   const handleUpdateScreen = async () => {
     if (!editingScreen) return
@@ -260,82 +765,76 @@ export default function ScreensPage() {
           <h1 className="text-3xl font-bold text-gray-900">Screens</h1>
           <p className="text-gray-600 mt-1">Manage your digital signage displays</p>
         </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <Dialog
+          open={showCreateDialog}
+          onOpenChange={(open) => {
+            setShowCreateDialog(open)
+            if (!open) resetWizard()
+          }}
+        >
           <DialogTrigger asChild>
             <Button className="bg-cyan-500 hover:bg-cyan-600">
               <Plus className="h-4 w-4 mr-2" />
               Add Screen
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Add New Screen</DialogTitle>
-              <DialogDescription>Register a new digital signage display to your account.</DialogDescription>
+              <DialogTitle>Create New Screen - Step {wizardState.step} of 5</DialogTitle>
+              <DialogDescription>
+                {wizardState.step === 1 && "Connect your device to the platform"}
+                {wizardState.step === 2 && "Choose the type of content to display"}
+                {wizardState.step === 3 && "Select specific content for your screen"}
+                {wizardState.step === 4 && "Configure screen orientation and details"}
+                {wizardState.step === 5 && "Set up advanced display options"}
+              </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Screen Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter screen name"
-                  value={newScreen.name}
-                  onChange={(e) => setNewScreen((prev) => ({ ...prev, name: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="location">Location</Label>
-                <Input
-                  id="location"
-                  placeholder="Enter location (optional)"
-                  value={newScreen.location}
-                  onChange={(e) => setNewScreen((prev) => ({ ...prev, location: e.target.value }))}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="resolution">Resolution</Label>
-                  <Select
-                    value={newScreen.resolution}
-                    onValueChange={(value) => setNewScreen((prev) => ({ ...prev, resolution: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1920x1080">1920x1080 (Full HD)</SelectItem>
-                      <SelectItem value="3840x2160">3840x2160 (4K)</SelectItem>
-                      <SelectItem value="1366x768">1366x768 (HD)</SelectItem>
-                      <SelectItem value="1280x720">1280x720 (HD Ready)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="orientation">Orientation</Label>
-                  <Select
-                    value={newScreen.orientation}
-                    onValueChange={(value) => setNewScreen((prev) => ({ ...prev, orientation: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="landscape">Landscape</SelectItem>
-                      <SelectItem value="portrait">Portrait</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
+
+            {wizardState.step === 1 && renderStep1()}
+            {wizardState.step === 2 && renderStep2()}
+            {wizardState.step === 3 && renderStep3()}
+            {wizardState.step === 4 && renderStep4()}
+            {wizardState.step === 5 && renderStep5()}
+
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateScreen} disabled={!newScreen.name.trim() || creating}>
-                {creating ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                ) : null}
-                Create Screen
-              </Button>
+              <div className="flex justify-between w-full">
+                <Button
+                  variant="outline"
+                  onClick={wizardState.step === 1 ? () => setShowCreateDialog(false) : prevStep}
+                >
+                  {wizardState.step === 1 ? (
+                    "Cancel"
+                  ) : (
+                    <>
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back
+                    </>
+                  )}
+                </Button>
+
+                {wizardState.step < 5 ? (
+                  <Button
+                    onClick={nextStep}
+                    disabled={
+                      (wizardState.step === 1 && !wizardState.isPaired) ||
+                      (wizardState.step === 2 && !wizardState.contentType) ||
+                      (wizardState.step === 3 &&
+                        !wizardState.selectedContentId &&
+                        wizardState.contentType !== "schedule") ||
+                      (wizardState.step === 4 && !wizardState.screenName.trim())
+                    }
+                  >
+                    Next <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                ) : (
+                  <Button onClick={handleCreateScreen} disabled={creating || !wizardState.screenName.trim()}>
+                    {creating ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    ) : null}
+                    Create Screen
+                  </Button>
+                )}
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
