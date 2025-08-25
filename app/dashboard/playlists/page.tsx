@@ -40,6 +40,7 @@ interface Playlist {
   description: string
   created_at: string
   playlist_media: { count: number }[]
+  background_color?: string
 }
 
 interface PlaylistItem {
@@ -549,6 +550,10 @@ export default function PlaylistsPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const [playlistBackgroundColor, setPlaylistBackgroundColor] = useState(
+    selectedPlaylist?.background_color || "#000000",
+  )
 
   const { toast } = useToast()
 
@@ -1068,6 +1073,27 @@ export default function PlaylistsPage() {
     )
   }
 
+  const handleUpdatePlaylistBackground = async (backgroundColor: string) => {
+    if (!selectedPlaylist) return
+
+    try {
+      const response = await fetch(`/api/playlists/${selectedPlaylist.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ background_color: backgroundColor }),
+      })
+
+      if (!response.ok) throw new Error("Failed to update background color")
+
+      // Update local state
+      setPlaylists((prev) =>
+        prev.map((p) => (p.id === selectedPlaylist.id ? { ...p, background_color: backgroundColor } : p)),
+      )
+    } catch (error) {
+      console.error("Error updating background color:", error)
+    }
+  }
+
   return (
     <div className="flex h-full gap-6">
       <div className="w-1/3 space-y-6">
@@ -1316,6 +1342,39 @@ export default function PlaylistsPage() {
                       <div>
                         <Label>Created</Label>
                         <Input value={new Date(selectedPlaylist.created_at).toLocaleString()} readOnly />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Appearance</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label htmlFor="background-color">Background Color</Label>
+                        <div className="flex items-center gap-3 mt-2">
+                          <input
+                            id="background-color"
+                            type="color"
+                            value={playlistBackgroundColor}
+                            onChange={(e) => {
+                              setPlaylistBackgroundColor(e.target.value)
+                              handleUpdatePlaylistBackground(e.target.value)
+                            }}
+                            className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+                          />
+                          <Input
+                            value={playlistBackgroundColor}
+                            onChange={(e) => {
+                              setPlaylistBackgroundColor(e.target.value)
+                              handleUpdatePlaylistBackground(e.target.value)
+                            }}
+                            placeholder="#000000"
+                            className="font-mono text-sm"
+                          />
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">Choose the background color for playlist preview</p>
                       </div>
                     </CardContent>
                   </Card>
