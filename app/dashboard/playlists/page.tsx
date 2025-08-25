@@ -871,25 +871,72 @@ export default function PlaylistsPage() {
     setShowEditDialog(true)
   }
 
+  const goToNext = () => {
+    if (currentIndex < playlistItems.length - 1) {
+      const currentItem = playlistItems[currentIndex + 1]
+      const transitionType = currentItem?.transition_type || "fade"
+      const transitionDuration = currentItem?.transition_duration || 0.8
+
+      console.log("[v0] Applying transition:", transitionType, "duration:", transitionDuration)
+
+      setIsTransitioning(true)
+      setTimeout(() => {
+        setCurrentIndex((prev) => prev + 1)
+        setTimeRemaining(playlistItems[currentIndex + 1]?.duration_override || 10)
+        setIsTransitioning(false)
+      }, transitionDuration * 1000) // Full transition duration
+    } else if (autoLoop) {
+      const firstItem = playlistItems[0]
+      const transitionType = firstItem?.transition_type || "fade"
+      const transitionDuration = firstItem?.transition_duration || 0.8
+
+      console.log("[v0] Loop transition:", transitionType, "duration:", transitionDuration)
+
+      setIsTransitioning(true)
+      setTimeout(() => {
+        setCurrentIndex(0)
+        setTimeRemaining(playlistItems[0]?.duration_override || 10)
+        setIsTransitioning(false)
+      }, transitionDuration * 1000)
+    } else {
+      setIsPlaying(false)
+    }
+  }
+
+  const goToPrevious = () => {
+    if (currentIndex > 0) {
+      const previousItem = playlistItems[currentIndex - 1]
+      const transitionType = previousItem?.transition_type || "fade"
+      const transitionDuration = previousItem?.transition_duration || 0.8
+
+      console.log("[v0] Previous transition:", transitionType, "duration:", transitionDuration)
+
+      setIsTransitioning(true)
+      setTimeout(() => {
+        setCurrentIndex((prev) => prev - 1)
+        setTimeRemaining(playlistItems[currentIndex - 1]?.duration_override || 10)
+        setIsTransitioning(false)
+      }, transitionDuration * 1000)
+    }
+  }
+
   const renderMedia = () => {
     if (!playlistItems.length || currentIndex >= playlistItems.length) return null
 
     const item = playlistItems[currentIndex]
-    const isImage = item.media.file_path?.match(/\.(jpg|jpeg|png|gif|webp)$/i)
-    const isVideo = item.media.file_path?.match(/\.(mp4|webm|ogg|mov)$/i)
-    const isGoogleSlides = item.media.file_path?.includes("docs.google.com/presentation")
+    const transitionType = item.transition_type || "fade"
+    const transitionDuration = item.transition_duration || 0.8
 
-    const transitionClasses = {
-      fade: "transition-opacity duration-800 ease-in-out",
-      "slide-left": "transition-transform duration-800 ease-in-out",
-      "slide-right": "transition-transform duration-800 ease-in-out",
-      "cross-fade": "transition-all duration-1000 ease-in-out",
-      zoom: "transition-all duration-800 ease-in-out",
-    }
+    console.log("[v0] Rendering item with transition:", transitionType, "transitioning:", isTransitioning)
+
+    const isImage = item.media.mime_type?.startsWith("image/")
+    const isVideo = item.media.mime_type?.startsWith("video/")
+    const isGoogleSlides = item.media.file_path?.includes("docs.google.com/presentation")
 
     const getTransitionStyle = () => {
       const baseStyle = {
         transitionDuration: `${transitionDuration}s`,
+        transitionTimingFunction: "ease-in-out",
       }
 
       if (isTransitioning) {
@@ -897,15 +944,15 @@ export default function PlaylistsPage() {
           case "fade":
             return { ...baseStyle, opacity: 0 }
           case "slide-left":
-            return { ...baseStyle, transform: "translateX(-100%)" }
+            return { ...baseStyle, transform: "translateX(-100%)", opacity: 1 }
           case "slide-right":
-            return { ...baseStyle, transform: "translateX(100%)" }
+            return { ...baseStyle, transform: "translateX(100%)", opacity: 1 }
           case "cross-fade":
             return { ...baseStyle, opacity: 0, transform: "scale(0.95)" }
           case "zoom":
             return { ...baseStyle, opacity: 0, transform: "scale(1.1)" }
           default:
-            return baseStyle
+            return { ...baseStyle, opacity: 0 }
         }
       }
 
@@ -914,86 +961,40 @@ export default function PlaylistsPage() {
 
     return (
       <div className="relative w-full h-full overflow-hidden bg-black rounded-lg">
-        <div className={`w-full h-full ${transitionClasses[transitionType]}`} style={getTransitionStyle()}>
+        <div className="w-full h-full transition-all" style={getTransitionStyle()}>
           {isImage && (
             <img
               src={item.media.file_path || "/placeholder.svg"}
-              alt={item.media.name || "Media item"}
+              alt={item.media.name}
               className="w-full h-full object-contain"
-              onLoad={() => setIsTransitioning(false)}
             />
           )}
-
           {isVideo && (
             <video
               ref={videoRef}
               src={item.media.file_path}
               className="w-full h-full object-contain"
               controls={false}
-              muted={false}
-              onLoadedData={() => setIsTransitioning(false)}
-              onEnded={() => {
-                // Auto-advance when video ends
-                if (currentIndex < playlistItems.length - 1) {
-                  goToNext()
-                } else if (autoLoop) {
-                  setCurrentIndex(0)
-                  setTimeRemaining(playlistItems[0]?.duration_override || 10)
-                } else {
-                  setIsPlaying(false)
-                }
-              }}
-              style={{
-                playbackRate: playbackSpeed,
-                volume: volume / 100,
-              }}
+              autoPlay
+              muted={volume === 0}
+              onEnded={goToNext}
+              style={{ playbackRate: playbackSpeed }}
             />
           )}
-
           {isGoogleSlides && (
             <iframe
-              src={item.media.file_path.replace("/edit", "/embed?start=true&loop=false&delayms=3000")}
+              src={item.media.file_path?.replace("/edit", "/embed")}
               className="w-full h-full border-0"
               allowFullScreen
-              onLoad={() => setIsTransitioning(false)}
             />
           )}
         </div>
 
-        {/* Transition overlay for cross-fade effect */}
         {transitionType === "cross-fade" && isTransitioning && (
           <div className="absolute inset-0 bg-black/20 transition-opacity duration-500" />
         )}
       </div>
     )
-  }
-
-  const goToNext = () => {
-    if (currentIndex < playlistItems.length - 1) {
-      setIsTransitioning(true)
-      setTimeout(() => {
-        setCurrentIndex((prev) => prev + 1)
-        setTimeRemaining(playlistItems[currentIndex + 1]?.duration_override || 10)
-      }, transitionDuration * 500) // Start transition halfway through
-    } else if (autoLoop) {
-      setIsTransitioning(true)
-      setTimeout(() => {
-        setCurrentIndex(0)
-        setTimeRemaining(playlistItems[0]?.duration_override || 10)
-      }, transitionDuration * 500)
-    } else {
-      setIsPlaying(false)
-    }
-  }
-
-  const goToPrevious = () => {
-    if (currentIndex > 0) {
-      setIsTransitioning(true)
-      setTimeout(() => {
-        setCurrentIndex((prev) => prev - 1)
-        setTimeRemaining(playlistItems[currentIndex - 1]?.duration_override || 10)
-      }, transitionDuration * 500)
-    }
   }
 
   const togglePlayPause = () => {
