@@ -1,75 +1,62 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-export const isSupabaseConfigured =
-  typeof process.env.NEXT_PUBLIC_SUPABASE_URL === "string" &&
-  process.env.NEXT_PUBLIC_SUPABASE_URL.length > 0 &&
-  typeof process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === "string" &&
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length > 0
-
 export async function updateSession(request: NextRequest) {
-  // If Supabase is not configured, just continue without auth
-  if (!isSupabaseConfigured) {
-    return NextResponse.next({
-      request,
-    })
-  }
-
   let supabaseResponse = NextResponse.next({
     request,
   })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
-        },
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  // If Supabase is not configured, skip auth checks and continue
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return supabaseResponse
+  }
+
+  // With Fluid compute, don't put this client in a global environment
+  // variable. Always create a new one on each request.
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll()
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+        supabaseResponse = NextResponse.next({
+          request,
+        })
+        cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
       },
     },
-  )
+  })
 
-  // Check if this is an auth callback
-  const requestUrl = new URL(request.url)
-  const code = requestUrl.searchParams.get("code")
+  try {
+    // Do not run code between createServerClient and
+    // supabase.auth.getUser(). A simple mistake could make it very hard to debug
+    // issues with users being randomly logged out.
 
-  if (code) {
-    // Exchange the code for a session
-    await supabase.auth.exchangeCodeForSession(code)
-    // Redirect to dashboard after successful auth
-    return NextResponse.redirect(new URL("/dashboard", request.url))
-  }
-
-  // Refresh session if expired - required for Server Components
-  await supabase.auth.getSession()
-
-  // Protected routes - redirect to login if not authenticated
-  const isAuthRoute =
-    request.nextUrl.pathname.startsWith("/auth/login") ||
-    request.nextUrl.pathname.startsWith("/auth/sign-up") ||
-    request.nextUrl.pathname === "/auth/callback"
-
-  const isDashboardRoute = request.nextUrl.pathname.startsWith("/dashboard")
-
-  if (isDashboardRoute && !isAuthRoute) {
+    // IMPORTANT: If you remove getUser() and you use server-side rendering
+    // with the Supabase client, your users may be randomly logged out.
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
-      const redirectUrl = new URL("/auth/login", request.url)
-      return NextResponse.redirect(redirectUrl)
+    if (
+      request.nextUrl.pathname !== "/" &&
+      !user &&
+      !request.nextUrl.pathname.startsWith("/auth") &&
+      !request.nextUrl.pathname.startsWith("/login")
+    ) {
+      // no user, potentially respond by redirecting the user to the login page
+      const url = request.nextUrl.clone()
+      url.pathname = "/auth/login"
+      return NextResponse.redirect(url)
     }
+  } catch (error) {
+    console.error("[v0] Supabase auth error in middleware:", error)
   }
 
+  // IMPORTANT: You *must* return the supabaseResponse object as it is.
   return supabaseResponse
 }

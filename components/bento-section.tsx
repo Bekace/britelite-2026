@@ -36,33 +36,33 @@ const BentoCard = ({ title, description, Component }) => (
 export function BentoSection() {
   const cards = [
     {
-      title: "AI-powered code reviews.",
-      description: "Get real-time, smart suggestions for cleaner code.",
+      title: "AI-Powered Content Optimization",
+      description: "Receive real-time, intelligent recommendations to make your signage more engaging and effective.",
       Component: AiCodeReviews,
     },
     {
-      title: "Real-time coding previews",
-      description: "Chat, collaborate, and instantly preview changes together.",
+      title: "Real-Time Signage Previews",
+      description: "Collaborate, adjust, and instantly see updates on your screens.",
       Component: RealtimeCodingPreviews,
     },
     {
       title: "One-click integrations",
-      description: "Easily connect your workflow with popular dev tools.",
+      description: "Quickly connect your signage system with popular apps and tools.",
       Component: OneClickIntegrationsIllustration,
     },
     {
-      title: "Flexible MCP connectivity",
-      description: "Effortlessly manage and configure MCP server access.",
+      title: "Flexible Screen Connectivity",
+      description: "Easily manage and configure access for all your signage devices.",
       Component: MCPConnectivityIllustration, // Updated component
     },
     {
-      title: "Launch parallel coding agents", // Swapped position
-      description: "Solve complex problems faster with multiple AI agents.",
+      title: "Launch Parallel AI Assistants", // Swapped position
+      description: "Optimize multiple screens simultaneously for faster, smarter updates.",
       Component: ParallelCodingAgents, // Updated component
     },
     {
       title: "Deployment made easy", // Swapped position
-      description: "Go from code to live deployment on Vercel instantly.",
+      description: "Publish your signage content live across screens instantly.",
       Component: EasyDeployment,
     },
   ]
@@ -74,11 +74,10 @@ export function BentoSection() {
         <div className="self-stretch py-8 md:py-14 flex flex-col justify-center items-center gap-2 z-10">
           <div className="flex flex-col justify-start items-center gap-4">
             <h2 className="w-full max-w-[655px] text-center text-foreground text-4xl md:text-6xl font-semibold leading-tight md:leading-[66px]">
-              Empower Your Workflow with AI
+              Enhance Your Digital Signage with AI
             </h2>
             <p className="w-full max-w-[600px] text-center text-muted-foreground text-lg md:text-xl font-medium leading-relaxed">
-              Ask your AI Agent for real-time collaboration, seamless integrations, and actionable insights to
-              streamline your operations.
+              Let your AI assistant optimize content delivery, provide real-time audience insights, and integrate seamlessly with your screens to maximize engagement and revenue.
             </p>
           </div>
         </div>
