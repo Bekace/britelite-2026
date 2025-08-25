@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { DialogFooter } from "@/components/ui/dialog"
-import { DialogTrigger } from "@/components/ui/dialog"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -65,7 +64,7 @@ function PlaylistPreviewModal({
   playlist,
   isOpen,
   onClose,
-}: { playlist: Playlist; isOpen: boolean; onClose: () => void }) {
+}: { playlist: Playlist | null; isOpen: boolean; onClose: () => void }) {
   const [items, setItems] = useState<PlaylistItem[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -74,6 +73,7 @@ function PlaylistPreviewModal({
 
   useEffect(() => {
     if (isOpen && playlist) {
+      console.log("[v0] Fetching items for playlist:", playlist.name)
       fetchPlaylistItems()
     } else {
       setCurrentIndex(0)
@@ -106,13 +106,20 @@ function PlaylistPreviewModal({
   }, [isPlaying, timeRemaining, currentIndex, items])
 
   const fetchPlaylistItems = async () => {
+    if (!playlist) {
+      console.log("[v0] Cannot fetch items: playlist is null")
+      return
+    }
+
     setLoading(true)
     try {
+      console.log("[v0] Fetching playlist items for ID:", playlist.id)
       const response = await fetch(`/api/playlists/${playlist.id}`)
       if (response.ok) {
         const data = await response.json()
         const sortedItems =
           data.playlist.playlist_items?.sort((a: PlaylistItem, b: PlaylistItem) => a.position - b.position) || []
+        console.log("[v0] Loaded playlist items:", sortedItems.length)
         setItems(sortedItems)
         setCurrentIndex(0)
         setTimeRemaining(sortedItems[0]?.duration_override || 10)
@@ -197,6 +204,10 @@ function PlaylistPreviewModal({
   }
 
   const currentItem = items[currentIndex]
+
+  if (!playlist) {
+    return null
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -665,51 +676,10 @@ export default function PlaylistsPage() {
             <h1 className="text-3xl font-bold text-gray-900">Playlists</h1>
             <p className="text-gray-600 mt-1">Create and manage content playlists</p>
           </div>
-          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button className="bg-cyan-500 hover:bg-cyan-600" onClick={handleOpenCreateDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Playlist</DialogTitle>
-                <DialogDescription>Create a new playlist to organize your media content.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    placeholder="Enter playlist name"
-                    value={newPlaylist.name}
-                    onChange={(e) => setNewPlaylist((prev) => ({ ...prev, name: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Enter playlist description (optional)"
-                    value={newPlaylist.description}
-                    onChange={(e) => setNewPlaylist((prev) => ({ ...prev, description: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreatePlaylist} disabled={!newPlaylist.name.trim() || creating}>
-                  {creating ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  ) : null}
-                  Create
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button className="bg-cyan-500 hover:bg-cyan-600" onClick={handleOpenCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create
+          </Button>
         </div>
 
         <div className="relative">
@@ -1121,7 +1091,7 @@ export default function PlaylistsPage() {
       </Dialog>
 
       <PlaylistPreviewModal
-        playlist={previewPlaylist!}
+        playlist={previewPlaylist}
         isOpen={!!previewPlaylist}
         onClose={() => {
           console.log("[v0] Closing preview modal")
