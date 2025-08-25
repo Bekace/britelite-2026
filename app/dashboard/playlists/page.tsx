@@ -29,8 +29,6 @@ import {
   Edit,
   SkipBack,
   Volume2,
-  Maximize2,
-  Minimize2,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -64,11 +62,13 @@ interface Media {
   created_at: string
 }
 
-function PlaylistPreviewModal({
-  playlist,
-  isOpen,
-  onClose,
-}: { playlist: Playlist | null; isOpen: boolean; onClose: () => void }) {
+interface PlaylistPreviewProps {
+  playlist: Playlist | null
+  isOpen: boolean
+  onClose: () => void
+}
+
+function PlaylistPreviewModal({ playlist, isOpen, onClose }: PlaylistPreviewProps) {
   const [items, setItems] = useState<PlaylistItem[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -80,6 +80,10 @@ function PlaylistPreviewModal({
   const [autoLoop, setAutoLoop] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const [transitionType, setTransitionType] = useState<"fade" | "slide" | "crossfade" | "zoom">("fade")
+  const [transitionDuration, setTransitionDuration] = useState(0.8)
+  const [isTransitioning, setIsTransitioning] = useState(false)
 
   useEffect(() => {
     if (isOpen && playlist) {
@@ -256,14 +260,38 @@ function PlaylistPreviewModal({
     }
   }
 
-  const renderSimpleMedia = (item: PlaylistItem) => {
+  const getTransitionTransform = () => {
+    if (!isTransitioning) return "none"
+
+    switch (transitionType) {
+      case "slide":
+        return "translateX(100%)"
+      case "zoom":
+        return "scale(0.8)"
+      case "crossfade":
+      case "fade":
+      default:
+        return "none"
+    }
+  }
+
+  const renderMedia = () => {
+    if (!items.length || currentIndex >= items.length) return null
+
+    const item = items[currentIndex]
+    const mediaStyle = {
+      transition: `all ${transitionDuration}s ease-in-out`,
+      opacity: isTransitioning ? 0 : 1,
+      transform: getTransitionTransform(),
+    }
+
     if (item.media.mime_type?.startsWith("image/")) {
       return (
         <img
           src={item.media.file_path || "/placeholder.svg"}
           alt={item.media.name}
           className="w-full h-full object-contain"
-          style={{ pointerEvents: "none" }}
+          style={{ ...mediaStyle, pointerEvents: "none" }}
         />
       )
     }
@@ -275,6 +303,7 @@ function PlaylistPreviewModal({
           src={item.media.file_path}
           className="w-full h-full object-contain"
           playsInline
+          style={mediaStyle}
           onEnded={() => {
             // Auto-advance when video ends
             if (currentIndex < items.length - 1) {
@@ -300,13 +329,13 @@ function PlaylistPreviewModal({
           src={embedUrl}
           className="w-full h-full border-0"
           title={item.media.name}
-          style={{ pointerEvents: "none" }}
+          style={{ ...mediaStyle, pointerEvents: "none" }}
         />
       )
     }
 
     return (
-      <div className="flex items-center justify-center h-full bg-gray-100">
+      <div className="flex items-center justify-center h-full bg-gray-100" style={mediaStyle}>
         <div className="text-center">
           <ImageIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600">Unsupported media type</p>
@@ -336,36 +365,7 @@ function PlaylistPreviewModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mx-6 bg-black relative" style={{ aspectRatio: "16/9" }}>
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-            </div>
-          ) : items.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-white">
-              <div className="text-center">
-                <PlayCircle className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <p>No media items in this playlist</p>
-              </div>
-            </div>
-          ) : currentItem ? (
-            <>
-              {renderSimpleMedia(currentItem)}
-              <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white p-3 rounded">
-                <p className="font-medium">{currentItem.media.name}</p>
-                <p className="text-sm opacity-75">
-                  {timeRemaining}s remaining • {currentItem.duration_override}s total
-                </p>
-              </div>
-              <button
-                onClick={toggleFullscreen}
-                className="absolute top-4 right-4 bg-black bg-opacity-75 text-white p-2 rounded hover:bg-opacity-90"
-              >
-                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              </button>
-            </>
-          ) : null}
-        </div>
+        <div className="flex-1 relative bg-black overflow-hidden">{renderMedia()}</div>
 
         <div className="p-6 pt-4 border-t bg-gray-50">
           <div className="space-y-4">
@@ -449,6 +449,40 @@ function PlaylistPreviewModal({
 
           <div className="text-center text-sm text-gray-600 mt-2">
             <p>Keyboard shortcuts: Space (play/pause), ← → (navigate), F (fullscreen)</p>
+          </div>
+        </div>
+
+        <div className="p-4 bg-gray-900 border-t border-gray-700">
+          <div className="flex items-center justify-between mb-4">{/* ... existing playback controls ... */}</div>
+
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <label className="text-gray-300">Transition:</label>
+              <select
+                value={transitionType}
+                onChange={(e) => setTransitionType(e.target.value as any)}
+                className="bg-gray-800 text-white px-2 py-1 rounded border border-gray-600"
+              >
+                <option value="fade">Fade</option>
+                <option value="slide">Slide</option>
+                <option value="crossfade">Cross Fade</option>
+                <option value="zoom">Zoom</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-gray-300">Duration:</label>
+              <input
+                type="range"
+                min="0.3"
+                max="2"
+                step="0.1"
+                value={transitionDuration}
+                onChange={(e) => setTransitionDuration(Number.parseFloat(e.target.value))}
+                className="w-20"
+              />
+              <span className="text-gray-400 w-8">{transitionDuration}s</span>
+            </div>
           </div>
         </div>
       </DialogContent>
