@@ -25,6 +25,7 @@ import {
   Settings,
   FileText,
   GripVertical,
+  Edit,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -275,6 +276,17 @@ export default function PlaylistsPage() {
   const [availableMedia, setAvailableMedia] = useState<Media[]>([])
   const [loadingItems, setLoadingItems] = useState(false)
   const [loadingMedia, setLoadingMedia] = useState(false)
+  const [editingItem, setEditingItem] = useState<PlaylistItem | null>(null)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editForm, setEditForm] = useState({
+    name: "",
+    duration_override: 10,
+    start_time: 0,
+    end_time: 0,
+    notes: "",
+    position: 1,
+  })
+  const [updating, setUpdating] = useState(false)
 
   const { toast } = useToast()
 
@@ -498,6 +510,63 @@ export default function PlaylistsPage() {
   const handleOpenCreateDialog = () => {
     setPreviewPlaylist(null)
     setShowCreateDialog(true)
+  }
+
+  const handleEditItem = (item: PlaylistItem) => {
+    setEditingItem(item)
+    setEditForm({
+      name: item.media.name,
+      duration_override: item.duration_override,
+      start_time: 0, // Default values - could be extended to store these in DB
+      end_time: item.duration_override,
+      notes: "", // Could be extended to store notes in DB
+      position: item.position,
+    })
+    setShowEditDialog(true)
+  }
+
+  const handleUpdateItem = async () => {
+    if (!editingItem || !selectedPlaylist) return
+
+    setUpdating(true)
+    try {
+      const response = await fetch(`/api/playlists/${selectedPlaylist.id}/media`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          playlist_item_id: editingItem.id,
+          duration_override: editForm.duration_override,
+          position: editForm.position,
+        }),
+      })
+
+      if (response.ok) {
+        fetchPlaylistItems(selectedPlaylist.id)
+        setShowEditDialog(false)
+        setEditingItem(null)
+        toast({
+          title: "Success",
+          description: "Playlist item updated successfully",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update playlist item",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error updating item:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update playlist item",
+        variant: "destructive",
+      })
+    } finally {
+      setUpdating(false)
+    }
   }
 
   if (loading) {
@@ -742,14 +811,24 @@ export default function PlaylistsPage() {
                                 <p className="font-medium truncate">{item.media.name}</p>
                                 <p className="text-sm text-gray-600">Duration: {item.duration_override}s</p>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveFromPlaylist(item.id)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditItem(item)}
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveFromPlaylist(item.id)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
@@ -817,13 +896,139 @@ export default function PlaylistsPage() {
         )}
       </div>
 
-      {previewPlaylist && (
-        <PlaylistPreviewModal
-          playlist={previewPlaylist}
-          isOpen={!!previewPlaylist}
-          onClose={() => setPreviewPlaylist(null)}
-        />
-      )}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Playlist Item</DialogTitle>
+            <DialogDescription>Modify the settings for this playlist item</DialogDescription>
+          </DialogHeader>
+
+          {editingItem && (
+            <div className="space-y-4">
+              {/* Media Preview */}
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                  {editingItem.media.mime_type?.startsWith("image/") ? (
+                    <img
+                      src={editingItem.media.file_path || "/placeholder.svg"}
+                      alt={editingItem.media.name}
+                      className="w-full h-full object-cover rounded"
+                    />
+                  ) : editingItem.media.mime_type?.startsWith("video/") ? (
+                    <Video className="h-6 w-6 text-gray-400" />
+                  ) : (
+                    <ImageIcon className="h-6 w-6 text-gray-400" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{editingItem.media.name}</p>
+                  <p className="text-sm text-gray-500">{editingItem.media.mime_type}</p>
+                </div>
+              </div>
+
+              {/* Display Name */}
+              <div>
+                <Label htmlFor="item-name">Display Name</Label>
+                <Input
+                  id="item-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Item display name"
+                />
+              </div>
+
+              {/* Duration */}
+              <div>
+                <Label htmlFor="duration">Duration (seconds)</Label>
+                <Input
+                  id="duration"
+                  type="number"
+                  min="1"
+                  max="3600"
+                  value={editForm.duration_override}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, duration_override: Number.parseInt(e.target.value) || 10 }))
+                  }
+                />
+                <p className="text-xs text-gray-500 mt-1">How long this item should display in the playlist</p>
+              </div>
+
+              {/* Position */}
+              <div>
+                <Label htmlFor="position">Position</Label>
+                <Input
+                  id="position"
+                  type="number"
+                  min="1"
+                  value={editForm.position}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, position: Number.parseInt(e.target.value) || 1 }))}
+                />
+                <p className="text-xs text-gray-500 mt-1">Order position in the playlist</p>
+              </div>
+
+              {/* Video Clip Settings (for videos) */}
+              {editingItem.media.mime_type?.startsWith("video/") && (
+                <div className="space-y-3">
+                  <Label>Video Clip Settings</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="start-time" className="text-sm">
+                        Start Time (s)
+                      </Label>
+                      <Input
+                        id="start-time"
+                        type="number"
+                        min="0"
+                        value={editForm.start_time}
+                        onChange={(e) =>
+                          setEditForm((prev) => ({ ...prev, start_time: Number.parseInt(e.target.value) || 0 }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="end-time" className="text-sm">
+                        End Time (s)
+                      </Label>
+                      <Input
+                        id="end-time"
+                        type="number"
+                        min="0"
+                        value={editForm.end_time}
+                        onChange={(e) =>
+                          setEditForm((prev) => ({ ...prev, end_time: Number.parseInt(e.target.value) || 0 }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500">Set start/end times to show only a portion of the video</p>
+                </div>
+              )}
+
+              {/* Notes */}
+              <div>
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Add notes or description for this item"
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateItem} disabled={updating}>
+              {updating ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : null}
+              Update Item
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
