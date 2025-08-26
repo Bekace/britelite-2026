@@ -27,6 +27,28 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Looking for device:", { deviceCode, userId: user.id })
 
+    const { data: existingProfile } = await supabase.from("profiles").select("id").eq("id", user.id).single()
+
+    if (!existingProfile) {
+      console.log("[v0] Creating profile for user:", user.id)
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .insert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || null,
+          company_name: null,
+          role: "user",
+        })
+        .select()
+        .single()
+
+      if (profileError) {
+        console.log("[v0] Failed to create profile:", profileError)
+        return NextResponse.json({ error: "Failed to create user profile" }, { status: 500 })
+      }
+    }
+
     // Find device by device code - first check if device exists at all
     const { data: allDevices, error: allDevicesError } = await supabase
       .from("devices")
