@@ -45,13 +45,13 @@ export function PricingSection() {
       name: "Ultra",
       monthlyPrice: "$200",
       annualPrice: "$160",
-      description: "Tailored solutions for teams.",
+      description: "Built for enterprises and franchises at scale.",
       features: [
-        "Dedicated account support",
-        "Unlimited MCP server clusters",
-        "Unlimited AI coding agents",
-        "Enterprise-grade security and compliance",
-        "Priority deployments and SLA guarantees",
+        "Unlimited screens and locations",
+        "Centralized control panel for networks",
+        "White-label branding and custom domains",
+        "24/7 premium support",
+        "Dedicated account manager and onboarding",
       ],
       buttonText: "Talk to Sales",
       buttonClass:
@@ -67,7 +67,7 @@ export function PricingSection() {
             Get the AI Player or Stick with Software Only
           </h2>
           <p className="self-stretch text-center text-muted-foreground text-sm font-medium leading-tight">
-            Choose a plan that fits your digital signage needs, whether you’re starting small, scaling up, or managing screens across multiple locations.
+            Choose a plan that fits your digital signage needs, whether you are starting small, scaling up, or managing screens across multiple locations.
           </p>
         </div>
         <div className="pt-4">
