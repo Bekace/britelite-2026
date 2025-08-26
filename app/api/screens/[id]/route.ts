@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       .from("screens")
       .select(`
         *,
-        screen_playlists!inner(
+        screen_playlists!left(
           playlist_id,
           is_active,
           playlists(id, name, description)
@@ -30,12 +30,20 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       `)
       .eq("id", params.id)
       .eq("user_id", user.id)
-      .eq("screen_playlists.is_active", true)
       .single()
 
     if (error) {
       console.error("Database error:", error)
       return NextResponse.json({ error: "Screen not found" }, { status: 404 })
+    }
+
+    if (screen.screen_playlists) {
+      screen.screen_playlists = screen.screen_playlists.filter((sp: any) => sp.is_active)
+      // If there's an active playlist, set it as the main playlist reference
+      if (screen.screen_playlists.length > 0) {
+        screen.playlists = screen.screen_playlists[0].playlists
+        screen.playlist_id = screen.screen_playlists[0].playlist_id
+      }
     }
 
     return NextResponse.json({ screen })
@@ -132,13 +140,20 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       `)
       .eq("id", params.id)
       .eq("user_id", user.id)
-      .eq("screen_playlists.is_active", true)
       .single()
 
     if (fetchError) {
       console.log("[v0] Error fetching updated screen:", fetchError)
       // Return the basic screen data if we can't fetch the playlist info
       return NextResponse.json({ screen })
+    }
+
+    if (updatedScreen.screen_playlists) {
+      updatedScreen.screen_playlists = updatedScreen.screen_playlists.filter((sp: any) => sp.is_active)
+      if (updatedScreen.screen_playlists.length > 0) {
+        updatedScreen.playlists = updatedScreen.screen_playlists[0].playlists
+        updatedScreen.playlist_id = updatedScreen.screen_playlists[0].playlist_id
+      }
     }
 
     console.log("[v0] Returning updated screen with playlist:", updatedScreen)
