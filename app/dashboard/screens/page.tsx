@@ -134,7 +134,8 @@ export default function ScreensPage() {
       const response = await fetch("/api/screens")
       if (response.ok) {
         const data = await response.json()
-        setScreens(data.screens)
+        const transformedScreens = data.screens.map(transformScreenData)
+        setScreens(transformedScreens)
       } else {
         toast({
           title: "Error",
@@ -664,7 +665,8 @@ export default function ScreensPage() {
       if (response.ok) {
         const data = await response.json()
         console.log("[v0] Screen update response:", data)
-        setScreens((prev) => prev.map((screen) => (screen.id === editingScreen.id ? data.screen : screen)))
+        const transformedScreen = transformScreenData(data.screen)
+        setScreens((prev) => prev.map((screen) => (screen.id === editingScreen.id ? transformedScreen : screen)))
         setEditingScreen(null)
         toast({
           title: "Success",
@@ -794,6 +796,18 @@ export default function ScreensPage() {
       return "Device disconnected"
     } else {
       return "Waiting for device pairing"
+    }
+  }
+
+  // Helper function to transform screen data structure
+  const transformScreenData = (screen: any): Screen => {
+    // Extract active playlist from screen_playlists array
+    const activePlaylist = screen.screen_playlists?.find((sp: any) => sp.is_active)?.playlists
+
+    return {
+      ...screen,
+      playlists: activePlaylist || null,
+      playlist_id: activePlaylist?.id || null,
     }
   }
 
