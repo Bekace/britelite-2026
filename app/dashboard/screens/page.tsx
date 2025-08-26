@@ -1103,7 +1103,21 @@ export default function ScreensPage() {
                 <Label htmlFor="edit-playlist">Assigned Playlist</Label>
                 <Select
                   value={editingScreen.playlists?.id || "none"}
-                  onValueChange={(value) => setEditingScreen((prev) => prev && { ...prev, playlist_id: value || null })}
+                  onValueChange={(value) => {
+                    if (value === "none") {
+                      setEditingScreen((prev) => prev && { ...prev, playlists: null })
+                    } else {
+                      const selectedPlaylist = playlists.find((p) => p.id === value)
+                      setEditingScreen(
+                        (prev) =>
+                          prev && {
+                            ...prev,
+                            playlists: selectedPlaylist || null,
+                            playlist_id: value,
+                          },
+                      )
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a playlist" />
