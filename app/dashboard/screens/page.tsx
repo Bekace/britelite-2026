@@ -35,6 +35,9 @@ import {
   ImageIcon,
   PlayCircle,
   Calendar,
+  WifiOff,
+  ExternalLink,
+  Settings,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -45,7 +48,7 @@ interface Screen {
   resolution: string
   orientation: string
   screen_code: string
-  status: "online" | "offline"
+  status: "online" | "offline" | "paired" | "unpaired"
   last_seen: string | null
   created_at: string
   playlists?: { id: string; name: string }
@@ -713,17 +716,17 @@ export default function ScreensPage() {
     }
   }
 
-  const copyScreenCode = async (code: string) => {
+  const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(code)
+      await navigator.clipboard.writeText(text)
       toast({
         title: "Copied!",
-        description: "Screen code copied to clipboard",
+        description: "Text copied to clipboard",
       })
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to copy screen code",
+        description: "Failed to copy text",
         variant: "destructive",
       })
     }
@@ -738,16 +741,56 @@ export default function ScreensPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "online":
-        return "bg-green-100 text-green-800"
+        return "bg-green-100 text-green-800 border-green-200"
+      case "paired":
+        return "bg-blue-100 text-blue-800 border-blue-200"
       case "offline":
-        return "bg-gray-100 text-gray-800"
+        return "bg-red-100 text-red-800 border-red-200"
+      case "unpaired":
+        return "bg-gray-100 text-gray-800 border-gray-200"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-gray-100 text-gray-800 border-gray-200"
     }
   }
 
-  const getOrientationIcon = (orientation: string) => {
-    return orientation === "portrait" ? <Smartphone className="h-4 w-4" /> : <Tv className="h-4 w-4" />
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "online":
+        return <Wifi className="h-3 w-3 mr-1 text-green-600" />
+      case "paired":
+        return <CheckCircle className="h-3 w-3 mr-1 text-blue-600" />
+      case "offline":
+        return <WifiOff className="h-3 w-3 mr-1 text-red-600" />
+      case "unpaired":
+        return <Monitor className="h-3 w-3 mr-1 text-gray-600" />
+      default:
+        return <Monitor className="h-3 w-3 mr-1 text-gray-600" />
+    }
+  }
+
+  const formatLastSeen = (lastSeen: string | null) => {
+    if (!lastSeen) return "Never"
+
+    const now = new Date()
+    const lastSeenDate = new Date(lastSeen)
+    const diffInMinutes = Math.floor((now.getTime() - lastSeenDate.getTime()) / (1000 * 60))
+
+    if (diffInMinutes < 1) return "Just now"
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`
+    return `${Math.floor(diffInMinutes / 1440)}d ago`
+  }
+
+  const getConnectionStatus = (screen: Screen) => {
+    if (screen.status === "online") {
+      return "Device connected and active"
+    } else if (screen.status === "paired") {
+      return "Device paired but not active"
+    } else if (screen.status === "offline") {
+      return "Device disconnected"
+    } else {
+      return "Waiting for device pairing"
+    }
   }
 
   if (loading) {
@@ -883,7 +926,7 @@ export default function ScreensPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <CardTitle className="text-lg truncate flex items-center gap-2" title={screen.name}>
-                      {getOrientationIcon(screen.orientation)}
+                      {getStatusIcon(screen.orientation)}
                       {screen.name}
                     </CardTitle>
                     {screen.location && (
@@ -912,36 +955,117 @@ export default function ScreensPage() {
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Badge className={getStatusColor(screen.status)}>
-                      {screen.status === "online" ? <CheckCircle className="h-3 w-3 mr-1" /> : null}
+                      {getStatusIcon(screen.status)}
                       {screen.status.charAt(0).toUpperCase() + screen.status.slice(1)}
                     </Badge>
                     <span className="text-sm text-gray-600">{screen.resolution}</span>
                   </div>
 
-                  <div className="bg-gray-50 p-2 rounded-lg">
+                  <div className="bg-gray-50 p-3 rounded-lg space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-600">Screen Code:</span>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => copyScreenCode(screen.screen_code)}
-                        className="h-6 px-2 text-xs"
+                        className="h-6 px-2 text-xs font-mono"
+                        onClick={() => copyToClipboard(screen.screen_code)}
                       >
-                        <Copy className="h-3 w-3 mr-1" />
                         {screen.screen_code}
+                        <Copy className="h-3 w-3 ml-1" />
                       </Button>
                     </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-600">Connection:</span>
+                      <span className="text-xs text-gray-800">{getConnectionStatus(screen)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-600">Last Seen:</span>
+                      <span className="text-xs text-gray-800">{formatLastSeen(screen.last_seen)}</span>
+                    </div>
+
+                    {screen.status === "online" && (
+                      <div className="flex items-center justify-center pt-2">
+                        <div className="flex items-center gap-1 text-xs text-green-600">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          Live
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {screen.playlists && (
-                    <div className="text-sm">
-                      <span className="text-gray-600">Playlist: </span>
-                      <span className="font-medium">{screen.playlists.name}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Content Assignment</span>
+                      {screen.playlists && (
+                        <Badge variant="outline" className="text-xs">
+                          <PlayCircle className="h-3 w-3 mr-1" />
+                          Playlist
+                        </Badge>
+                      )}
                     </div>
-                  )}
 
-                  <div className="text-xs text-gray-500">
-                    Created {new Date(screen.created_at).toLocaleDateString()}
+                    {screen.playlists ? (
+                      <div className="bg-blue-50 p-2 rounded border border-blue-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-blue-800 font-medium">{screen.playlists.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
+                            onClick={() => {
+                              // Navigate to playlist editor
+                              window.open(`/dashboard/playlists/${screen.playlists?.id}`, "_blank")
+                            }}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-amber-50 p-2 rounded border border-amber-200">
+                        <span className="text-sm text-amber-800">No content assigned</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    {screen.status === "unpaired" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs bg-transparent"
+                        onClick={() => {
+                          toast({
+                            title: "Pairing Instructions",
+                            description: `Share code ${screen.screen_code} with your device to pair`,
+                          })
+                        }}
+                      >
+                        <Smartphone className="h-3 w-3 mr-1" />
+                        Pair Device
+                      </Button>
+                    )}
+
+                    {(screen.status === "online" || screen.status === "paired") && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs bg-transparent"
+                        onClick={() => {
+                          // Open player in new tab for testing
+                          window.open(`/player/${screen.screen_code}`, "_blank")
+                        }}
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        View Player
+                      </Button>
+                    )}
+
+                    <Button variant="outline" size="sm" onClick={() => setEditingScreen(screen)}>
+                      <Settings className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </CardContent>
