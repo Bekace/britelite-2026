@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -21,12 +21,9 @@ import {
   Monitor,
   Plus,
   Search,
-  Edit,
   Trash2,
-  MapPin,
   Smartphone,
   Tv,
-  Copy,
   CheckCircle,
   ArrowRight,
   ArrowLeft,
@@ -36,7 +33,6 @@ import {
   PlayCircle,
   Calendar,
   WifiOff,
-  ExternalLink,
   Settings,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -98,6 +94,8 @@ export default function ScreensPage() {
   const [editingScreen, setEditingScreen] = useState<Screen | null>(null)
   const [creating, setCreating] = useState(false)
   const [updating, setUpdating] = useState(false)
+  const [repairingScreen, setRepairingScreen] = useState<Screen | null>(null)
+  const [newPairingCode, setNewPairingCode] = useState("")
 
   const [wizardState, setWizardState] = useState<WizardState>({
     step: 1,
@@ -179,17 +177,42 @@ export default function ScreensPage() {
     }
   }
 
-  const generatePairingCode = () => {
-    const code = `SCR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`
-    setWizardState((prev) => ({ ...prev, pairingCode: code }))
-  }
+  const handlePairDevice = async () => {
+    if (!wizardState.pairingCode.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a pairing code",
+        variant: "destructive",
+      })
+      return
+    }
 
-  const handlePairDevice = () => {
-    if (wizardState.pairingCode.trim()) {
+    try {
+      // Validate the device code exists and is available for pairing
+      const response = await fetch(`/api/devices/available`)
+      const data = await response.json()
+
+      const availableDevice = data.devices?.find((device: any) => device.device_code === wizardState.pairingCode)
+
+      if (!availableDevice) {
+        toast({
+          title: "Error",
+          description: "Invalid pairing code or device not found",
+          variant: "destructive",
+        })
+        return
+      }
+
       setWizardState((prev) => ({ ...prev, isPaired: true }))
       toast({
-        title: "Device Paired",
-        description: "Screen successfully connected to the platform",
+        title: "Device Found",
+        description: "Device ready for pairing",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to validate pairing code",
+        variant: "destructive",
       })
     }
   }
@@ -280,31 +303,25 @@ export default function ScreensPage() {
       <div className="text-center">
         <Wifi className="h-12 w-12 mx-auto text-cyan-500 mb-4" />
         <h3 className="text-lg font-semibold mb-2">Connect Your Screen</h3>
-        <p className="text-gray-600 mb-6">
-          Enter the pairing code from your device player or generate a temporary one for development.
-        </p>
+        <p className="text-gray-600 mb-6">Enter the pairing code displayed on your device player.</p>
       </div>
 
       <div className="space-y-4">
         <div>
-          <Label htmlFor="pairing-code">Pairing Code</Label>
-          <div className="flex gap-2">
-            <Input
-              id="pairing-code"
-              placeholder="Enter pairing code"
-              value={wizardState.pairingCode}
-              onChange={(e) => setWizardState((prev) => ({ ...prev, pairingCode: e.target.value }))}
-            />
-            <Button variant="outline" onClick={generatePairingCode}>
-              Generate
-            </Button>
-          </div>
+          <Label htmlFor="pairing-code">Device Pairing Code</Label>
+          <Input
+            id="pairing-code"
+            placeholder="Enter code from device (e.g., DEV-ABC123)"
+            value={wizardState.pairingCode}
+            onChange={(e) => setWizardState((prev) => ({ ...prev, pairingCode: e.target.value.toUpperCase() }))}
+            className="font-mono"
+          />
         </div>
 
         {wizardState.isPaired && (
           <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
             <CheckCircle className="h-5 w-5 text-green-600" />
-            <span className="text-green-800 font-medium">Paired</span>
+            <span className="text-green-800 font-medium">Device Found & Ready</span>
           </div>
         )}
 
@@ -313,7 +330,7 @@ export default function ScreensPage() {
           disabled={!wizardState.pairingCode.trim() || wizardState.isPaired}
           className="w-full"
         >
-          {wizardState.isPaired ? "Device Connected" : "Connect Device"}
+          {wizardState.isPaired ? "Device Ready" : "Find Device"}
         </Button>
       </div>
     </div>
@@ -738,6 +755,54 @@ export default function ScreensPage() {
     }
   }
 
+  const handleRepairScreen = async (screen: Screen) => {
+    if (!newPairingCode.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a pairing code",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/devices/pair`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deviceCode: newPairingCode,
+          screenId: screen.id,
+        }),
+      })
+
+      if (response.ok) {
+        // Refresh screens to show updated connection status
+        await fetchScreens()
+        setRepairingScreen(null)
+        setNewPairingCode("")
+        toast({
+          title: "Success",
+          description: "Device re-paired successfully",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to pair device",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to pair device",
+        variant: "destructive",
+      })
+    }
+  }
+
   const filteredScreens = screens.filter(
     (screen) =>
       screen.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -939,154 +1004,56 @@ export default function ScreensPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredScreens.map((screen) => (
-            <Card key={screen.id} className="group hover:shadow-lg transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg truncate flex items-center gap-2" title={screen.name}>
-                      {getStatusIcon(screen.orientation)}
-                      {screen.name}
-                    </CardTitle>
-                    {screen.location && (
-                      <div className="flex items-center gap-1 mt-1 text-sm text-gray-600">
-                        <MapPin className="h-3 w-3" />
-                        <span>{screen.location}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 ml-2">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingScreen(screen)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteScreen(screen.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Badge className={getStatusColor(screen.status)}>
-                      {getStatusIcon(screen.status)}
-                      {screen.status.charAt(0).toUpperCase() + screen.status.slice(1)}
+            <Card key={screen.id} className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Monitor className="h-4 w-4" />
+                    <h3 className="font-semibold">{screen.name}</h3>
+                    <Badge variant={screen.status === "online" ? "default" : "secondary"}>
+                      {screen.status === "online" ? "Online" : "Offline"}
                     </Badge>
-                    <span className="text-sm text-gray-600">{screen.resolution}</span>
                   </div>
 
-                  <div className="bg-gray-50 p-3 rounded-lg space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-600">Screen Code:</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-xs font-mono"
-                        onClick={() => copyToClipboard(screen.screen_code)}
-                      >
-                        {screen.screen_code}
-                        <Copy className="h-3 w-3 ml-1" />
-                      </Button>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <div>
+                      Screen Code: <code className="bg-gray-100 px-1 rounded">{screen.screen_code}</code>
                     </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-600">Connection:</span>
-                      <span className="text-xs text-gray-800">{getConnectionStatus(screen)}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-600">Last Seen:</span>
-                      <span className="text-xs text-gray-800">{formatLastSeen(screen.last_seen)}</span>
-                    </div>
-
-                    {screen.status === "online" && (
-                      <div className="flex items-center justify-center pt-2">
-                        <div className="flex items-center gap-1 text-xs text-green-600">
-                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                          Live
-                        </div>
-                      </div>
-                    )}
+                    <div>Connection: {screen.last_seen === "Never" ? "Device disconnected" : "Device connected"}</div>
+                    <div>Last Seen: {screen.last_seen}</div>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Content Assignment</span>
-                      {screen.playlists && (
-                        <Badge variant="outline" className="text-xs">
-                          <PlayCircle className="h-3 w-3 mr-1" />
-                          Playlist
-                        </Badge>
-                      )}
-                    </div>
-
+                  <div className="mt-3">
+                    <div className="text-sm font-medium mb-1">Content Assignment</div>
                     {screen.playlists ? (
-                      <div className="bg-blue-50 p-2 rounded border border-blue-200">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-blue-800 font-medium">{screen.playlists.name}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-xs text-blue-600 hover:text-blue-800"
-                            onClick={() => {
-                              // Navigate to playlist editor
-                              window.open(`/dashboard/playlists/${screen.playlists?.id}`, "_blank")
-                            }}
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </Button>
-                        </div>
+                      <div className="bg-green-50 border border-green-200 rounded p-2 text-sm">
+                        Playlist: {screen.playlists.name}
                       </div>
                     ) : (
-                      <div className="bg-amber-50 p-2 rounded border border-amber-200">
-                        <span className="text-sm text-amber-800">No content assigned</span>
+                      <div className="bg-amber-50 border border-amber-200 rounded p-2 text-sm text-amber-800">
+                        No content assigned
                       </div>
                     )}
                   </div>
-
-                  <div className="flex gap-2 pt-2">
-                    {screen.status === "unpaired" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-xs bg-transparent"
-                        onClick={() => {
-                          toast({
-                            title: "Pairing Instructions",
-                            description: `Share code ${screen.screen_code} with your device to pair`,
-                          })
-                        }}
-                      >
-                        <Smartphone className="h-3 w-3 mr-1" />
-                        Pair Device
-                      </Button>
-                    )}
-
-                    {(screen.status === "online" || screen.status === "paired") && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-xs bg-transparent"
-                        onClick={() => {
-                          // Open player in new tab for testing
-                          window.open(`/player/${screen.screen_code}`, "_blank")
-                        }}
-                      >
-                        <ExternalLink className="h-3 w-3 mr-1" />
-                        View Player
-                      </Button>
-                    )}
-
-                    <Button variant="outline" size="sm" onClick={() => setEditingScreen(screen)}>
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </div>
-              </CardContent>
+
+                <div className="flex gap-2">
+                  {screen.last_seen === "Never" && (
+                    <Button variant="outline" size="sm" onClick={() => setRepairingScreen(screen)}>
+                      <Wifi className="h-4 w-4 mr-1" />
+                      Re-pair
+                    </Button>
+                  )}
+
+                  <Button variant="outline" size="sm" onClick={() => setEditingScreen(screen)}>
+                    <Settings className="h-4 w-4" />
+                  </Button>
+
+                  <Button variant="outline" size="sm" onClick={() => handleDeleteScreen(screen.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </Card>
           ))}
         </div>
@@ -1194,6 +1161,38 @@ export default function ScreensPage() {
               {updating ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : null}
               Update Screen
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Re-pairing Dialog */}
+      <Dialog open={!!repairingScreen} onOpenChange={() => setRepairingScreen(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Re-pair Device</DialogTitle>
+            <DialogDescription>
+              Enter the pairing code from your new device to connect it to "{repairingScreen?.name}".
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="new-pairing-code">Device Pairing Code</Label>
+              <Input
+                id="new-pairing-code"
+                placeholder="Enter code from device (e.g., DEV-ABC123)"
+                value={newPairingCode}
+                onChange={(e) => setNewPairingCode(e.target.value.toUpperCase())}
+                className="font-mono"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRepairingScreen(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => handleRepairScreen(repairingScreen!)}>Pair Device</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
