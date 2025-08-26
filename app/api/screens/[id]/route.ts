@@ -3,7 +3,11 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
+
+    if (!supabase) {
+      return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
+    }
 
     // Check authentication
     const {
@@ -39,7 +43,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
+
+    if (!supabase) {
+      return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
+    }
 
     // Check authentication
     const {
@@ -82,7 +90,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
+
+    if (!supabase) {
+      return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
+    }
 
     // Check authentication
     const {
