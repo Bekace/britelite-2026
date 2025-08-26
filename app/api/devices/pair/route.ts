@@ -25,6 +25,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .single()
+
+    if (profileError || !profile) {
+      console.log("[v0] User profile not found, creating one:", { userId: user.id, error: profileError })
+
+      // Create profile for user if it doesn't exist
+      const { error: createProfileError } = await supabase.from("profiles").insert({
+        id: user.id,
+        email: user.email,
+        full_name: user.email,
+      })
+
+      if (createProfileError) {
+        console.log("[v0] Failed to create user profile:", createProfileError)
+        return NextResponse.json(
+          {
+            error: "User profile required but could not be created",
+            details: createProfileError.message,
+          },
+          { status: 500 },
+        )
+      }
+
+      console.log("[v0] User profile created successfully")
+    }
+
     console.log("[v0] Looking for device:", { deviceCode, userId: user.id })
 
     // Find device by device code - first check if device exists at all
