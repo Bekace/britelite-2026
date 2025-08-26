@@ -48,17 +48,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Now filter by user_id
     const userDevice = allDevices.find((d) => d.user_id === user.id)
-    if (!userDevice) {
+    const unassignedDevice = allDevices.find((d) => d.user_id === null)
+
+    let device
+    if (userDevice) {
+      // Device already belongs to current user
+      device = userDevice
+      console.log("[v0] Found device belonging to current user")
+    } else if (unassignedDevice) {
+      // Device is unassigned, claim it for current user
+      device = unassignedDevice
+      console.log("[v0] Found unassigned device, claiming for current user")
+
+      // Assign device to current user
+      const { error: assignError } = await supabase.from("devices").update({ user_id: user.id }).eq("id", device.id)
+
+      if (assignError) {
+        console.log("[v0] Failed to assign device to user:", assignError)
+        return NextResponse.json({ error: "Failed to assign device" }, { status: 500 })
+      }
+    } else {
       console.log("[v0] Device found but belongs to different user:", {
         deviceUserId: allDevices[0].user_id,
         currentUserId: user.id,
       })
-      return NextResponse.json({ error: "Device not found for current user" }, { status: 404 })
+      return NextResponse.json({ error: "Device belongs to another user" }, { status: 404 })
     }
-
-    const device = userDevice
 
     // Find screen by ID
     const { data: screen, error: screenError } = await supabase
