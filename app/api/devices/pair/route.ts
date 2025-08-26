@@ -25,18 +25,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
 
-    // Find device by device code
-    const { data: device, error: deviceError } = await supabase
+    console.log("[v0] Looking for device:", { deviceCode, userId: user.id })
+
+    // Find device by device code - first check if device exists at all
+    const { data: allDevices, error: allDevicesError } = await supabase
       .from("devices")
       .select("*")
       .eq("device_code", deviceCode)
-      .eq("user_id", user.id)
-      .single()
 
-    if (deviceError || !device) {
-      console.log("[v0] Device not found:", deviceError)
-      return NextResponse.json({ error: "Invalid device code" }, { status: 404 })
+    console.log("[v0] All devices with code:", allDevices)
+
+    if (allDevicesError) {
+      console.log("[v0] Error querying devices:", allDevicesError)
+      return NextResponse.json({ error: "Database query failed" }, { status: 500 })
     }
+
+    if (!allDevices || allDevices.length === 0) {
+      console.log("[v0] No device found with code:", deviceCode)
+      return NextResponse.json(
+        { error: "Device not found. Make sure the device is registered and the code is correct." },
+        { status: 404 },
+      )
+    }
+
+    // Now filter by user_id
+    const userDevice = allDevices.find((d) => d.user_id === user.id)
+    if (!userDevice) {
+      console.log("[v0] Device found but belongs to different user:", {
+        deviceUserId: allDevices[0].user_id,
+        currentUserId: user.id,
+      })
+      return NextResponse.json({ error: "Device not found for current user" }, { status: 404 })
+    }
+
+    const device = userDevice
 
     // Find screen by ID
     const { data: screen, error: screenError } = await supabase

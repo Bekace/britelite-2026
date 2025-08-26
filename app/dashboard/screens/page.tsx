@@ -98,6 +98,7 @@ export default function ScreensPage() {
   const [updating, setUpdating] = useState(false)
   const [repairingScreen, setRepairingScreen] = useState<Screen | null>(null)
   const [newPairingCode, setNewPairingCode] = useState("")
+  const [isCreatingScreen, setIsCreatingScreen] = useState(false)
 
   const [wizardState, setWizardState] = useState<WizardState>({
     step: 1,
@@ -270,6 +271,12 @@ export default function ScreensPage() {
       return
     }
 
+    if (isCreatingScreen) {
+      return
+    }
+
+    setIsCreatingScreen(true)
+
     try {
       const screenData = {
         name: wizardState.name,
@@ -313,21 +320,26 @@ export default function ScreensPage() {
             console.error("[v0] Failed to pair device:", pairError)
             toast({
               title: "Warning",
-              description: "Screen created but device pairing failed. You can re-pair later.",
+              description: `Screen created but device pairing failed: ${pairError.error}`,
               variant: "destructive",
             })
           } else {
             console.log("[v0] Device paired successfully")
+            toast({
+              title: "Success",
+              description: "Screen created and device paired successfully",
+            })
           }
+        } else {
+          toast({
+            title: "Success",
+            description: "Screen created successfully",
+          })
         }
 
         await fetchScreens()
         setIsCreateDialogOpen(false)
         resetWizard()
-        toast({
-          title: "Success",
-          description: "Screen created successfully",
-        })
       } else {
         const error = await response.json()
         toast({
@@ -343,6 +355,8 @@ export default function ScreensPage() {
         description: "Failed to create screen",
         variant: "destructive",
       })
+    } finally {
+      setIsCreatingScreen(false)
     }
   }
 
