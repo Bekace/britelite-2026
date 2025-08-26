@@ -1,57 +1,119 @@
 "use client"
-
-import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Monitor, Wifi } from "lucide-react"
+import { Loader2, Monitor, Wifi, Copy, CheckCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function PlayerSetupPage() {
-  const [screenCode, setScreenCode] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const [deviceCode, setDeviceCode] = useState("")
+  const [isRegistering, setIsRegistering] = useState(true)
+  const [isPaired, setIsPaired] = useState(false)
   const [error, setError] = useState("")
+  const [copied, setCopied] = useState(false)
   const router = useRouter()
 
-  const handlePair = async () => {
-    if (!screenCode.trim()) {
-      setError("Please enter a screen code")
-      return
+  useEffect(() => {
+    const generateAndRegisterDevice = async () => {
+      console.log("[v0] Generating device code and registering device")
+
+      // Generate unique device code
+      const code = `DEV-${Date.now().toString(36).toUpperCase()}`
+      setDeviceCode(code)
+
+      try {
+        // Register device with API
+        const response = await fetch("/api/devices/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            device_code: code,
+            device_info: {
+              userAgent: navigator.userAgent,
+              timestamp: new Date().toISOString(),
+              url: window.location.href,
+            },
+          }),
+        })
+
+        const data = await response.json()
+        console.log("[v0] Device registration response:", data)
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to register device")
+        }
+
+        setIsRegistering(false)
+        console.log("[v0] Device registered successfully, starting pairing poll")
+
+        // Start polling for pairing status
+        startPairingPoll(code)
+      } catch (err) {
+        console.log("[v0] Device registration error:", err)
+        setError(err instanceof Error ? err.message : "Failed to register device")
+        setIsRegistering(false)
+      }
     }
 
-    setIsLoading(true)
-    setError("")
+    generateAndRegisterDevice()
+  }, [])
 
-    try {
-      const response = await fetch("/api/devices/pair", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ screenCode: screenCode.trim() }),
-      })
+  const startPairingPoll = (code: string) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        console.log("[v0] Checking pairing status for device:", code)
 
-      const data = await response.json()
+        const response = await fetch(`/api/devices/status/${code}`)
+        const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to pair device")
+        if (response.ok && data.device?.is_paired && data.device?.screen_id) {
+          console.log("[v0] Device paired successfully, redirecting to player")
+          setIsPaired(true)
+          clearInterval(pollInterval)
+
+          // Redirect to player with screen code after short delay
+          setTimeout(() => {
+            router.push(`/player/${data.device.screen_id}`)
+          }, 2000)
+        }
+      } catch (err) {
+        console.log("[v0] Pairing status check error:", err)
       }
+    }, 3000) // Poll every 3 seconds
 
-      // Redirect to the player interface with the screen code
-      router.push(`/player/${screenCode.trim()}`)
+    // Clean up interval after 10 minutes
+    setTimeout(
+      () => {
+        clearInterval(pollInterval)
+      },
+      10 * 60 * 1000,
+    )
+  }
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(deviceCode)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
-    } finally {
-      setIsLoading(false)
+      console.log("[v0] Failed to copy to clipboard:", err)
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handlePair()
-    }
+  if (isPaired) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md border-green-200 bg-green-50">
+          <CardContent className="pt-6 text-center space-y-4">
+            <CheckCircle className="h-16 w-16 text-green-600 mx-auto" />
+            <h2 className="text-2xl font-bold text-green-800">Device Paired!</h2>
+            <p className="text-green-700">Redirecting to content player...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -66,60 +128,84 @@ export default function PlayerSetupPage() {
           </div>
           <div className="space-y-2">
             <h1 className="text-3xl font-bold text-foreground">Device Player</h1>
-            <p className="text-muted-foreground">Enter your screen pairing code to connect this device</p>
+            <p className="text-muted-foreground">
+              {isRegistering ? "Setting up device..." : "Waiting for pairing from dashboard"}
+            </p>
           </div>
         </div>
 
-        {/* Pairing Form */}
-        <Card className="border-border">
-          <CardHeader className="text-center">
-            <CardTitle className="flex items-center justify-center gap-2">
-              <Wifi className="h-5 w-5" />
-              Pair Device
-            </CardTitle>
-            <CardDescription>Enter the pairing code from your dashboard</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Input
-                type="text"
-                placeholder="Enter screen code (e.g., SCR-ABC123)"
-                value={screenCode}
-                onChange={(e) => setScreenCode(e.target.value.toUpperCase())}
-                onKeyPress={handleKeyPress}
-                className="text-center text-lg font-mono tracking-wider"
-                disabled={isLoading}
-              />
-              {error && <p className="text-sm text-destructive text-center">{error}</p>}
-            </div>
+        {/* Device Code Display */}
+        {!isRegistering && !error && (
+          <Card className="border-border">
+            <CardHeader className="text-center">
+              <CardTitle className="flex items-center justify-center gap-2">
+                <Wifi className="h-5 w-5" />
+                Device Code
+              </CardTitle>
+              <CardDescription>Enter this code in your dashboard to pair this device</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-center space-y-4">
+                <div className="p-4 bg-muted rounded-lg border-2 border-dashed border-border">
+                  <div className="text-3xl font-mono font-bold text-primary tracking-wider">{deviceCode}</div>
+                </div>
 
-            <Button onClick={handlePair} disabled={isLoading || !screenCode.trim()} className="w-full" size="lg">
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Connecting...
-                </>
-              ) : (
-                "Connect Device"
-              )}
-            </Button>
-          </CardContent>
-        </Card>
+                <Button onClick={copyToClipboard} variant="outline" className="w-full bg-transparent" disabled={copied}>
+                  {copied ? (
+                    <>
+                      <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy Code
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Loading State */}
+        {isRegistering && (
+          <Card className="border-border">
+            <CardContent className="pt-6 text-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+              <p className="text-muted-foreground">Generating device code...</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <Card className="border-destructive bg-destructive/5">
+            <CardContent className="pt-6 text-center space-y-4">
+              <p className="text-destructive font-medium">Error: {error}</p>
+              <Button onClick={() => window.location.reload()} variant="outline">
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Instructions */}
-        <Card className="border-border bg-muted/50">
-          <CardContent className="pt-6">
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <h3 className="font-semibold text-foreground">How to pair:</h3>
-              <ol className="space-y-2 list-decimal list-inside">
-                <li>Go to your dashboard and create a new screen</li>
-                <li>Copy the generated pairing code</li>
-                <li>Enter the code above and click "Connect Device"</li>
-                <li>Your content will start displaying automatically</li>
-              </ol>
-            </div>
-          </CardContent>
-        </Card>
+        {!isRegistering && !error && (
+          <Card className="border-border bg-muted/50">
+            <CardContent className="pt-6">
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <h3 className="font-semibold text-foreground">How to pair:</h3>
+                <ol className="space-y-2 list-decimal list-inside">
+                  <li>Copy the device code shown above</li>
+                  <li>Go to your dashboard and create a new screen</li>
+                  <li>Enter this device code when prompted</li>
+                  <li>Your content will start displaying automatically</li>
+                </ol>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )
