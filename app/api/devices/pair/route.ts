@@ -27,28 +27,6 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Looking for device:", { deviceCode, userId: user.id })
 
-    const { data: existingProfile } = await supabase.from("profiles").select("id").eq("id", user.id).single()
-
-    if (!existingProfile) {
-      console.log("[v0] Creating profile for user:", user.id)
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name || null,
-          company_name: null,
-          role: "user",
-        })
-        .select()
-        .single()
-
-      if (profileError) {
-        console.log("[v0] Failed to create profile:", profileError)
-        return NextResponse.json({ error: "Failed to create user profile" }, { status: 500 })
-      }
-    }
-
     // Find device by device code - first check if device exists at all
     const { data: allDevices, error: allDevicesError } = await supabase
       .from("devices")
@@ -87,8 +65,21 @@ export async function POST(request: NextRequest) {
       const { error: assignError } = await supabase.from("devices").update({ user_id: user.id }).eq("id", device.id)
 
       if (assignError) {
-        console.log("[v0] Failed to assign device to user:", assignError)
-        return NextResponse.json({ error: "Failed to assign device" }, { status: 500 })
+        console.log("[v0] Failed to assign device to user:", {
+          error: assignError,
+          deviceId: device.id,
+          userId: user.id,
+          errorCode: assignError.code,
+          errorMessage: assignError.message,
+          errorDetails: assignError.details,
+        })
+        return NextResponse.json(
+          {
+            error: "Failed to assign device",
+            details: assignError.message,
+          },
+          { status: 500 },
+        )
       }
     } else {
       console.log("[v0] Device found but belongs to different user:", {
