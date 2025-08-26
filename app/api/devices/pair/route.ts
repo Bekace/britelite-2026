@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
         name,
         orientation,
         status,
-        screen_playlists!inner (
+        screen_playlists (
           playlist_id,
           is_active,
           playlists (
@@ -93,8 +93,7 @@ export async function POST(request: NextRequest) {
       console.log("[v0] Failed to update screen:", screenUpdateError)
     }
 
-    // Get active playlist for the screen
-    const activePlaylist = screen.screen_playlists?.find((sp: any) => sp.is_active)?.playlists
+    const activePlaylist = screen.screen_playlists?.find((sp: any) => sp.is_active)?.playlists || null
 
     console.log("[v0] Device paired successfully")
 
