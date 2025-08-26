@@ -66,9 +66,11 @@ interface WizardState {
   step: number
   pairingCode: string
   isPaired: boolean
+  pairedDevice: any
   contentType: "playlist" | "asset" | "schedule" | ""
   selectedContentId: string
-  screenName: string
+  name: string
+  description: string
   location: string
   resolution: string
   orientation: "landscape" | "rotate-90" | "rotate-180" | "rotate-270"
@@ -90,7 +92,7 @@ export default function ScreensPage() {
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingScreen, setEditingScreen] = useState<Screen | null>(null)
   const [creating, setCreating] = useState(false)
   const [updating, setUpdating] = useState(false)
@@ -101,9 +103,11 @@ export default function ScreensPage() {
     step: 1,
     pairingCode: "",
     isPaired: false,
+    pairedDevice: null,
     contentType: "",
     selectedContentId: "",
-    screenName: "",
+    name: "",
+    description: "",
     location: "",
     resolution: "1920x1080",
     orientation: "landscape",
@@ -203,10 +207,15 @@ export default function ScreensPage() {
         return
       }
 
-      setWizardState((prev) => ({ ...prev, isPaired: true }))
+      setWizardState((prev) => ({
+        ...prev,
+        isPaired: true,
+        pairedDevice: availableDevice,
+      }))
+
       toast({
         title: "Device Found",
-        description: "Device ready for pairing",
+        description: "Device ready for pairing. Continue to complete setup.",
       })
     } catch (error) {
       toast({
@@ -230,9 +239,11 @@ export default function ScreensPage() {
       step: 1,
       pairingCode: "",
       isPaired: false,
+      pairedDevice: null,
       contentType: "",
       selectedContentId: "",
-      screenName: "",
+      name: "",
+      description: "",
       location: "",
       resolution: "1920x1080",
       orientation: "landscape",
@@ -250,29 +261,68 @@ export default function ScreensPage() {
   }
 
   const handleCreateScreen = async () => {
-    setCreating(true)
+    if (!wizardState.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a screen name",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
+      const screenData = {
+        name: wizardState.name,
+        description: wizardState.description,
+        location: wizardState.location,
+        orientation: wizardState.orientation,
+      }
+
       const response = await fetch("/api/screens", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          name: wizardState.screenName,
-          location: wizardState.location,
-          resolution: wizardState.resolution,
-          orientation: wizardState.orientation,
-          screen_code: wizardState.pairingCode,
-          playlist_id: wizardState.contentType === "playlist" ? wizardState.selectedContentId : null,
-          media_id: wizardState.contentType === "asset" ? wizardState.selectedContentId : null,
-          advanced_options: wizardState.advancedOptions,
-        }),
+        body: JSON.stringify(screenData),
       })
 
       if (response.ok) {
-        const data = await response.json()
-        setScreens((prev) => [data.screen, ...prev])
-        setShowCreateDialog(false)
+        const result = await response.json()
+        const newScreen = result.screen
+
+        // If a device was paired during setup, pair it to the new screen
+        if (wizardState.isPaired && wizardState.pairedDevice) {
+          console.log("[v0] Pairing device to new screen:", {
+            deviceCode: wizardState.pairingCode,
+            screenId: newScreen.id,
+          })
+
+          const pairResponse = await fetch("/api/devices/pair", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              deviceCode: wizardState.pairingCode,
+              screenId: newScreen.id,
+            }),
+          })
+
+          if (!pairResponse.ok) {
+            const pairError = await pairResponse.json()
+            console.error("[v0] Failed to pair device:", pairError)
+            toast({
+              title: "Warning",
+              description: "Screen created but device pairing failed. You can re-pair later.",
+              variant: "destructive",
+            })
+          } else {
+            console.log("[v0] Device paired successfully")
+          }
+        }
+
+        await fetchScreens()
+        setIsCreateDialogOpen(false)
         resetWizard()
         toast({
           title: "Success",
@@ -287,14 +337,12 @@ export default function ScreensPage() {
         })
       }
     } catch (error) {
-      console.error("Create error:", error)
+      console.error("[v0] Error creating screen:", error)
       toast({
         title: "Error",
         description: "Failed to create screen",
         variant: "destructive",
       })
-    } finally {
-      setCreating(false)
     }
   }
 
@@ -485,8 +533,17 @@ export default function ScreensPage() {
           <Input
             id="screen-name"
             placeholder="Enter screen name"
-            value={wizardState.screenName}
-            onChange={(e) => setWizardState((prev) => ({ ...prev, screenName: e.target.value }))}
+            value={wizardState.name}
+            onChange={(e) => setWizardState((prev) => ({ ...prev, name: e.target.value }))}
+          />
+        </div>
+        <div>
+          <Label htmlFor="screen-description">Description (Optional)</Label>
+          <Input
+            id="screen-description"
+            placeholder="Enter description"
+            value={wizardState.description}
+            onChange={(e) => setWizardState((prev) => ({ ...prev, description: e.target.value }))}
           />
         </div>
         <div>
@@ -892,9 +949,9 @@ export default function ScreensPage() {
           <p className="text-gray-600 mt-1">Manage your digital signage displays</p>
         </div>
         <Dialog
-          open={showCreateDialog}
+          open={isCreateDialogOpen}
           onOpenChange={(open) => {
-            setShowCreateDialog(open)
+            setIsCreateDialogOpen(open)
             if (!open) resetWizard()
           }}
         >
@@ -926,7 +983,7 @@ export default function ScreensPage() {
               <div className="flex justify-between w-full">
                 <Button
                   variant="outline"
-                  onClick={wizardState.step === 1 ? () => setShowCreateDialog(false) : prevStep}
+                  onClick={wizardState.step === 1 ? () => setIsCreateDialogOpen(false) : prevStep}
                 >
                   {wizardState.step === 1 ? (
                     "Cancel"
@@ -947,13 +1004,13 @@ export default function ScreensPage() {
                       (wizardState.step === 3 &&
                         !wizardState.selectedContentId &&
                         wizardState.contentType !== "schedule") ||
-                      (wizardState.step === 4 && !wizardState.screenName.trim())
+                      (wizardState.step === 4 && !wizardState.name.trim())
                     }
                   >
                     Next <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 ) : (
-                  <Button onClick={handleCreateScreen} disabled={creating || !wizardState.screenName.trim()}>
+                  <Button onClick={handleCreateScreen} disabled={creating || !wizardState.name.trim()}>
                     {creating ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     ) : null}
@@ -994,7 +1051,7 @@ export default function ScreensPage() {
                 : "No screens match your search criteria"}
             </p>
             {screens.length === 0 && (
-              <Button onClick={() => setShowCreateDialog(true)} className="bg-cyan-500 hover:bg-cyan-600">
+              <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-cyan-500 hover:bg-cyan-600">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Screen
               </Button>
