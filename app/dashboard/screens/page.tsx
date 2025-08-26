@@ -651,6 +651,8 @@ export default function ScreensPage() {
 
     setUpdating(true)
     try {
+      console.log("[v0] Updating screen with data:", editingScreen)
+
       const response = await fetch(`/api/screens/${editingScreen.id}`, {
         method: "PUT",
         headers: {
@@ -661,6 +663,7 @@ export default function ScreensPage() {
 
       if (response.ok) {
         const data = await response.json()
+        console.log("[v0] Screen update response:", data)
         setScreens((prev) => prev.map((screen) => (screen.id === editingScreen.id ? data.screen : screen)))
         setEditingScreen(null)
         toast({
@@ -669,6 +672,7 @@ export default function ScreensPage() {
         })
       } else {
         const error = await response.json()
+        console.log("[v0] Screen update error:", error)
         toast({
           title: "Error",
           description: error.error || "Failed to update screen",
