@@ -18,15 +18,19 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get screen with playlist info
     const { data: screen, error } = await supabase
       .from("screens")
       .select(`
         *,
-        playlists(id, name, description)
+        screen_playlists!inner(
+          playlist_id,
+          is_active,
+          playlists(id, name, description)
+        )
       `)
       .eq("id", params.id)
       .eq("user_id", user.id)
+      .eq("screen_playlists.is_active", true)
       .single()
 
     if (error) {
@@ -60,7 +64,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const { name, location, resolution, orientation, playlist_id } = await request.json()
 
-    // Update screen
     const { data: screen, error } = await supabase
       .from("screens")
       .update({
@@ -68,7 +71,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         location,
         resolution,
         orientation,
-        playlist_id: playlist_id || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", params.id)
@@ -79,6 +81,26 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (error) {
       console.error("Database error:", error)
       return NextResponse.json({ error: "Failed to update screen" }, { status: 500 })
+    }
+
+    if (playlist_id) {
+      // Deactivate existing playlist assignments
+      await supabase.from("screen_playlists").update({ is_active: false }).eq("screen_id", params.id)
+
+      // Create or activate new playlist assignment
+      const { error: playlistError } = await supabase.from("screen_playlists").upsert({
+        screen_id: params.id,
+        playlist_id: playlist_id,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      })
+
+      if (playlistError) {
+        console.error("Playlist assignment error:", playlistError)
+        return NextResponse.json({ error: "Failed to assign playlist" }, { status: 500 })
+      }
+    } else {
+      await supabase.from("screen_playlists").update({ is_active: false }).eq("screen_id", params.id)
     }
 
     return NextResponse.json({ screen })
