@@ -5,8 +5,11 @@
 @layer base {
   :root {
     /* Themeable Colors - Restored to Original Vibe */
-    --background: 255 255 255; /* #ffffff - White background */
-    --foreground: 22 78 99; /* #164e63 - Cyan-800 for primary text */
+    /*--background: 255 255 255; *//* #ffffff - White background */
+    /*--foreground: 22 78 99;*/ /* #164e63 - Cyan-800 for primary text */
+
+    --background: 210 11% 7%; /* #0f1211 */
+    --foreground: 160 14% 93%; /* #e7eceb */
 
     --muted: 236 254 255; /* #ecfeff - Light cyan for muted backgrounds */
     --muted-foreground: 71 85 105; /* #475569 - Dark cyan for muted text */
