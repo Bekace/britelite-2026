@@ -97,35 +97,59 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     console.log("[v0] Screen updated successfully:", screen)
 
+    // First, deactivate all existing playlist assignments for this screen
+    const { error: deactivateError } = await supabase
+      .from("screen_playlists")
+      .update({ is_active: false })
+      .eq("screen_id", params.id)
+
+    if (deactivateError) {
+      console.log("[v0] Error deactivating existing playlists:", deactivateError)
+    } else {
+      console.log("[v0] Deactivated existing playlist assignments")
+    }
+
     if (playlist_id) {
-      console.log("[v0] Assigning playlist:", playlist_id)
-      // Deactivate existing playlist assignments
-      const { error: deactivateError } = await supabase
+      console.log("[v0] Assigning new playlist:", playlist_id)
+
+      // Check if a record already exists for this screen-playlist combination
+      const { data: existingAssignment } = await supabase
         .from("screen_playlists")
-        .update({ is_active: false })
+        .select("id")
         .eq("screen_id", params.id)
+        .eq("playlist_id", playlist_id)
+        .single()
 
-      if (deactivateError) {
-        console.log("[v0] Error deactivating existing playlists:", deactivateError)
-      }
+      if (existingAssignment) {
+        // Update existing record to make it active
+        console.log("[v0] Updating existing assignment:", existingAssignment.id)
+        const { error: updateError } = await supabase
+          .from("screen_playlists")
+          .update({ is_active: true })
+          .eq("id", existingAssignment.id)
 
-      // Create or activate new playlist assignment
-      const { error: playlistError } = await supabase.from("screen_playlists").upsert({
-        screen_id: params.id,
-        playlist_id: playlist_id,
-        is_active: true,
-        created_at: new Date().toISOString(),
-      })
+        if (updateError) {
+          console.error("[v0] Error updating existing assignment:", updateError)
+          return NextResponse.json({ error: "Failed to activate playlist assignment" }, { status: 500 })
+        }
+      } else {
+        // Create new assignment
+        console.log("[v0] Creating new playlist assignment")
+        const { error: insertError } = await supabase.from("screen_playlists").insert({
+          screen_id: params.id,
+          playlist_id: playlist_id,
+          is_active: true,
+        })
 
-      if (playlistError) {
-        console.error("[v0] Playlist assignment error:", playlistError)
-        return NextResponse.json({ error: "Failed to assign playlist" }, { status: 500 })
+        if (insertError) {
+          console.error("[v0] Error creating playlist assignment:", insertError)
+          return NextResponse.json({ error: "Failed to assign playlist" }, { status: 500 })
+        }
       }
 
       console.log("[v0] Playlist assigned successfully")
     } else {
-      console.log("[v0] No playlist_id provided, deactivating existing assignments")
-      await supabase.from("screen_playlists").update({ is_active: false }).eq("screen_id", params.id)
+      console.log("[v0] No playlist_id provided, all assignments deactivated")
     }
 
     const { data: updatedScreen, error: fetchError } = await supabase
