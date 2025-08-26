@@ -134,7 +134,7 @@ export function PricingSection() {
                         {plan.annualPrice}
                       </span>
                       <span
-                        className="absolute inset-0 flex items-center transition-all duration-500"
+                        className="absolute inset-0 flex items-center transition-all duration-500 text-green-200"
                         style={{
                           opacity: !isAnnual ? 1 : 0,
                           transform: `scale(${!isAnnual ? 1 : 0.8})`,
