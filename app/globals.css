@@ -38,14 +38,21 @@
     --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
     /* Updated design tokens to match device player design brief */
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
 
+    --border: 210 17% 6% / 0.05; /* rgba(16,24,40,0.05) */
+    --input: 240 2% 16%;
+    --ring: 165 96% 71%;
 
-    --destructive: 239 68 68; /* #ef4444 - Red for destructive actions */
-    --destructive-foreground: 255 255 255; /* #ffffff - White for text on destructive buttons */
-
-    --border: 229 231 235; /* #e5e7eb - Light gray for borders */
-    --input: 248 250 252; /* #f8fafc - Light background for input fields */
-    --ring: 217 119 6; /* #d97706 - Amber-600 for focus rings */
+    --sidebar: 210 11% 7%;
+    --sidebar-foreground: 160 14% 93%;
+    --sidebar-primary: 165 96% 71%;
+    --sidebar-primary-foreground: 160 8% 6%;
+    --sidebar-accent: 240 2% 25%;
+    --sidebar-accent-foreground: 240 2% 96%;
+    --sidebar-border: 240 100% 100% / 0.08;
+    --sidebar-ring: 165 96% 71%;
 
     /* Chart colors for data visualization */
     --chart-1: 99 102 241; /* #6366f1 - Indigo */
@@ -53,16 +60,6 @@
     --chart-3: 22 78 99; /* #164e63 - Cyan-800 */
     --chart-4: 71 85 105; /* #475569 - Dark cyan */
     --chart-5: 254 252 232; /* #fefce8 - Light yellow */
-
-    /* Sidebar specific tokens */
-    --sidebar: 255 255 255; /* #ffffff - White for sidebar background */
-    --sidebar-foreground: 22 78 99; /* #164e63 - Cyan-800 for sidebar text */
-    --sidebar-primary: 236 254 255; /* #ecfeff - Light cyan for sidebar highlights */
-    --sidebar-primary-foreground: 22 78 99; /* #164e63 - Cyan-800 for sidebar primary text */
-    --sidebar-accent: 217 119 6; /* #d97706 - Amber-600 for sidebar accent elements */
-    --sidebar-accent-foreground: 255 255 255; /* #ffffff - White for sidebar accent text */
-    --sidebar-border: 229 231 235; /* #e5e7eb - Light gray for sidebar borders */
-    --sidebar-ring: 217 119 6; /* #d97706 - Amber-600 for sidebar focus rings */
 
     --radius: 0.5rem;
   }
