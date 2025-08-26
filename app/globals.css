@@ -7,12 +7,29 @@
     /* Themeable Colors - Restored to Original Vibe */
     /*--background: 255 255 255; *//* #ffffff - White background */
     /*--foreground: 22 78 99;*/ /* #164e63 - Cyan-800 for primary text */
+    --card: 220 17% 98% / 0.01;
+    --card-foreground: 160 14% 93%;
+
+    --popover: 210 11% 7%;
+    --popover-foreground: 160 14% 93%;
+
+    --primary: 165 96% 71%; /* #78fcd6 */
+    --primary-foreground: 160 8% 6%; /* #0d0f0e */
+
+    --secondary: 160 14% 93%; /* #e7eceb */
+    --secondary-foreground: 165 14% 8%; /* #141a18 */
+
+    --muted: 240 2% 16%; /* #27272a */
+    --muted-foreground: 160 14% 93% / 0.7;
+
+    --accent: 240 2% 25%; /* #3f3f42 */
+    --accent-foreground: 240 2% 96%; /* #f4f4f5 */
+
+
 
     --background: 210 11% 7%; /* #0f1211 */
     --foreground: 160 14% 93%; /* #e7eceb */
 
-    --muted: 236 254 255; /* #ecfeff - Light cyan for muted backgrounds */
-    --muted-foreground: 71 85 105; /* #475569 - Dark cyan for muted text */
     --muted-foreground-light: 71 85 105 / 0.5;
     --muted-foreground-dark: 71 85 105 / 0.6;
 
@@ -21,20 +38,7 @@
     --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
     /* Updated design tokens to match device player design brief */
-    --card: 236 254 255; /* #ecfeff - Light cyan for card backgrounds */
-    --card-foreground: 71 85 105; /* #475569 - Dark cyan for card text */
 
-    --popover: 255 255 255; /* #ffffff - White for popovers */
-    --popover-foreground: 22 78 99; /* #164e63 - Cyan-800 for popover text */
-
-    --primary: 22 78 99; /* #164e63 - Cyan-800 for primary actions */
-    --primary-foreground: 255 255 255; /* #ffffff - White for text on primary buttons */
-
-    --secondary: 217 119 6; /* #d97706 - Amber-600 for accent elements */
-    --secondary-foreground: 255 255 255; /* #ffffff - White for text on secondary buttons */
-
-    --accent: 217 119 6; /* #d97706 - Amber-600 for accent elements */
-    --accent-foreground: 255 255 255; /* #ffffff - White for text on accent elements */
 
     --destructive: 239 68 68; /* #ef4444 - Red for destructive actions */
     --destructive-foreground: 255 255 255; /* #ffffff - White for text on destructive buttons */
