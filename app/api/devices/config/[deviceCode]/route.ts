@@ -20,6 +20,11 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
     console.log("[v0] Looking up device with code:", deviceCode)
 
+    console.log("[v0] Device lookup query parameters:", {
+      device_code: deviceCode,
+      is_paired: true,
+    })
+
     // Find device by device code
     const { data: device, error: deviceError } = await supabase
       .from("devices")
@@ -29,6 +34,22 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       .single()
 
     console.log("[v0] Device lookup result:", { device, deviceError })
+
+    if (deviceError || !device) {
+      console.log("[v0] Device not found with is_paired=true, checking if device exists at all...")
+
+      const { data: anyDevice, error: anyDeviceError } = await supabase
+        .from("devices")
+        .select("*")
+        .eq("device_code", deviceCode)
+        .single()
+
+      console.log("[v0] Device lookup without pairing filter:", { anyDevice, anyDeviceError })
+
+      if (anyDevice) {
+        console.log("[v0] Device exists but is_paired =", anyDevice.is_paired, "screen_id =", anyDevice.screen_id)
+      }
+    }
 
     if (deviceError || !device) {
       console.log("[v0] Device not found or not paired:", deviceError)
