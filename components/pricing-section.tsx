@@ -12,13 +12,13 @@ export function PricingSection() {
       name: "Free",
       monthlyPrice: "$0",
       annualPrice: "$0",
-      description: "Perfect for small businesses starting with digital signage.",
+      description: "Perfect for individuals starting their journey.",
       features: [
-        "Easy screen pairing with a unique code",
-        "Upload and schedule media in real time",
-        "Basic template and branding options",
-        "Manage a single display screen",
-        "Starter plan with platform watermark",
+        "Real-time code suggestions",
+        "Basic integration logos",
+        "Single MCP server connection",
+        "Up to 2 AI coding agents",
+        "Vercel deployments with Pointer branding",
       ],
       buttonText: "Get Started",
       buttonClass:
@@ -28,13 +28,15 @@ export function PricingSection() {
       name: "Pro",
       monthlyPrice: "$20",
       annualPrice: "$16",
-      description: "Designed for growing brands that need more flexibility.",
+      description: "Ideal for professionals.",
       features: [
-        "Connect and manage up to 10 screens",
-        "Advanced scheduling and playlists",
-        "Custom branding and templates",
-        "Multi-user team access",
-        "Email support with priority response",
+        "Enhanced real-time previews",
+        "Unlimited integrations with custom logos",
+        "Multiple MCP server connections",
+        "Up to 10 concurrent AI coding agents",
+        "Collaborative coding with team chat",
+        "Advanced version control integrations",
+        "Priority email and chat support",
       ],
       buttonText: "Join now",
       buttonClass:
@@ -45,13 +47,13 @@ export function PricingSection() {
       name: "Ultra",
       monthlyPrice: "$200",
       annualPrice: "$160",
-      description: "Built for enterprises and franchises at scale.",
+      description: "Tailored solutions for teams.",
       features: [
-        "Unlimited screens and locations",
-        "Centralized control panel for networks",
-        "White-label branding and custom domains",
-        "24/7 premium support",
-        "Dedicated account manager and onboarding",
+        "Dedicated account support",
+        "Unlimited MCP server clusters",
+        "Unlimited AI coding agents",
+        "Enterprise-grade security and compliance",
+        "Priority deployments and SLA guarantees",
       ],
       buttonText: "Talk to Sales",
       buttonClass:
@@ -64,10 +66,11 @@ export function PricingSection() {
       <div className="self-stretch relative flex flex-col justify-center items-center gap-2 py-0">
         <div className="flex flex-col justify-start items-center gap-4">
           <h2 className="text-center text-foreground text-4xl md:text-5xl font-semibold leading-tight md:leading-[40px]">
-            Get the AI Player or Stick with Software Only
+            Pricing built for every developer
           </h2>
           <p className="self-stretch text-center text-muted-foreground text-sm font-medium leading-tight">
-            Choose a plan that fits your digital signage needs, whether you are starting small, scaling up, or managing screens across multiple locations.
+            Choose a plan that fits your coding workflow, from individuals starting out to <br /> growing professionals
+            and large organizations.
           </p>
         </div>
         <div className="pt-4">
@@ -99,7 +102,7 @@ export function PricingSection() {
         {pricingPlans.map((plan) => (
           <div
             key={plan.name}
-            className={`flex-1 p-4 overflow-hidden rounded-xl flex flex-col justify-start items-start gap-6 bg-slate-800 ${plan.popular ? "bg-primary shadow-[0px_4px_8px_-2px_rgba(0,0,0,0.10)]" : "bg-gradient-to-b from-gray-50/5 to-gray-50/0"}`}
+            className={`flex-1 p-4 overflow-hidden rounded-xl flex flex-col justify-start items-start gap-6 ${plan.popular ? "bg-primary shadow-[0px_4px_8px_-2px_rgba(0,0,0,0.10)]" : "bg-gradient-to-b from-gray-50/5 to-gray-50/0"}`}
             style={plan.popular ? {} : { outline: "1px solid hsl(var(--border))", outlineOffset: "-1px" }}
           >
             <div className="self-stretch flex flex-col justify-start items-start gap-6">
@@ -134,7 +137,7 @@ export function PricingSection() {
                         {plan.annualPrice}
                       </span>
                       <span
-                        className="absolute inset-0 flex items-center transition-all duration-500 text-green-200"
+                        className="absolute inset-0 flex items-center transition-all duration-500"
                         style={{
                           opacity: !isAnnual ? 1 : 0,
                           transform: `scale(${!isAnnual ? 1 : 0.8})`,
