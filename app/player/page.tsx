@@ -65,18 +65,28 @@ export default function PlayerSetupPage() {
       try {
         console.log("[v0] Checking pairing status for device:", code)
 
-        const response = await fetch(`/api/devices/status/${code}`)
+        const url = `/api/devices/status/${code}`
+        console.log("[v0] Making request to:", url)
+
+        const response = await fetch(url)
+        console.log("[v0] Response status:", response.status)
+
         const data = await response.json()
+        console.log("[v0] Response data:", data)
 
         if (response.ok && data.device?.is_paired && data.device?.screen_id) {
           console.log("[v0] Device paired successfully, redirecting to player")
           setIsPaired(true)
           clearInterval(pollInterval)
 
-          // Redirect to player with screen code after short delay
           setTimeout(() => {
-            router.push(`/player/${data.device.screen_id}`)
+            router.push(`/player/${code}`)
           }, 2000)
+        } else {
+          console.log("[v0] Device not yet paired:", {
+            isPaired: data.device?.is_paired,
+            screenId: data.device?.screen_id,
+          })
         }
       } catch (err) {
         console.log("[v0] Pairing status check error:", err)
