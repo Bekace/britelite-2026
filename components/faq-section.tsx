@@ -6,9 +6,9 @@ import { ChevronDown } from "lucide-react"
 
 const faqData = [
   {
-  question: "What is [Your Brand] and who is it for?",
+  question: "What is Xkreen and who is it for?",
   answer:
-    "[Your Brand] is an AI-powered digital signage platform designed for businesses, franchises, and organizations that want to engage audiences through smarter screen management. It’s perfect for small businesses starting with one screen, as well as large enterprises managing hundreds of displays.",
+    "Xkreen is an AI-powered digital signage platform designed for businesses, franchises, and organizations that want to engage audiences through smarter screen management. It’s perfect for small businesses starting with one screen, as well as large enterprises managing hundreds of displays.",
 },
 {
   question: "How does the AI-powered signage work?",
@@ -16,9 +16,9 @@ const faqData = [
     "Our AI analyzes your content and scheduling needs in real time, suggesting the best layouts, timing, and media combinations. It learns from your audience engagement patterns and adapts to your business goals, making digital signage more effective and consistent.",
 },
 {
-  question: "Can I integrate [Your Brand] with my existing tools?",
+  question: "Can I integrate Xkreen with my existing tools?",
   answer:
-    "Yes! [Your Brand] offers integrations with popular tools including Google Drive, Dropbox, Canva, and Slack. You can easily upload content, sync media libraries, and manage screens directly from your existing workflow.",
+    "Yes! Xkreen offers integrations with popular tools including Google Drive, Dropbox, Canva, and Slack. You can easily upload content, sync media libraries, and manage screens directly from your existing workflow.",
 },
 {
   question: "What's included in the free plan?",
@@ -31,7 +31,7 @@ const faqData = [
     "With our platform, you can manage multiple screens across different locations from one dashboard. Schedule campaigns, launch playlists, and update content instantly on all displays or target specific groups of screens.",
 },
 {
-  question: "Is my data secure with [Your Brand]?",
+  question: "Is my data secure with Xkreen?",
   answer:
     "Absolutely. We use enterprise-grade security including end-to-end encryption, secure content delivery, and compliance with industry standards. Your data and media are protected, and we also offer custom hosting and on-premises options for enterprise customers.",
 },
