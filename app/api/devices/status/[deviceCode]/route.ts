@@ -11,7 +11,9 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
     }
 
-    // Find device by code
+    console.log("[v0] Looking up device with code:", params.deviceCode)
+
+    // Find device by code (no user filtering needed for status checks)
     const { data: device, error: deviceError } = await supabase
       .from("devices")
       .select("*")
@@ -20,17 +22,32 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
     if (deviceError) {
       console.log("[v0] Device lookup error:", deviceError)
+      console.log("[v0] Error details:", JSON.stringify(deviceError, null, 2))
       return NextResponse.json({ error: "Device not found" }, { status: 404 })
     }
 
-    console.log("[v0] Device status:", {
+    if (!device) {
+      console.log("[v0] No device found with code:", params.deviceCode)
+      return NextResponse.json({ error: "Device not found" }, { status: 404 })
+    }
+
+    console.log("[v0] Found device:", {
+      id: device.id,
       code: device.device_code,
       isPaired: device.is_paired,
       screenId: device.screen_id,
+      userId: device.user_id,
     })
 
     // Update last heartbeat
-    await supabase.from("devices").update({ last_heartbeat: new Date().toISOString() }).eq("id", device.id)
+    const { error: updateError } = await supabase
+      .from("devices")
+      .update({ last_heartbeat: new Date().toISOString() })
+      .eq("id", device.id)
+
+    if (updateError) {
+      console.log("[v0] Heartbeat update error:", updateError)
+    }
 
     return NextResponse.json({
       device: {
