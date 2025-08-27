@@ -5,7 +5,8 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
   try {
     const { deviceCode } = params
 
-    console.log("[v0] Device config request:", { deviceCode })
+    console.log("[v0] === DEVICE CONFIG REQUEST START ===")
+    console.log("[v0] Device config request:", { deviceCode, timestamp: new Date().toISOString() })
 
     if (!deviceCode) {
       console.log("[v0] Device code missing")
@@ -20,41 +21,58 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
     console.log("[v0] Looking up device with code:", deviceCode)
 
-    console.log("[v0] Device lookup query parameters:", {
-      device_code: deviceCode,
-      is_paired: true,
-    })
-
-    // Find device by device code
-    const { data: device, error: deviceError } = await supabase
+    const { data: allDevices, error: allDevicesError } = await supabase
       .from("devices")
       .select("*")
       .eq("device_code", deviceCode)
-      .eq("is_paired", true)
-      .single()
 
-    console.log("[v0] Device lookup result:", { device, deviceError })
+    console.log("[v0] All devices query result:", {
+      count: allDevices?.length || 0,
+      devices: allDevices,
+      error: allDevicesError,
+    })
 
-    if (deviceError || !device) {
-      console.log("[v0] Device not found with is_paired=true, checking if device exists at all...")
-
-      const { data: anyDevice, error: anyDeviceError } = await supabase
-        .from("devices")
-        .select("*")
-        .eq("device_code", deviceCode)
-        .single()
-
-      console.log("[v0] Device lookup without pairing filter:", { anyDevice, anyDeviceError })
-
-      if (anyDevice) {
-        console.log("[v0] Device exists but is_paired =", anyDevice.is_paired, "screen_id =", anyDevice.screen_id)
-      }
+    if (allDevicesError) {
+      console.log("[v0] Database error during device lookup:", allDevicesError)
+      return NextResponse.json({ error: "Database query failed" }, { status: 500 })
     }
 
-    if (deviceError || !device) {
-      console.log("[v0] Device not found or not paired:", deviceError)
-      return NextResponse.json({ error: "Device not found or not paired" }, { status: 404 })
+    if (!allDevices || allDevices.length === 0) {
+      console.log("[v0] No device found with code:", deviceCode)
+      return NextResponse.json({ error: "Device not found" }, { status: 404 })
     }
+
+    const pairedDevice = allDevices.find((d) => d.is_paired === true)
+
+    console.log("[v0] Device analysis:", {
+      totalDevices: allDevices.length,
+      pairedDevice: pairedDevice
+        ? {
+            id: pairedDevice.id,
+            is_paired: pairedDevice.is_paired,
+            screen_id: pairedDevice.screen_id,
+            user_id: pairedDevice.user_id,
+            last_heartbeat: pairedDevice.last_heartbeat,
+          }
+        : null,
+      allDevicesStatus: allDevices.map((d) => ({
+        id: d.id,
+        is_paired: d.is_paired,
+        screen_id: d.screen_id,
+        user_id: d.user_id,
+      })),
+    })
+
+    if (!pairedDevice) {
+      console.log(
+        "[v0] Device found but not paired. Device states:",
+        allDevices.map((d) => ({ is_paired: d.is_paired, screen_id: d.screen_id })),
+      )
+      return NextResponse.json({ error: "Device not paired to any screen" }, { status: 404 })
+    }
+
+    const device = pairedDevice
+    console.log("[v0] Using paired device:", { id: device.id, screen_id: device.screen_id })
 
     console.log("[v0] Looking up screen with ID:", device.screen_id)
 
@@ -120,6 +138,8 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
     }
 
     console.log("[v0] Device config retrieved successfully")
+
+    console.log("[v0] === DEVICE CONFIG REQUEST END ===")
 
     return NextResponse.json({
       device: {
