@@ -358,7 +358,7 @@ export default function ScreensPage() {
         description: "Screen created and device paired successfully!",
       })
 
-      // Reset wizard and refresh screens
+      // Reset wizard and close modal
       setWizardState({
         step: 1,
         name: "",
@@ -370,7 +370,7 @@ export default function ScreensPage() {
         pairedDevice: null,
         selectedPlaylist: null,
       })
-      setShowWizard(false)
+      setIsCreateDialogOpen(false)
       fetchScreens()
     } catch (error) {
       console.log("[v0] Failed to create screen:", error)
