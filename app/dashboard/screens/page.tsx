@@ -84,6 +84,7 @@ interface WizardState {
     showOfflineIndicator: boolean
     mute: boolean
   }
+  selectedPlaylist: any
 }
 
 export default function ScreensPage() {
@@ -99,6 +100,7 @@ export default function ScreensPage() {
   const [repairingScreen, setRepairingScreen] = useState<Screen | null>(null)
   const [newPairingCode, setNewPairingCode] = useState("")
   const [isCreatingScreen, setIsCreatingScreen] = useState(false)
+  const [showWizard, setShowWizard] = useState(false)
 
   const [wizardState, setWizardState] = useState<WizardState>({
     step: 1,
@@ -122,6 +124,7 @@ export default function ScreensPage() {
       showOfflineIndicator: true,
       mute: false,
     },
+    selectedPlaylist: null,
   })
 
   const { toast } = useToast()
@@ -258,6 +261,7 @@ export default function ScreensPage() {
         showOfflineIndicator: true,
         mute: false,
       },
+      selectedPlaylist: null,
     })
   }
 
@@ -271,92 +275,112 @@ export default function ScreensPage() {
       return
     }
 
-    if (isCreatingScreen) {
+    if (!wizardState.isPaired || !wizardState.pairedDevice) {
+      toast({
+        title: "Error",
+        description: "Please pair a device first",
+        variant: "destructive",
+      })
       return
     }
 
-    setIsCreatingScreen(true)
+    setCreating(true)
 
     try {
-      const screenData = {
-        name: wizardState.name,
-        description: wizardState.description,
-        location: wizardState.location,
-        orientation: wizardState.orientation,
-      }
+      console.log("[v0] Creating screen with paired device:", wizardState.pairedDevice.device_code)
 
-      const response = await fetch("/api/screens", {
+      // Create the screen first
+      const screenResponse = await fetch("/api/screens", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(screenData),
+        body: JSON.stringify({
+          name: wizardState.name,
+          description: wizardState.description,
+          location: wizardState.location,
+          orientation: wizardState.orientation,
+        }),
       })
 
-      if (response.ok) {
-        const result = await response.json()
-        const newScreen = result.screen
+      const screenData = await screenResponse.json()
+      console.log("[v0] Screen creation response:", screenData)
 
-        // If a device was paired during setup, pair it to the new screen
-        if (wizardState.isPaired && wizardState.pairedDevice) {
-          console.log("[v0] Pairing device to new screen:", {
-            deviceCode: wizardState.pairingCode,
-            screenId: newScreen.id,
-          })
-
-          const pairResponse = await fetch("/api/devices/pair", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              deviceCode: wizardState.pairingCode,
-              screenId: newScreen.id,
-            }),
-          })
-
-          if (!pairResponse.ok) {
-            const pairError = await pairResponse.json()
-            console.error("[v0] Failed to pair device:", pairError)
-            toast({
-              title: "Warning",
-              description: `Screen created but device pairing failed: ${pairError.error}`,
-              variant: "destructive",
-            })
-          } else {
-            console.log("[v0] Device paired successfully")
-            toast({
-              title: "Success",
-              description: "Screen created and device paired successfully",
-            })
-          }
-        } else {
-          toast({
-            title: "Success",
-            description: "Screen created successfully",
-          })
-        }
-
-        await fetchScreens()
-        setIsCreateDialogOpen(false)
-        resetWizard()
-      } else {
-        const error = await response.json()
-        toast({
-          title: "Error",
-          description: error.error || "Failed to create screen",
-          variant: "destructive",
-        })
+      if (!screenResponse.ok) {
+        throw new Error(screenData.error || "Failed to create screen")
       }
+
+      // Now pair the device to the screen
+      console.log("[v0] Pairing device to screen:", {
+        deviceCode: wizardState.pairedDevice.device_code,
+        screenId: screenData.screen.id,
+      })
+
+      const pairResponse = await fetch("/api/devices/pair", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deviceCode: wizardState.pairedDevice.device_code,
+          screenId: screenData.screen.id,
+        }),
+      })
+
+      const pairData = await pairResponse.json()
+      console.log("[v0] Device pairing response:", pairData)
+
+      if (!pairResponse.ok) {
+        throw new Error(pairData.error || "Failed to pair device")
+      }
+
+      // Assign playlist if selected
+      if (wizardState.selectedPlaylist) {
+        console.log("[v0] Assigning playlist to screen:", wizardState.selectedPlaylist.id)
+
+        const playlistResponse = await fetch(`/api/screens/${screenData.screen.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            playlist_id: wizardState.selectedPlaylist.id,
+          }),
+        })
+
+        if (!playlistResponse.ok) {
+          console.log("[v0] Failed to assign playlist, but screen and device pairing succeeded")
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Screen created and device paired successfully!",
+      })
+
+      // Reset wizard and refresh screens
+      setWizardState({
+        step: 1,
+        name: "",
+        description: "",
+        location: "",
+        orientation: "landscape",
+        pairingCode: "",
+        isPaired: false,
+        pairedDevice: null,
+        selectedPlaylist: null,
+      })
+      setShowWizard(false)
+      fetchScreens()
     } catch (error) {
-      console.error("[v0] Error creating screen:", error)
+      console.log("[v0] Failed to create screen:", error)
       toast({
         title: "Error",
-        description: "Failed to create screen",
+        description: error instanceof Error ? error.message : "Failed to create screen",
         variant: "destructive",
       })
     } finally {
-      setIsCreatingScreen(false)
+      setCreating(false)
     }
   }
 
