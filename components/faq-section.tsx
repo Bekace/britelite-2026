@@ -99,7 +99,7 @@ export function FAQSection() {
             Frequently Asked Questions
           </h2>
           <p className="self-stretch text-center text-muted-foreground text-sm font-medium leading-[18.20px] break-words">
-            Everything you need to know about our AI-powered digital signage and how its advanced analytics help agencies and brands optimize campaigns, drive revenue, and deliver smarter content experiences.
+            {"Discover how AI-powered digital signage helps agencies and brands optimize campaigns, boost revenue, and deliver smarter content."}
           </p>
         </div>
       </div>
