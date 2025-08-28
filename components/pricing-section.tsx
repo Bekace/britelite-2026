@@ -69,8 +69,7 @@ export function PricingSection() {
             Affordable, scalable pricing for growing brands”
           </h2>
           <p className="self-stretch text-center text-muted-foreground text-sm font-medium leading-tight">
-            Choose a plan that fits your coding workflow, from individuals starting out to <br /> growing professionals
-            and large organizations.
+            Choose a plan that fits your signage needs, from small businesses just getting started to growing brands and large enterprises leveraging AI-powered displays.
           </p>
         </div>
         <div className="pt-4">
