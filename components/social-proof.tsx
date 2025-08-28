@@ -7,7 +7,7 @@ export function SocialProof() {
         Trusted by forward-thinking brands, agencies, and retailers
       </div>
       <div className="self-stretch grid grid-cols-2 md:grid-cols-4 gap-8 justify-items-center">
-        {Array.from({ length: 8 }).map((_, i) => (
+        {Array.from({ length: 9 }).map((_, i) => (
           <Image
             key={i}
             src={`/logos/logo0${i + 1}.svg`}
