@@ -442,8 +442,7 @@ export function HeroSection() {
           AI-Powered Digital Signage
         </h1>
         <p className="text-muted-foreground text-base md:text-base lg:text-lg font-medium leading-relaxed max-w-lg mx-auto">
-          Transform your displays with intelligent content management, real-time analytics, and seamless playlist
-          automation.
+          Transform your displays with intelligent content management, real-time analytics, and data-driven playlist automation.
         </p>
       </div>
 
