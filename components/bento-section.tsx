@@ -73,11 +73,11 @@ export function BentoSection() {
         <div className="w-[547px] h-[938px] absolute top-[614px] left-[80px] origin-top-left rotate-[-33.39deg] bg-primary/10 blur-[130px] z-0" />
         <div className="self-stretch py-8 flex flex-col justify-center items-center z-10 md:py-7 my-0 gap-1">
           <div className="flex flex-col justify-start items-center gap-4">
-            <h2 className="w-full max-w-[655px] text-center text-foreground text-4xl md:text-6xl font-semibold leading-tight md:leading-[66px]">
-              Enhance Your Digital Signage with AI
+            <h2 className="w-full max-w-[655px] text-center text-foreground text-4xl font-semibold leading-tight md:leading-[66px] md:text-6xl">
+              Engage Audiences Smarter
             </h2>
             <p className="w-full max-w-[600px] text-center text-muted-foreground text-lg md:text-xl font-medium leading-relaxed">
-              Let your AI assistant optimize content delivery, provide real-time audience insights, and integrate seamlessly with your screens to maximize engagement and revenue.
+              Let AI optimize your digital signage by delivering the right content at the right time, providing real-time audience insights, and integrating seamlessly with your screens to maximize engagement and revenue.
             </p>
           </div>
         </div>
