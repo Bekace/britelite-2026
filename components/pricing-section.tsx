@@ -26,8 +26,8 @@ export function PricingSection() {
     },
     {
       name: "Pro",
-      monthlyPrice: "$20",
-      annualPrice: "$16",
+      monthlyPrice: "$60",
+      annualPrice: "$46",
       description: "Designed for growing brands that need more flexibility.",
 features: [
   "Connect and manage up to 10 screens",
