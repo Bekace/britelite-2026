@@ -113,22 +113,24 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       console.log("[v0] Fetching playlist content for:", activePlaylist.id)
 
       const { data: content, error: contentError } = await supabase
-        .from("playlist_media")
+        .from("playlist_items")
         .select(`
           id,
-          order_index,
-          duration,
+          position,
+          duration_override,
           transition_type,
+          transition_duration,
           media (
             id,
-            filename,
+            name,
             file_path,
-            file_type,
-            file_size
+            mime_type,
+            file_size,
+            duration
           )
         `)
         .eq("playlist_id", activePlaylist.id)
-        .order("order_index")
+        .order("position")
 
       console.log("[v0] Playlist content result:", { content, contentError })
 
