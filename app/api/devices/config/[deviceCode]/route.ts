@@ -68,11 +68,110 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         "[v0] Device found but not paired. Device states:",
         allDevices.map((d) => ({ is_paired: d.is_paired, screen_id: d.screen_id })),
       )
+
+      const deviceWithScreen = allDevices.find((d) => d.screen_id !== null)
+      if (deviceWithScreen) {
+        console.log(
+          "[v0] Found device with screen_id but not marked as paired, attempting to fix:",
+          deviceWithScreen.id,
+        )
+
+        // Update device to mark as paired
+        const { error: updateError } = await supabase
+          .from("devices")
+          .update({ is_paired: true, last_heartbeat: new Date().toISOString() })
+          .eq("id", deviceWithScreen.id)
+
+        if (!updateError) {
+          console.log("[v0] Successfully marked device as paired")
+          // Use this device instead
+          const device = { ...deviceWithScreen, is_paired: true }
+
+          // Continue with screen lookup using this device
+          console.log("[v0] Looking up screen with ID:", device.screen_id)
+
+          // Get screen configuration with playlist
+          const { data: screen, error: screenError } = await supabase
+            .from("screens")
+            .select(`
+              id,
+              name,
+              orientation,
+              status,
+              screen_playlists (
+                playlist_id,
+                is_active,
+                playlists (
+                  id,
+                  name,
+                  background_color
+                )
+              )
+            `)
+            .eq("id", device.screen_id)
+            .single()
+
+          if (screenError || !screen) {
+            console.log("[v0] Screen not found:", screenError)
+            return NextResponse.json({ error: "Screen configuration not found" }, { status: 404 })
+          }
+
+          const activePlaylist = screen.screen_playlists?.find((sp: any) => sp.is_active)?.playlists || null
+          let playlistContent = null
+
+          if (activePlaylist) {
+            const { data: content, error: contentError } = await supabase
+              .from("playlist_items")
+              .select(`
+                id,
+                position,
+                duration_override,
+                transition_type,
+                transition_duration,
+                media (
+                  id,
+                  name,
+                  file_path,
+                  mime_type,
+                  file_size,
+                  duration
+                )
+              `)
+              .eq("playlist_id", activePlaylist.id)
+              .order("position")
+
+            if (!contentError && content) {
+              playlistContent = content
+            }
+          }
+
+          console.log("[v0] Device config retrieved successfully via fallback")
+          return NextResponse.json({
+            device: {
+              id: device.id,
+              device_code: device.device_code,
+              is_paired: device.is_paired,
+              screen_id: device.screen_id,
+            },
+            screen: {
+              id: screen.id,
+              name: screen.name,
+              orientation: screen.orientation,
+              status: screen.status,
+              playlist: activePlaylist,
+              content: playlistContent,
+            },
+          })
+        }
+      }
+
       return NextResponse.json({ error: "Device not paired to any screen" }, { status: 404 })
     }
 
     const device = pairedDevice
     console.log("[v0] Using paired device:", { id: device.id, screen_id: device.screen_id })
+
+    await supabase.from("devices").update({ last_heartbeat: new Date().toISOString() }).eq("id", device.id)
 
     console.log("[v0] Looking up screen with ID:", device.screen_id)
 
