@@ -33,7 +33,7 @@ export default function LoginPage() {
         },
       })
       if (error) throw error
-      router.push("/dashboard")
+      router.push("/")
     } catch (error: unknown) {
       console.error("[v0] Login error:", error)
       setError(error instanceof Error ? error.message : "An error occurred during login")
