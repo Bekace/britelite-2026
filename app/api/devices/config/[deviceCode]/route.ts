@@ -90,6 +90,24 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
           // Continue with screen lookup using this device
           console.log("[v0] Looking up screen with ID:", device.screen_id)
 
+          const { data: screenExists, error: screenExistsError } = await supabase
+            .from("screens")
+            .select("id, name, status")
+            .eq("id", device.screen_id)
+            .single()
+
+          console.log("[v0] Screen existence check:", {
+            screenId: device.screen_id,
+            exists: !!screenExists,
+            screenData: screenExists,
+            error: screenExistsError,
+          })
+
+          if (screenExistsError || !screenExists) {
+            console.log("[v0] Screen does not exist in database:", screenExistsError)
+            return NextResponse.json({ error: "Screen not found in database" }, { status: 404 })
+          }
+
           // Get screen configuration with playlist
           const { data: screen, error: screenError } = await supabase
             .from("screens")
@@ -110,6 +128,18 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
             `)
             .eq("id", device.screen_id)
             .single()
+
+          console.log("[v0] Screen lookup result:", {
+            screen: screen
+              ? {
+                  id: screen.id,
+                  name: screen.name,
+                  playlistCount: screen.screen_playlists?.length || 0,
+                  playlists: screen.screen_playlists,
+                }
+              : null,
+            screenError,
+          })
 
           if (screenError || !screen) {
             console.log("[v0] Screen not found:", screenError)
@@ -175,6 +205,24 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
     console.log("[v0] Looking up screen with ID:", device.screen_id)
 
+    const { data: screenExists, error: screenExistsError } = await supabase
+      .from("screens")
+      .select("id, name, status")
+      .eq("id", device.screen_id)
+      .single()
+
+    console.log("[v0] Screen existence check:", {
+      screenId: device.screen_id,
+      exists: !!screenExists,
+      screenData: screenExists,
+      error: screenExistsError,
+    })
+
+    if (screenExistsError || !screenExists) {
+      console.log("[v0] Screen does not exist in database:", screenExistsError)
+      return NextResponse.json({ error: "Screen not found in database" }, { status: 404 })
+    }
+
     // Get screen configuration with playlist
     const { data: screen, error: screenError } = await supabase
       .from("screens")
@@ -196,7 +244,17 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       .eq("id", device.screen_id)
       .single()
 
-    console.log("[v0] Screen lookup result:", { screen, screenError })
+    console.log("[v0] Screen lookup result:", {
+      screen: screen
+        ? {
+            id: screen.id,
+            name: screen.name,
+            playlistCount: screen.screen_playlists?.length || 0,
+            playlists: screen.screen_playlists,
+          }
+        : null,
+      screenError,
+    })
 
     if (screenError || !screen) {
       console.log("[v0] Screen not found:", screenError)
