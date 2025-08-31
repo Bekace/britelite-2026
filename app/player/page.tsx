@@ -61,8 +61,16 @@ export default function PlayerSetupPage() {
   }, [])
 
   const startPairingPoll = (code: string) => {
+    let pollCount = 0
+    const startTime = Date.now()
+
     const pollInterval = setInterval(async () => {
       try {
+        pollCount++
+        const currentTime = Date.now()
+        const elapsedSeconds = Math.floor((currentTime - startTime) / 1000)
+
+        console.log(`[v0] === PAIRING POLL #${pollCount} (${elapsedSeconds}s elapsed) ===`)
         console.log("[v0] Checking pairing status for device:", code)
 
         const url = `/api/devices/status/${code}`
@@ -75,7 +83,15 @@ export default function PlayerSetupPage() {
         console.log("[v0] Response data:", data)
 
         if (response.ok && data.device?.is_paired && data.device?.screen_id) {
-          console.log("[v0] Device paired successfully, redirecting to player")
+          console.log("[v0] === PAIRING DETECTED! ===")
+          console.log("[v0] Device paired successfully after", pollCount, "polls and", elapsedSeconds, "seconds")
+          console.log("[v0] Final device state:", {
+            isPaired: data.device.is_paired,
+            screenId: data.device.screen_id,
+            lastHeartbeat: data.device.last_heartbeat,
+          })
+          console.log("[v0] Redirecting to player in 2 seconds...")
+
           setIsPaired(true)
           clearInterval(pollInterval)
 
@@ -86,6 +102,8 @@ export default function PlayerSetupPage() {
           console.log("[v0] Device not yet paired:", {
             isPaired: data.device?.is_paired,
             screenId: data.device?.screen_id,
+            pollCount,
+            elapsedSeconds,
           })
         }
       } catch (err) {
@@ -96,6 +114,7 @@ export default function PlayerSetupPage() {
     // Clean up interval after 10 minutes
     setTimeout(
       () => {
+        console.log("[v0] Pairing poll timeout after 10 minutes")
         clearInterval(pollInterval)
       },
       10 * 60 * 1000,

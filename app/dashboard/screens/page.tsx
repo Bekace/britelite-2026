@@ -323,6 +323,8 @@ export default function ScreensPage() {
         timestamp: new Date().toISOString(),
       })
 
+      const pairingStartTime = Date.now()
+
       const pairResponse = await fetch("/api/devices/pair", {
         method: "POST",
         headers: {
@@ -334,10 +336,14 @@ export default function ScreensPage() {
         }),
       })
 
+      const pairingEndTime = Date.now()
+      const pairingDuration = pairingEndTime - pairingStartTime
+
       console.log("[v0] Device pairing response received:", {
         status: pairResponse.status,
         ok: pairResponse.ok,
         statusText: pairResponse.statusText,
+        duration: `${pairingDuration}ms`,
         timestamp: new Date().toISOString(),
       })
 
