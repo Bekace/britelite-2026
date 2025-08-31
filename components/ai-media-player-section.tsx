@@ -59,8 +59,7 @@ export function AIMediaPlayerSection() {
 
             {/* Description */}
             <p className="text-muted-foreground text-lg leading-relaxed">
-              Place the X Fast Start Kit in your store (exit zone/checkout zone/etc.) and start seeing real data about
-              your visitors immediately!
+              Place the XKREEN Fast Start Kit in your store (exit zone/checkout zone/etc.) and start seeing real data about your visitors immediately!
             </p>
           </div>
 
