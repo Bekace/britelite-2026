@@ -287,6 +287,7 @@ export default function ScreensPage() {
     setCreating(true)
 
     try {
+      console.log("[v0] === SCREEN CREATION FLOW START ===")
       console.log("[v0] Creating screen with paired device:", wizardState.pairedDevice.device_code)
 
       // Create the screen first
@@ -304,16 +305,22 @@ export default function ScreensPage() {
       })
 
       const screenData = await screenResponse.json()
-      console.log("[v0] Screen creation response:", screenData)
+      console.log("[v0] Screen creation response:", {
+        status: screenResponse.status,
+        ok: screenResponse.ok,
+        data: screenData,
+      })
 
       if (!screenResponse.ok) {
+        console.log("[v0] Screen creation failed:", screenData)
         throw new Error(screenData.error || "Failed to create screen")
       }
 
-      // Now pair the device to the screen
-      console.log("[v0] Pairing device to screen:", {
+      console.log("[v0] === DEVICE PAIRING PROCESS START ===")
+      console.log("[v0] About to pair device to screen:", {
         deviceCode: wizardState.pairedDevice.device_code,
         screenId: screenData.screen.id,
+        timestamp: new Date().toISOString(),
       })
 
       const pairResponse = await fetch("/api/devices/pair", {
@@ -327,12 +334,27 @@ export default function ScreensPage() {
         }),
       })
 
+      console.log("[v0] Device pairing response received:", {
+        status: pairResponse.status,
+        ok: pairResponse.ok,
+        statusText: pairResponse.statusText,
+        timestamp: new Date().toISOString(),
+      })
+
       const pairData = await pairResponse.json()
-      console.log("[v0] Device pairing response:", pairData)
+      console.log("[v0] Device pairing response data:", pairData)
 
       if (!pairResponse.ok) {
+        console.log("[v0] Device pairing failed:", {
+          status: pairResponse.status,
+          error: pairData.error,
+          details: pairData.details,
+        })
         throw new Error(pairData.error || "Failed to pair device")
       }
+
+      console.log("[v0] Device paired successfully!")
+      console.log("[v0] === DEVICE PAIRING PROCESS COMPLETE ===")
 
       // Assign playlist if selected
       if (wizardState.selectedPlaylist) {
@@ -350,8 +372,12 @@ export default function ScreensPage() {
 
         if (!playlistResponse.ok) {
           console.log("[v0] Failed to assign playlist, but screen and device pairing succeeded")
+        } else {
+          console.log("[v0] Playlist assigned successfully")
         }
       }
+
+      console.log("[v0] === SCREEN CREATION FLOW COMPLETE ===")
 
       toast({
         title: "Success",
@@ -373,7 +399,12 @@ export default function ScreensPage() {
       setIsCreateDialogOpen(false)
       fetchScreens()
     } catch (error) {
-      console.log("[v0] Failed to create screen:", error)
+      console.log("[v0] === SCREEN CREATION FLOW FAILED ===")
+      console.log("[v0] Error details:", {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+      })
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create screen",
