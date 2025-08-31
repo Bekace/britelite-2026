@@ -8,7 +8,7 @@ export function AIMediaPlayerSection() {
       <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
         {/* Left side - Product showcase */}
         <div className="relative">
-          <div className="relative bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600 rounded-3xl p-8 lg:p-12 overflow-hidden">
+          <div className="relative bg-gradient-to-br from-green-400 via-green-500 to-green-600 rounded-3xl p-8 lg:p-12 overflow-hidden">
             {/* Background decorative elements */}
             <div className="absolute inset-0 bg-gradient-to-br from-green-300/20 to-transparent"></div>
             {/*<div className="absolute top-4 right-4 w-32 h-32 bg-white/10 rounded-2xl transform rotate-12"></div>
@@ -59,7 +59,8 @@ export function AIMediaPlayerSection() {
 
             {/* Description */}
             <p className="text-muted-foreground text-lg leading-relaxed">
-              Place the X Fast Start Kit in your store (exit zone/checkout zone/etc.) and start seeing real data about your visitors immediately!
+              Place the X Fast Start Kit in your store (exit zone/checkout zone/etc.) and start seeing real data about
+              your visitors immediately!
             </p>
           </div>
 
