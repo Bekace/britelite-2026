@@ -2,6 +2,7 @@ import { HeroSection } from "@/components/hero-section"
 import { DashboardPreview } from "@/components/dashboard-preview"
 import { SocialProof } from "@/components/social-proof"
 import { IndustriesSection } from "@/components/industries-section"
+import { AIMediaPlayerSection } from "@/components/ai-media-player-section"
 import { BentoSection } from "@/components/bento-section"
 import { LargeTestimonial } from "@/components/large-testimonial"
 import { PricingSection } from "@/components/pricing-section"
@@ -29,6 +30,9 @@ export default function LandingPage() {
         </AnimatedSection>
         <AnimatedSection className="relative z-10 max-w-[1320px] mx-auto mt-16" delay={0.15}>
           <IndustriesSection />
+        </AnimatedSection>
+        <AnimatedSection className="relative z-10 max-w-[1320px] mx-auto mt-16" delay={0.18}>
+          <AIMediaPlayerSection />
         </AnimatedSection>
         <AnimatedSection id="features-section" className="relative z-10 max-w-[1320px] mx-auto mt-16" delay={0.2}>
           <BentoSection />
