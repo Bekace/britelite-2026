@@ -11,8 +11,6 @@ export function AIMediaPlayerSection() {
           <div className="relative bg-gradient-to-br from-[#5eead4] via-[#4ade80] to-[#5eead4] rounded-3xl p-4 lg:p-2 overflow-hidden">
             {/* Background decorative elements */}
             <div className="absolute inset-0 bg-gradient-to-br from-green-300/20 to-transparent"></div>
-            {/*<div className="absolute top-4 right-4 w-32 h-32 bg-white/10 rounded-2xl transform rotate-12"></div>
-            <div className="absolute bottom-8 left-8 w-24 h-24 bg-white/5 rounded-xl transform -rotate-6"></div>*/}
 
             {/* Product images */}
             <div className="relative z-10">
@@ -59,7 +57,8 @@ export function AIMediaPlayerSection() {
 
             {/* Description */}
             <p className="text-muted-foreground text-lg leading-relaxed">
-              Place the XKREEN Fast Start Kit in your store (exit zone/checkout zone/etc.) and start seeing real data about your visitors immediately!
+              Place the XKREEN Fast Start Kit in your store (exit zone/checkout zone/etc.) and start seeing real data
+              about your visitors immediately!
             </p>
           </div>
 
