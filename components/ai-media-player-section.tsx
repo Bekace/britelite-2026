@@ -16,24 +16,13 @@ export function AIMediaPlayerSection() {
 
             {/* Product images */}
             <div className="relative z-10">
-              <div className="mb-8">
-                <Image
-                  src="/modern-digital-signage-media-player-device-with-po.png"
-                  alt="AI Media Player Device"
-                  width={300}
-                  height={200}
-                  className="rounded-xl shadow-2xl"
-                />
-              </div>
-              <div className="flex justify-end">
-                <Image
-                  src="/tablet-or-screen-display-showing-digital-signage-i.png"
-                  alt="Digital Display Screen"
-                  width={200}
-                  height={150}
-                  className="rounded-lg shadow-xl transform rotate-3"
-                />
-              </div>
+              <Image
+                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/67bf7352968940a8f367cd2b_ai.jpg-dm1SoigQZy8yBc4SmdIaqUAAs6RGlg.jpeg"
+                alt="AI Media Player Complete Setup"
+                width={500}
+                height={400}
+                className="rounded-xl shadow-2xl w-full object-cover"
+              />
             </div>
           </div>
         </div>
