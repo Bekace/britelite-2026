@@ -4,11 +4,11 @@ import Image from "next/image"
 
 export function AIMediaPlayerSection() {
   return (
-    <section className="px-2 py-8 md:py-24">
-      <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+    <section className="px-2 py-8 md:py-12">
+      <div className="grid lg:grid-cols-2 gap-12 lg:gap-6 items-center">
         {/* Left side - Product showcase */}
         <div className="relative">
-          <div className="relative bg-gradient-to-br from-[#5eead4] via-[#4ade80] to-[#5eead4] rounded-3xl p-4 lg:p-12 overflow-hidden">
+          <div className="relative bg-gradient-to-br from-[#5eead4] via-[#4ade80] to-[#5eead4] rounded-3xl p-4 lg:p-6 overflow-hidden">
             {/* Background decorative elements */}
             <div className="absolute inset-0 bg-gradient-to-br from-green-300/20 to-transparent"></div>
             {/*<div className="absolute top-4 right-4 w-32 h-32 bg-white/10 rounded-2xl transform rotate-12"></div>
