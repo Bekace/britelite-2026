@@ -4,7 +4,7 @@ import Image from "next/image"
 
 export function AIMediaPlayerSection() {
   return (
-    <section className="px-2 py-8 md:py-12">
+    <section className="px-2 py-2 md:py-12">
       <div className="grid lg:grid-cols-2 gap-12 lg:gap-6 items-center">
         {/* Left side - Product showcase */}
         <div className="relative">
