@@ -19,7 +19,7 @@ export function AIMediaPlayerSection() {
               <Image
                 src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/67bf7352968940a8f367cd2b_ai.jpg-dm1SoigQZy8yBc4SmdIaqUAAs6RGlg.jpeg"
                 alt="AI Media Player Complete Setup"
-                width={100%}
+                width={500}
                 height={400}
                 className="rounded-xl shadow-2xl w-full object-cover"
               />
