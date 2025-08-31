@@ -49,13 +49,20 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [error, setError] = useState("")
   const [retryCount, setRetryCount] = useState(0)
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
+  const [maxRetries] = useState(3)
   const router = useRouter()
 
   const fetchConfig = async () => {
     try {
       console.log("[v0] Fetching device config for:", params.deviceCode)
 
-      const response = await fetch(`/api/devices/config/${params.deviceCode}`)
+      const response = await fetch(`/api/devices/config/${params.deviceCode}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+        },
+      })
       console.log("[v0] Config response status:", response.status)
 
       if (!response.ok) {
@@ -120,6 +127,11 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   }, [currentMediaIndex, config])
 
   const handleRetry = () => {
+    if (retryCount >= maxRetries) {
+      setError("Maximum retry attempts reached. Please check your connection and try again.")
+      return
+    }
+
     setLoading(true)
     setError("")
     fetchConfig()
@@ -153,10 +165,14 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
             <p className="text-muted-foreground">Screen configuration not found</p>
             {retryCount > 0 && <p className="text-sm text-muted-foreground">Failed after {retryCount} attempts</p>}
             <div className="space-y-2">
-              <Button onClick={handleRetry} className="w-full">
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Retry Connection
-              </Button>
+              {retryCount < maxRetries ? (
+                <Button onClick={handleRetry} className="w-full">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Retry Connection ({maxRetries - retryCount} attempts left)
+                </Button>
+              ) : (
+                <p className="text-sm text-destructive">Maximum retry attempts reached</p>
+              )}
               <Button onClick={handleBackToSetup} variant="outline" className="w-full bg-transparent">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Setup

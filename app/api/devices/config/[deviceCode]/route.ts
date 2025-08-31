@@ -14,43 +14,33 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
     }
 
-    let device = null
-    const { data: pairedDevice, error: pairedError } = await supabase
+    const { data: device, error: deviceError } = await supabase
       .from("devices")
       .select("*")
       .eq("device_code", deviceCode)
-      .eq("is_paired", true)
       .not("screen_id", "is", null)
       .single()
 
-    if (!pairedError && pairedDevice) {
-      device = pairedDevice
-    } else {
-      const { data: unpairedDevice, error: unpairedError } = await supabase
-        .from("devices")
-        .select("*")
-        .eq("device_code", deviceCode)
-        .not("screen_id", "is", null)
-        .single()
-
-      if (unpairedDevice && !unpairedError) {
-        const { error: updateError } = await supabase
-          .from("devices")
-          .update({ is_paired: true, last_heartbeat: new Date().toISOString() })
-          .eq("id", unpairedDevice.id)
-
-        if (!updateError) {
-          // Use the fixed device
-          device = { ...unpairedDevice, is_paired: true }
-        } else {
-          return NextResponse.json({ error: "Device not found or not paired" }, { status: 404 })
-        }
-      } else {
-        return NextResponse.json({ error: "Device not found or not paired" }, { status: 404 })
-      }
+    if (deviceError || !device) {
+      console.error("[v0] Device not found:", deviceError)
+      return NextResponse.json({ error: "Device not found or not paired" }, { status: 404 })
     }
 
-    await supabase.from("devices").update({ last_heartbeat: new Date().toISOString() }).eq("id", device.id)
+    if (!device.is_paired) {
+      const { error: updateError } = await supabase
+        .from("devices")
+        .update({ is_paired: true, last_heartbeat: new Date().toISOString() })
+        .eq("id", device.id)
+
+      if (updateError) {
+        console.error("[v0] Failed to update device:", updateError)
+        return NextResponse.json({ error: "Failed to update device status" }, { status: 500 })
+      }
+      device.is_paired = true
+    } else {
+      // Update heartbeat for already paired devices
+      await supabase.from("devices").update({ last_heartbeat: new Date().toISOString() }).eq("id", device.id)
+    }
 
     const { data: screen, error: screenError } = await supabase
       .from("screens")
@@ -74,11 +64,12 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       .single()
 
     if (screenError || !screen) {
+      console.error("[v0] Screen not found:", screenError)
       return NextResponse.json({ error: "Screen configuration not found" }, { status: 404 })
     }
 
     const activePlaylist = screen.screen_playlists?.[0]?.playlists
-    let playlistContent = null
+    let playlistContent = []
 
     if (activePlaylist) {
       const { data: content, error: contentError } = await supabase
@@ -106,7 +97,7 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       }
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       device: {
         id: device.id,
         device_code: device.device_code,
@@ -122,6 +113,12 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         content: playlistContent,
       },
     })
+
+    response.headers.set("Cache-Control", "no-cache, no-store, must-revalidate")
+    response.headers.set("Pragma", "no-cache")
+    response.headers.set("Expires", "0")
+
+    return response
   } catch (error) {
     console.error("[v0] Device config error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
