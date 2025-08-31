@@ -43,6 +43,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new device
+    console.log("[v0] Attempting to create new device with data:", {
+      device_code,
+      device_info: device_info || {},
+      is_paired: false,
+      last_heartbeat: new Date().toISOString(),
+    })
+
     const { data: newDevice, error: insertError } = await supabase
       .from("devices")
       .insert({
@@ -55,8 +62,19 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (insertError) {
-      console.log("[v0] Error creating device:", insertError)
-      return NextResponse.json({ error: "Failed to create device" }, { status: 500 })
+      console.log("[v0] Error creating device - Full error details:", {
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+        code: insertError.code,
+      })
+      return NextResponse.json(
+        {
+          error: "Failed to create device",
+          details: insertError.message,
+        },
+        { status: 500 },
+      )
     }
 
     console.log("[v0] Device registered successfully:", newDevice.id)
