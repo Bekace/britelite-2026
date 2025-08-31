@@ -76,7 +76,15 @@ export default function PlayerSetupPage() {
         const url = `/api/devices/status/${code}`
         console.log("[v0] Making request to:", url)
 
-        const response = await fetch(url)
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+          cache: "no-store",
+        })
         console.log("[v0] Response status:", response.status)
 
         const data = await response.json()
@@ -90,14 +98,12 @@ export default function PlayerSetupPage() {
             screenId: data.device.screen_id,
             lastHeartbeat: data.device.last_heartbeat,
           })
-          console.log("[v0] Redirecting to player in 2 seconds...")
+          console.log("[v0] Redirecting to player immediately...")
 
           setIsPaired(true)
           clearInterval(pollInterval)
 
-          setTimeout(() => {
-            router.push(`/player/${code}`)
-          }, 2000)
+          router.push(`/player/${code}`)
         } else {
           console.log("[v0] Device not yet paired:", {
             isPaired: data.device?.is_paired,
@@ -109,7 +115,7 @@ export default function PlayerSetupPage() {
       } catch (err) {
         console.log("[v0] Pairing status check error:", err)
       }
-    }, 3000) // Poll every 3 seconds
+    }, 2000) // Reduce polling interval to 2 seconds for faster detection
 
     // Clean up interval after 10 minutes
     setTimeout(

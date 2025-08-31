@@ -19,6 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       .from("devices")
       .select("*")
       .eq("device_code", params.deviceCode)
+      .order("updated_at", { ascending: false }) // Add explicit ordering and fresh data query to prevent cached results
       .single()
 
     if (deviceError) {
@@ -76,7 +77,13 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
     console.log("[v0] === DEVICE STATUS CHECK COMPLETE ===")
     console.log("[v0] Returning device status:", responseData, "at", new Date().toISOString())
 
-    return NextResponse.json(responseData)
+    return NextResponse.json(responseData, {
+      headers: {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    })
   } catch (error) {
     console.log("[v0] Device status API error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
