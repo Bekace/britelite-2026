@@ -30,7 +30,7 @@ export function AIMediaPlayerSection() {
         {/* Right side - Content */}
         <div className="space-y-8">
           <div className="space-y-6">
-            <h2 className="text-4xl lg:text-5xl font-bold text-foreground text-balance">
+            <h2 className="text-4xl lg:text-5xl text-foreground text-balance font-semibold">
               AI Media Player
               <br />
               for Easy Start
@@ -59,8 +59,7 @@ export function AIMediaPlayerSection() {
 
             {/* Description */}
             <p className="text-muted-foreground text-lg leading-relaxed">
-              Place the DISPL Fast Start Kit in your store (exit zone/checkout zone/etc.) and start seeing real data
-              about your visitors immediately!
+              Place the X Fast Start Kit in your store (exit zone/checkout zone/etc.) and start seeing real data about your visitors immediately!
             </p>
           </div>
 
