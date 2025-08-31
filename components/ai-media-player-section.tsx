@@ -11,8 +11,8 @@ export function AIMediaPlayerSection() {
           <div className="relative bg-gradient-to-br from-purple-400 via-purple-500 to-purple-600 rounded-3xl p-8 lg:p-12 overflow-hidden">
             {/* Background decorative elements */}
             <div className="absolute inset-0 bg-gradient-to-br from-purple-300/20 to-transparent"></div>
-            <div className="absolute top-4 right-4 w-32 h-32 bg-white/10 rounded-2xl transform rotate-12"></div>
-            <div className="absolute bottom-8 left-8 w-24 h-24 bg-white/5 rounded-xl transform -rotate-6"></div>
+            {/*<div className="absolute top-4 right-4 w-32 h-32 bg-white/10 rounded-2xl transform rotate-12"></div>
+            <div className="absolute bottom-8 left-8 w-24 h-24 bg-white/5 rounded-xl transform -rotate-6"></div>*/}
 
             {/* Product images */}
             <div className="relative z-10">
