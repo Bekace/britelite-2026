@@ -306,7 +306,7 @@ export function HeroSection() {
           <rect
             x="0.5"
             y="0.5"
-            width="1219"
+            width="1400"
             height="809"
             rx="15.5"
             stroke="hsl(var(--foreground))"
