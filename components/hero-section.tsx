@@ -14,7 +14,7 @@ export function HeroSection() {
         <svg
           width="100%"
           height="100%"
-          viewBox="0 0 1420 810"
+          viewBox="0 0 1220 810"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
           preserveAspectRatio="xMidYMid slice"
@@ -26,7 +26,7 @@ export function HeroSection() {
               maskUnits="userSpaceOnUse"
               x="10"
               y="-1"
-              width="1400"
+              width="1200"
               height="812"
             >
               <rect x="10" y="-0.84668" width="1400" height="811.693" fill="url(#paint0_linear_186_1134)" />
@@ -306,7 +306,7 @@ export function HeroSection() {
           <rect
             x="0.5"
             y="0.5"
-            width="1400"
+            width="1219"
             height="809"
             rx="15.5"
             stroke="hsl(var(--foreground))"
