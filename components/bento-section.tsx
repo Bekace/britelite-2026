@@ -36,33 +36,33 @@ const BentoCard = ({ title, description, Component }) => (
 export function BentoSection() {
   const cards = [
     {
-      title: "AI-Powered Content Optimization",
-      description: "Receive real-time, intelligent recommendations to make your signage more engaging and effective.",
+      title: "Real-Time Audience Analytics",
+      description: "Leverage AI-driven computer vision to capture and process live audience demographics, dwell time, and engagement metrics, enabling instant optimization of displayed content.",
       Component: AiCodeReviews,
     },
     {
-      title: "Real-Time Signage Previews",
-      description: "Collaborate, adjust, and instantly see updates on your screens.",
+      title: "Hyper-Targeted Content Delivery",
+      description: "Automated segmentation and predictive modeling ensure signage adapts dynamically to audience profiles, driving relevance, higher retention rates, and measurable ROI.",
       Component: RealtimeCodingPreviews,
     },
     {
-      title: "One-click integrations",
-      description: "Quickly connect your signage system with popular apps and tools.",
+      title: "Scalable Data Infrastructure",
+      description: "Our cloud-native architecture securely aggregates multi-location analytics, giving agencies and brands centralized dashboards for actionable insights across networks.",
       Component: OneClickIntegrationsIllustration,
     },
     {
-      title: "Flexible Screen Connectivity",
-      description: "Easily manage and configure access for all your signage devices.",
+      title: "Computer Vision for Behavior Mapping",
+      description: "Image recognition algorithms detect patterns in customer movement and attention flow, helping businesses refine layouts, campaign strategies, and ad placement precision.",
       Component: MCPConnectivityIllustration, // Updated component
     },
     {
-      title: "Launch Parallel AI Assistants", // Swapped position
-      description: "Optimize multiple screens simultaneously for faster, smarter updates.",
+      title: "Integration with Omnichannel Campaigns", // Swapped position
+      description: "APIs connect signage analytics with CRM, retail apps, and marketing platforms, aligning physical audience data with digital campaigns for unified customer journeys.",
       Component: ParallelCodingAgents, // Updated component
     },
     {
-      title: "Deployment made easy", // Swapped position
-      description: "Publish your signage content live across screens instantly.",
+      title: "Data-Driven Revenue Optimization", // Swapped position
+      description: "AI-powered reporting uncovers top-performing content and monetizable screen placements, enabling agencies and retailers to maximize ad yield and operational efficiency.",
       Component: EasyDeployment,
     },
   ]
