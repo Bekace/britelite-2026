@@ -14,7 +14,7 @@ export function HeroSection() {
         <svg
           width="100%"
           height="100%"
-          viewBox="0 0 1220 810"
+          viewBox="0 0 1420 810"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
           preserveAspectRatio="xMidYMid slice"
