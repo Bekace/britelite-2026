@@ -21,7 +21,7 @@ const BentoCard = ({ title, description, Component }) => (
 
     <div className="self-stretch p-6 flex flex-col justify-start items-start gap-2 relative z-10">
       <div className="self-stretch flex flex-col justify-start items-start gap-1.5">
-        <p className="self-stretch text-foreground text-lg font-normal leading-7">
+        <p className="self-stretch text-lg font-normal leading-7 text-teal-200">
           {title} <br />
           <span className="text-muted-foreground">{description}</span>
         </p>
