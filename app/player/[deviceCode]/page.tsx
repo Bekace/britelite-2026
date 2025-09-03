@@ -121,10 +121,16 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
   // Auto-advance media content
   useEffect(() => {
-    if (!config?.screen.content || config.screen.content.length === 0) return
+    if (!config?.screen.content || config.screen.content.length === 0) {
+      setCurrentMediaIndex(0)
+      return
+    }
 
     const currentMedia = config.screen.content[currentMediaIndex]
-    if (!currentMedia) return
+    if (!currentMedia) {
+      setCurrentMediaIndex(0)
+      return
+    }
 
     const duration = currentMedia.duration_override || currentMedia.media.duration || 10000
 
@@ -214,11 +220,6 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const { screen } = config
   const currentMedia = screen.content?.[currentMediaIndex]
 
-  console.log("[v0] Screen config:", screen)
-  console.log("[v0] Current media index:", currentMediaIndex)
-  console.log("[v0] Current media:", currentMedia)
-  console.log("[v0] All content:", screen.content)
-
   return (
     <div
       className="min-h-screen flex items-center justify-center"
@@ -231,11 +232,6 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         <div className="w-full h-full flex items-center justify-center">
           {currentMedia && (
             <div className="w-full h-full relative">
-              {(() => {
-                console.log("[v0] Rendering media:", currentMedia.media.mime_type, currentMedia.media.file_path)
-                return null
-              })()}
-
               {currentMedia.media.mime_type.startsWith("image/") ? (
                 <Image
                   src={currentMedia.media.file_path || "/placeholder.svg"}
