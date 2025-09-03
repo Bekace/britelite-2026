@@ -26,7 +26,7 @@ export function HeroSection() {
               maskUnits="userSpaceOnUse"
               x="10"
               y="-1"
-              width="1400"
+              width="1440"
               height="812"
             >
               <rect x="10" y="-0.84668" width="1440" height="811.693" fill="url(#paint0_linear_186_1134)" />
