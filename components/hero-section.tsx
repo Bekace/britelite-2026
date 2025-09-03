@@ -29,7 +29,7 @@ export function HeroSection() {
               width="1200"
               height="812"
             >
-              <rect x="10" y="-0.84668" width="1400" height="811.693" fill="url(#paint0_linear_186_1134)" />
+              <rect x="10" y="-0.84668" width="1440" height="811.693" fill="url(#paint0_linear_186_1134)" />
             </mask>
             <g mask="url(#mask0_186_1134)">
               {/* Grid Rectangles */}
