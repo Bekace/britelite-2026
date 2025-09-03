@@ -2,9 +2,9 @@ import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
-export async function GET(request: Request, { params }: { params: { screenId: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const { screenId } = params
+    const { id } = params
     const cookieStore = cookies()
     const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
       cookies: {
@@ -14,14 +14,12 @@ export async function GET(request: Request, { params }: { params: { screenId: st
       },
     })
 
-    // Get screen info
-    const { data: screen, error: screenError } = await supabase.from("screens").select("*").eq("id", screenId).single()
+    const { data: screen, error: screenError } = await supabase.from("screens").select("*").eq("id", id).single()
 
     if (screenError || !screen) {
       return NextResponse.json({ error: "Screen not found" }, { status: 404 })
     }
 
-    // Get active playlist for this screen
     const { data: screenPlaylist, error: playlistError } = await supabase
       .from("screen_playlists")
       .select(`
@@ -32,7 +30,7 @@ export async function GET(request: Request, { params }: { params: { screenId: st
           background_color
         )
       `)
-      .eq("screen_id", screenId)
+      .eq("screen_id", id)
       .eq("is_active", true)
       .single()
 
@@ -40,7 +38,6 @@ export async function GET(request: Request, { params }: { params: { screenId: st
       return NextResponse.json({ error: "No active playlist found for screen" }, { status: 404 })
     }
 
-    // Get playlist items
     const { data: items, error: itemsError } = await supabase
       .from("playlist_items")
       .select("*")
