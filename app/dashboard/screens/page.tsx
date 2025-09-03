@@ -100,7 +100,6 @@ export default function ScreensPage() {
   const [repairingScreen, setRepairingScreen] = useState<Screen | null>(null)
   const [newPairingCode, setNewPairingCode] = useState("")
   const [isCreatingScreen, setIsCreatingScreen] = useState(false)
-  const [showWizard, setShowWizard] = useState(false)
 
   const [wizardState, setWizardState] = useState<WizardState>({
     step: 1,
