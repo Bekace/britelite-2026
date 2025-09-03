@@ -18,10 +18,15 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       .from("devices")
       .select("*")
       .eq("device_code", deviceCode)
-      .single()
+      .maybeSingle()
 
-    if (deviceError || !device) {
-      console.error("[v0] Device not found:", deviceError)
+    if (deviceError) {
+      console.error("[v0] Device query error:", deviceError)
+      return NextResponse.json({ error: "Database query failed" }, { status: 500 })
+    }
+
+    if (!device) {
+      console.error("[v0] Device not found:", deviceCode)
       return NextResponse.json({ error: "Device not found" }, { status: 404 })
     }
 
@@ -48,19 +53,9 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         id,
         name,
         orientation,
-        status,
-        screen_playlists!inner (
-          playlist_id,
-          is_active,
-          playlists (
-            id,
-            name,
-            background_color
-          )
-        )
+        status
       `)
       .eq("id", device.screen_id)
-      .eq("screen_playlists.is_active", true)
       .single()
 
     if (screenError || !screen) {
@@ -68,10 +63,27 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       return NextResponse.json({ error: "Screen configuration not found" }, { status: 404 })
     }
 
-    const activePlaylist = screen.screen_playlists?.[0]?.playlists
+    let activePlaylist = null
     let playlistContent = []
 
-    if (activePlaylist) {
+    const { data: screenPlaylist, error: playlistError } = await supabase
+      .from("screen_playlists")
+      .select(`
+        playlist_id,
+        playlists (
+          id,
+          name,
+          background_color
+        )
+      `)
+      .eq("screen_id", device.screen_id)
+      .eq("is_active", true)
+      .maybeSingle()
+
+    if (!playlistError && screenPlaylist?.playlists) {
+      activePlaylist = screenPlaylist.playlists
+
+      // Get playlist content
       const { data: content, error: contentError } = await supabase
         .from("playlist_items")
         .select(`
@@ -101,7 +113,7 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       device: {
         id: device.id,
         device_code: device.device_code,
-        is_paired: device.is_paired,
+        is_paired: true,
         screen_id: device.screen_id,
       },
       screen: {

@@ -48,8 +48,8 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [retryCount, setRetryCount] = useState(0)
-  const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const [maxRetries] = useState(3)
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0) // Declare currentMediaIndex
   const router = useRouter()
 
   const fetchConfig = async () => {
@@ -83,7 +83,16 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     } catch (err) {
       console.log("[v0] Config fetch error:", err)
       setError(err instanceof Error ? err.message : "Failed to load configuration")
-      setRetryCount((prev) => prev + 1)
+
+      if (retryCount < maxRetries) {
+        setRetryCount((prev) => prev + 1)
+        // Auto-retry with exponential backoff
+        setTimeout(() => {
+          if (retryCount < maxRetries - 1) {
+            fetchConfig()
+          }
+        }, Math.pow(2, retryCount) * 1000) // 1s, 2s, 4s delays
+      }
     } finally {
       setLoading(false)
     }
