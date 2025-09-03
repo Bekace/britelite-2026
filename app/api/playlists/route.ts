@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         name,
         description,
+        is_active: true,
       })
       .select()
       .single()
