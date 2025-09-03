@@ -4,6 +4,7 @@ import { type NextRequest, NextResponse } from "next/server"
 export async function POST(request: NextRequest) {
   try {
     const { deviceCode, screenId } = await request.json()
+    console.log("[v0] Device pairing attempt:", { deviceCode, screenId })
 
     if (!deviceCode || !screenId) {
       return NextResponse.json({ error: "Device code and screen ID are required" }, { status: 400 })
@@ -130,8 +131,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (updateError) {
+      console.log("[v0] Device update failed:", updateError)
       return NextResponse.json({ error: "Failed to pair device" }, { status: 500 })
     }
+
+    console.log("[v0] Device paired successfully:", updatedDevice)
 
     // Update screen status
     const { error: screenUpdateError } = await supabase
