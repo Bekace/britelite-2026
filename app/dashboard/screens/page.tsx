@@ -363,8 +363,8 @@ export default function ScreensPage() {
       console.log("[v0] === DEVICE PAIRING PROCESS COMPLETE ===")
 
       // Assign playlist if selected
-      if (wizardState.selectedPlaylist) {
-        console.log("[v0] Assigning playlist to screen:", wizardState.selectedPlaylist.id)
+      if (wizardState.selectedContentId && wizardState.contentType === "playlist") {
+        console.log("[v0] Assigning playlist to screen:", wizardState.selectedContentId)
 
         const playlistResponse = await fetch(`/api/screens/${screenData.screen.id}`, {
           method: "PUT",
@@ -372,7 +372,7 @@ export default function ScreensPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            playlist_id: wizardState.selectedPlaylist.id,
+            playlist_id: wizardState.selectedContentId,
           }),
         })
 
@@ -401,6 +401,8 @@ export default function ScreensPage() {
         isPaired: false,
         pairedDevice: null,
         selectedPlaylist: null,
+        selectedContentId: "",
+        contentType: "",
       })
       setIsCreateDialogOpen(false)
       fetchScreens()
