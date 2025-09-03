@@ -5,17 +5,12 @@ export async function POST(request: NextRequest) {
   try {
     const { deviceCode, screenId } = await request.json()
 
-    console.log("[v0] === DEVICE PAIRING REQUEST START ===")
-    console.log("[v0] Pairing request:", { deviceCode, screenId, timestamp: new Date().toISOString() })
-
     if (!deviceCode || !screenId) {
-      console.log("[v0] Missing required parameters")
       return NextResponse.json({ error: "Device code and screen ID are required" }, { status: 400 })
     }
 
     const supabase = await createClient()
     if (!supabase) {
-      console.log("[v0] Database connection failed")
       return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
     }
 
@@ -25,11 +20,8 @@ export async function POST(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser()
     if (authError || !user) {
-      console.log("[v0] Authentication failed:", authError)
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
     }
-
-    console.log("[v0] Authenticated user:", user.id)
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -38,8 +30,6 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (profileError || !profile) {
-      console.log("[v0] User profile not found, creating one:", { userId: user.id, error: profileError })
-
       // Create profile for user if it doesn't exist
       const { error: createProfileError } = await supabase.from("profiles").insert({
         id: user.id,
@@ -48,7 +38,6 @@ export async function POST(request: NextRequest) {
       })
 
       if (createProfileError) {
-        console.log("[v0] Failed to create user profile:", createProfileError)
         return NextResponse.json(
           {
             error: "User profile required but could not be created",
@@ -57,11 +46,7 @@ export async function POST(request: NextRequest) {
           { status: 500 },
         )
       }
-
-      console.log("[v0] User profile created successfully")
     }
-
-    console.log("[v0] Looking for device:", { deviceCode, userId: user.id })
 
     // Find device by device code - first check if device exists at all
     const { data: allDevices, error: allDevicesError } = await supabase
@@ -69,15 +54,11 @@ export async function POST(request: NextRequest) {
       .select("*")
       .eq("device_code", deviceCode)
 
-    console.log("[v0] All devices with code:", allDevices)
-
     if (allDevicesError) {
-      console.log("[v0] Error querying devices:", allDevicesError)
       return NextResponse.json({ error: "Database query failed" }, { status: 500 })
     }
 
     if (!allDevices || allDevices.length === 0) {
-      console.log("[v0] No device found with code:", deviceCode)
       return NextResponse.json(
         { error: "Device not found. Make sure the device is registered and the code is correct." },
         { status: 404 },
@@ -91,24 +72,14 @@ export async function POST(request: NextRequest) {
     if (userDevice) {
       // Device already belongs to current user
       device = userDevice
-      console.log("[v0] Found device belonging to current user")
     } else if (unassignedDevice) {
       // Device is unassigned, claim it for current user
       device = unassignedDevice
-      console.log("[v0] Found unassigned device, claiming for current user")
 
       // Assign device to current user
       const { error: assignError } = await supabase.from("devices").update({ user_id: user.id }).eq("id", device.id)
 
       if (assignError) {
-        console.log("[v0] Failed to assign device to user:", {
-          error: assignError,
-          deviceId: device.id,
-          userId: user.id,
-          errorCode: assignError.code,
-          errorMessage: assignError.message,
-          errorDetails: assignError.details,
-        })
         return NextResponse.json(
           {
             error: "Failed to assign device",
@@ -118,10 +89,6 @@ export async function POST(request: NextRequest) {
         )
       }
     } else {
-      console.log("[v0] Device found but belongs to different user:", {
-        deviceUserId: allDevices[0].user_id,
-        currentUserId: user.id,
-      })
       return NextResponse.json({ error: "Device belongs to another user" }, { status: 404 })
     }
 
@@ -148,19 +115,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (screenError || !screen) {
-      console.log("[v0] Screen not found:", screenError)
       return NextResponse.json({ error: "Invalid screen ID" }, { status: 404 })
     }
-
-    // Update device to pair it with the screen
-    console.log("[v0] === UPDATING DEVICE PAIRING STATUS ===")
-    console.log("[v0] About to update device:", {
-      deviceId: device.id,
-      deviceCode: device.device_code,
-      currentIsPaired: device.is_paired,
-      currentScreenId: device.screen_id,
-      newScreenId: screenId,
-    })
 
     const { data: updatedDevice, error: updateError } = await supabase
       .from("devices")
@@ -174,22 +130,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (updateError) {
-      console.log("[v0] Failed to update device:", {
-        error: updateError,
-        errorCode: updateError.code,
-        errorMessage: updateError.message,
-        errorDetails: updateError.details,
-      })
       return NextResponse.json({ error: "Failed to pair device" }, { status: 500 })
     }
-
-    console.log("[v0] Device updated successfully:", {
-      deviceId: updatedDevice.id,
-      deviceCode: updatedDevice.device_code,
-      isPaired: updatedDevice.is_paired,
-      screenId: updatedDevice.screen_id,
-      lastHeartbeat: updatedDevice.last_heartbeat,
-    })
 
     // Update screen status
     const { error: screenUpdateError } = await supabase
@@ -201,17 +143,10 @@ export async function POST(request: NextRequest) {
       .eq("id", screenId)
 
     if (screenUpdateError) {
-      console.log("[v0] Failed to update screen:", screenUpdateError)
+      console.error("Failed to update screen:", screenUpdateError)
     }
 
     const activePlaylist = screen.screen_playlists?.find((sp: any) => sp.is_active)?.playlists || null
-
-    console.log("[v0] === DEVICE PAIRING REQUEST COMPLETE ===")
-    console.log("[v0] Device paired successfully:", {
-      deviceCode,
-      screenId,
-      timestamp: new Date().toISOString(),
-    })
 
     // Return screen configuration for the device
     return NextResponse.json({
@@ -224,7 +159,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("[v0] Device pairing error:", error)
+    console.error("Device pairing error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
