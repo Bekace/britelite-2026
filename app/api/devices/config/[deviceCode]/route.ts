@@ -28,50 +28,61 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       return NextResponse.json({ error: "Device not paired to screen" }, { status: 404 })
     }
 
-    const { data: screenData, error: screenError } = await supabase
+    const { data: screen, error: screenError } = await supabase
       .from("screens")
-      .select(`
-        id,
-        name,
-        orientation,
-        status,
-        screen_playlists!inner (
-          playlist_id,
-          is_active,
-          playlists!inner (
-            id,
-            name,
-            background_color,
-            is_active,
-            playlist_items (
-              id,
-              position,
-              duration_override,
-              transition_type,
-              transition_duration,
-              media (
-                id,
-                name,
-                file_path,
-                mime_type,
-                file_size,
-                duration
-              )
-            )
-          )
-        )
-      `)
+      .select("id, name, orientation, status")
       .eq("id", device.screen_id)
-      .eq("screen_playlists.is_active", true)
-      .eq("screen_playlists.playlists.is_active", true)
       .single()
 
-    if (screenError || !screenData) {
-      return NextResponse.json({ error: "Screen configuration not found" }, { status: 404 })
+    if (screenError || !screen) {
+      return NextResponse.json({ error: "Screen not found" }, { status: 404 })
     }
 
-    const activePlaylistData = screenData.screen_playlists?.[0]?.playlists
-    const playlistContent = activePlaylistData?.playlist_items || []
+    const { data: screenPlaylist, error: playlistError } = await supabase
+      .from("screen_playlists")
+      .select(`
+        playlist_id,
+        playlists (
+          id,
+          name,
+          background_color,
+          is_active
+        )
+      `)
+      .eq("screen_id", screen.id)
+      .eq("is_active", true)
+      .maybeSingle()
+
+    let playlistContent = []
+    let activePlaylist = null
+
+    if (screenPlaylist?.playlists) {
+      activePlaylist = screenPlaylist.playlists
+
+      const { data: playlistItems, error: itemsError } = await supabase
+        .from("playlist_items")
+        .select(`
+          id,
+          position,
+          duration_override,
+          transition_type,
+          transition_duration,
+          media (
+            id,
+            name,
+            file_path,
+            mime_type,
+            file_size,
+            duration
+          )
+        `)
+        .eq("playlist_id", activePlaylist.id)
+        .order("position")
+
+      if (!itemsError && playlistItems) {
+        playlistContent = playlistItems.filter((item) => item.media) // Only include items with valid media
+      }
+    }
 
     await supabase
       .from("devices")
@@ -89,11 +100,11 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         screen_id: device.screen_id,
       },
       screen: {
-        id: screenData.id,
-        name: screenData.name,
-        orientation: screenData.orientation,
-        status: screenData.status,
-        playlist: activePlaylistData || null,
+        id: screen.id,
+        name: screen.name,
+        orientation: screen.orientation,
+        status: screen.status,
+        playlist: activePlaylist,
         content: playlistContent,
       },
     }
