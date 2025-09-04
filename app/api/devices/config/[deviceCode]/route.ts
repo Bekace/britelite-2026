@@ -46,7 +46,12 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
           id,
           name,
           background_color,
-          is_active
+          is_active,
+          scale_image,
+          scale_video,
+          scale_document,
+          shuffle,
+          default_transition
         )
       `)
       .eq("screen_id", screen.id)

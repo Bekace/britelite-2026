@@ -38,6 +38,11 @@ interface ScreenConfig {
       id: string
       name: string
       background_color: string
+      scale_image?: string
+      scale_video?: string
+      scale_document?: string
+      shuffle?: boolean
+      default_transition?: string
     } | null
     content: MediaItem[]
   }
@@ -49,8 +54,18 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [error, setError] = useState("")
   const [retryCount, setRetryCount] = useState(0)
   const [maxRetries] = useState(3)
-  const [currentMediaIndex, setCurrentMediaIndex] = useState(0) // Declare currentMediaIndex
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
+  const [shuffledContent, setShuffledContent] = useState<MediaItem[]>([])
   const router = useRouter()
+
+  const shuffleArray = (array: MediaItem[]) => {
+    const shuffled = [...array]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    return shuffled
+  }
 
   const fetchConfig = async () => {
     try {
@@ -78,7 +93,12 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       setError("")
       setRetryCount(0)
 
-      // Send heartbeat
+      if (data.screen.content && data.screen.playlist?.shuffle) {
+        setShuffledContent(shuffleArray(data.screen.content))
+      } else {
+        setShuffledContent(data.screen.content || [])
+      }
+
       sendHeartbeat()
     } catch (err) {
       console.log("[v0] Config fetch error:", err)
@@ -86,12 +106,11 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
       if (retryCount < maxRetries) {
         setRetryCount((prev) => prev + 1)
-        // Auto-retry with exponential backoff
         setTimeout(() => {
           if (retryCount < maxRetries - 1) {
             fetchConfig()
           }
-        }, Math.pow(2, retryCount) * 1000) // 1s, 2s, 4s delays
+        }, Math.pow(2, retryCount) * 1000)
       }
     } finally {
       setLoading(false)
@@ -113,42 +132,40 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   useEffect(() => {
     fetchConfig()
 
-    // Set up heartbeat interval
-    const heartbeatInterval = setInterval(sendHeartbeat, 30000) // Every 30 seconds
+    const heartbeatInterval = setInterval(sendHeartbeat, 30000)
 
     return () => clearInterval(heartbeatInterval)
   }, [params.deviceCode])
 
-  // Auto-advance media content
   useEffect(() => {
-    if (!config?.screen.content || config.screen.content.length === 0) {
+    const contentToUse = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+
+    if (contentToUse.length === 0) {
       setCurrentMediaIndex(0)
       return
     }
 
-    if (config.screen.content.length === 1) {
-      // If only one item, don't cycle
+    if (contentToUse.length === 1) {
       return
     }
 
-    const currentMedia = config.screen.content[currentMediaIndex]
+    const currentMedia = contentToUse[currentMediaIndex]
     if (!currentMedia) {
       setCurrentMediaIndex(0)
       return
     }
 
-    // Use duration_override if available, otherwise media duration, fallback to 10 seconds
     const duration = (currentMedia.duration_override || currentMedia.media.duration || 10) * 1000
 
     const timer = setTimeout(() => {
       setCurrentMediaIndex((prev) => {
         const nextIndex = prev + 1
-        return nextIndex >= config.screen.content.length ? 0 : nextIndex
+        return nextIndex >= contentToUse.length ? 0 : nextIndex
       })
     }, duration)
 
     return () => clearTimeout(timer)
-  }, [currentMediaIndex, config?.screen.content])
+  }, [currentMediaIndex, shuffledContent, config?.screen.content])
 
   const handleRetry = () => {
     if (retryCount >= maxRetries) {
@@ -167,11 +184,8 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
   const getMediaUrl = (filePath: string) => {
     if (!filePath) return "/placeholder.svg"
-    // If it's already a full URL, use it as is
     if (filePath.startsWith("http")) return filePath
-    // If it's a blob storage path, construct proper URL
     if (filePath.startsWith("blob/")) return `https://blob.vercel-storage.com/${filePath}`
-    // Otherwise assume it's a relative path
     return filePath
   }
 
@@ -184,14 +198,12 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   }
 
   const getGoogleSlidesEmbedUrl = (media: MediaItem["media"]) => {
-    // Extract presentation ID from various possible formats
     let presentationId = ""
 
     if (media.file_path.includes("docs.google.com/presentation")) {
       const match = media.file_path.match(/\/presentation\/d\/([a-zA-Z0-9-_]+)/)
       if (match) presentationId = match[1]
     } else if (media.name.includes("-")) {
-      // If the name contains a dash, assume the part after the last dash is the ID
       const parts = media.name.split("-")
       presentationId = parts[parts.length - 1].trim()
     }
@@ -211,6 +223,36 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       height: "100vh",
       transform: isPortrait ? "rotate(90deg)" : "none",
       transformOrigin: "center center",
+    }
+  }
+
+  const getMediaObjectFit = (mediaType: "image" | "video" | "document") => {
+    const playlist = config?.screen.playlist
+    if (!playlist) return "object-contain"
+
+    let scaleValue = "fit"
+    switch (mediaType) {
+      case "image":
+        scaleValue = playlist.scale_image || "fit"
+        break
+      case "video":
+        scaleValue = playlist.scale_video || "fit"
+        break
+      case "document":
+        scaleValue = playlist.scale_document || "fit"
+        break
+    }
+
+    switch (scaleValue) {
+      case "fill":
+        return "object-cover"
+      case "stretch":
+        return "object-fill"
+      case "center":
+        return "object-none"
+      case "fit":
+      default:
+        return "object-contain"
     }
   }
 
@@ -276,11 +318,12 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   }
 
   const { screen } = config
-  const currentMedia = screen.content?.[currentMediaIndex]
+  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : screen.content || []
+  const currentMedia = contentToDisplay[currentMediaIndex]
 
   return (
     <div className="fixed inset-0 flex items-center justify-center overflow-hidden" style={getScreenStyles()}>
-      {screen.content && screen.content.length > 0 ? (
+      {contentToDisplay && contentToDisplay.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
           {currentMedia && (
             <div className="w-full h-full relative">
@@ -289,21 +332,21 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
                   src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}
                   alt={currentMedia.media.name}
                   fill
-                  className="object-contain"
+                  className={getMediaObjectFit("image")}
                   priority
                   unoptimized
                 />
               ) : currentMedia.media.mime_type.startsWith("video/") ? (
                 <video
                   src={getMediaUrl(currentMedia.media.file_path)}
-                  className="w-full h-full object-contain"
+                  className={`w-full h-full ${getMediaObjectFit("video")}`}
                   autoPlay
                   muted
                   playsInline
                   onEnded={() => {
                     setCurrentMediaIndex((prev) => {
                       const nextIndex = prev + 1
-                      return nextIndex >= screen.content.length ? 0 : nextIndex
+                      return nextIndex >= contentToDisplay.length ? 0 : nextIndex
                     })
                   }}
                 />
@@ -320,9 +363,8 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
                 </div>
               )}
 
-              {/* Media indicator */}
               <div className="absolute bottom-4 left-4 bg-black/50 text-white px-3 py-1 rounded text-sm">
-                {currentMediaIndex + 1} / {screen.content.length}
+                {currentMediaIndex + 1} / {contentToDisplay.length}
               </div>
             </div>
           )}
