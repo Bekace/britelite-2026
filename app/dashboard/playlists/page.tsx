@@ -515,7 +515,15 @@ export default function PlaylistsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [newPlaylist, setNewPlaylist] = useState({ name: "", description: "" })
+  const [newPlaylist, setNewPlaylist] = useState({
+    name: "",
+    description: "",
+    scale_image: "fit",
+    scale_video: "fit",
+    scale_document: "fit",
+    shuffle: false,
+    default_transition: "fade",
+  })
   const [creating, setCreating] = useState(false)
   const [previewPlaylist, setPreviewPlaylist] = useState<Playlist | null>(null)
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null)
@@ -719,7 +727,15 @@ export default function PlaylistsPage() {
         const data = await response.json()
         const newPlaylistData = { ...data.playlist, playlist_media: [{ count: 0 }] }
         setPlaylists((prev) => [newPlaylistData, ...prev])
-        setNewPlaylist({ name: "", description: "" })
+        setNewPlaylist({
+          name: "",
+          description: "",
+          scale_image: "fit",
+          scale_video: "fit",
+          scale_document: "fit",
+          shuffle: false,
+          default_transition: "fade",
+        })
         setShowCreateDialog(false)
         setSelectedPlaylist(newPlaylistData)
         toast({

@@ -59,7 +59,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { name, description } = await request.json()
+    const {
+      name,
+      description,
+      scale_image = "fit",
+      scale_video = "fit",
+      scale_document = "fit",
+      shuffle = false,
+      default_transition = "fade",
+    } = await request.json()
 
     if (!name) {
       return NextResponse.json({ error: "Playlist name is required" }, { status: 400 })
@@ -73,6 +81,11 @@ export async function POST(request: NextRequest) {
         name,
         description,
         is_active: true,
+        scale_image,
+        scale_video,
+        scale_document,
+        shuffle,
+        default_transition,
       })
       .select()
       .single()
