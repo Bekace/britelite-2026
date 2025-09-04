@@ -106,7 +106,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         body: JSON.stringify({ timestamp: new Date().toISOString() }),
       })
     } catch (err) {
-      console.log("[v0] Heartbeat error:", err)
+      // Silent fail for heartbeat
     }
   }
 
@@ -132,7 +132,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       return
     }
 
-    const duration = currentMedia.duration_override || currentMedia.media.duration || 10000
+    const duration = (currentMedia.duration_override || currentMedia.media.duration || 10) * 1000
 
     const timer = setTimeout(() => {
       setCurrentMediaIndex((prev) => (prev + 1 >= config.screen.content.length ? 0 : prev + 1))
@@ -154,6 +154,16 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
   const handleBackToSetup = () => {
     router.push("/player")
+  }
+
+  const getMediaUrl = (filePath: string) => {
+    if (!filePath) return "/placeholder.svg"
+    // If it's already a full URL, use it as is
+    if (filePath.startsWith("http")) return filePath
+    // If it's a blob storage path, construct proper URL
+    if (filePath.startsWith("blob/")) return `https://blob.vercel-storage.com/${filePath}`
+    // Otherwise assume it's a relative path
+    return filePath
   }
 
   if (loading) {
@@ -225,7 +235,6 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       className="min-h-screen flex items-center justify-center"
       style={{
         backgroundColor: screen.playlist?.background_color || "#000000",
-        orientation: screen.orientation === "portrait" ? "portrait" : "landscape",
       }}
     >
       {screen.content && screen.content.length > 0 ? (
@@ -234,18 +243,20 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
             <div className="w-full h-full relative">
               {currentMedia.media.mime_type.startsWith("image/") ? (
                 <Image
-                  src={currentMedia.media.file_path || "/placeholder.svg"}
+                  src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}
                   alt={currentMedia.media.name}
                   fill
                   className="object-contain"
                   priority
+                  unoptimized
                 />
               ) : currentMedia.media.mime_type.startsWith("video/") ? (
                 <video
-                  src={currentMedia.media.file_path}
+                  src={getMediaUrl(currentMedia.media.file_path)}
                   className="w-full h-full object-contain"
                   autoPlay
                   muted
+                  playsInline
                   onEnded={() => setCurrentMediaIndex((prev) => (prev + 1 >= screen.content.length ? 0 : prev + 1))}
                 />
               ) : (
