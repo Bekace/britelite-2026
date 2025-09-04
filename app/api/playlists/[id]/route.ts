@@ -95,12 +95,22 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { background_color } = await request.json()
+    const { background_color, scale_image, scale_video, scale_document, shuffle, default_transition } =
+      await request.json()
 
-    // Update playlist background color
+    // Build update object with only provided fields
+    const updateData: any = {}
+    if (background_color !== undefined) updateData.background_color = background_color
+    if (scale_image !== undefined) updateData.scale_image = scale_image
+    if (scale_video !== undefined) updateData.scale_video = scale_video
+    if (scale_document !== undefined) updateData.scale_document = scale_document
+    if (shuffle !== undefined) updateData.shuffle = shuffle
+    if (default_transition !== undefined) updateData.default_transition = default_transition
+
+    // Update playlist with new settings
     const { data: playlist, error: updateError } = await supabase
       .from("playlists")
-      .update({ background_color })
+      .update(updateData)
       .eq("id", params.id)
       .eq("user_id", user.id)
       .select()
@@ -108,13 +118,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     if (updateError) {
       console.error("Database error:", updateError)
-      return NextResponse.json({ error: "Failed to update playlist background" }, { status: 500 })
+      return NextResponse.json({ error: "Failed to update playlist settings" }, { status: 500 })
     }
 
     return NextResponse.json({ playlist })
   } catch (error) {
-    console.error("Error updating playlist background:", error)
-    return NextResponse.json({ error: "Failed to update playlist background" }, { status: 500 })
+    console.error("Error updating playlist settings:", error)
+    return NextResponse.json({ error: "Failed to update playlist settings" }, { status: 500 })
   }
 }
 
