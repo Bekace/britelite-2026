@@ -26,7 +26,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           playlist_id,
           is_active,
           playlists(id, name, description)
-        )
+        ),
+        media(id, name, mime_type, file_path)
       `)
       .eq("id", params.id)
       .eq("user_id", user.id)
@@ -71,7 +72,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const requestData = await request.json()
-    const { name, location, resolution, orientation, playlist_id } = requestData
+    const { name, location, resolution, orientation, playlist_id, media_id } = requestData
 
     const { data: screen, error } = await supabase
       .from("screens")
@@ -80,6 +81,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         location,
         resolution,
         orientation,
+        media_id: media_id || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", params.id)
@@ -92,18 +94,29 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Failed to update screen" }, { status: 500 })
     }
 
-    // First, deactivate all existing playlist assignments for this screen
-    const { error: deactivateError } = await supabase
-      .from("screen_playlists")
-      .update({ is_active: false })
-      .eq("screen_id", params.id)
+    if (media_id) {
+      const { error: deactivateError } = await supabase
+        .from("screen_playlists")
+        .update({ is_active: false })
+        .eq("screen_id", params.id)
 
-    if (deactivateError) {
-      console.error("Error deactivating existing playlists:", deactivateError)
+      if (deactivateError) {
+        console.error("Error deactivating existing playlists:", deactivateError)
+      }
     }
 
     if (playlist_id) {
-      // Check if a record already exists for this screen-playlist combination
+      await supabase.from("screens").update({ media_id: null }).eq("id", params.id)
+
+      const { error: deactivateError } = await supabase
+        .from("screen_playlists")
+        .update({ is_active: false })
+        .eq("screen_id", params.id)
+
+      if (deactivateError) {
+        console.error("Error deactivating existing playlists:", deactivateError)
+      }
+
       const { data: existingAssignment } = await supabase
         .from("screen_playlists")
         .select("id")
@@ -112,7 +125,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         .single()
 
       if (existingAssignment) {
-        // Update existing record to make it active
         const { error: updateError } = await supabase
           .from("screen_playlists")
           .update({ is_active: true })
@@ -123,7 +135,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
           return NextResponse.json({ error: "Failed to activate playlist assignment" }, { status: 500 })
         }
       } else {
-        // Create new assignment
         const { error: insertError } = await supabase.from("screen_playlists").insert({
           screen_id: params.id,
           playlist_id: playlist_id,
@@ -141,6 +152,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       .from("screens")
       .select(`
         *,
+        media(id, name, mime_type, file_path),
         screen_playlists!left(
           playlist_id,
           is_active,

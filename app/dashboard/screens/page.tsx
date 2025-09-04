@@ -324,25 +324,23 @@ export default function ScreensPage() {
         throw new Error(pairData.error || "Failed to pair device")
       }
 
-      // Assign playlist if selected - improved condition check
-      if (
-        wizardState.selectedContentId &&
-        (wizardState.contentType === "playlist" || wizardState.contentType === "asset")
-      ) {
-        const playlistResponse = await fetch(`/api/screens/${screenData.screen.id}`, {
+      if (wizardState.selectedContentId) {
+        const contentResponse = await fetch(`/api/screens/${screenData.screen.id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            playlist_id: wizardState.selectedContentId,
+            ...(wizardState.contentType === "playlist"
+              ? { playlist_id: wizardState.selectedContentId }
+              : { media_id: wizardState.selectedContentId }),
           }),
         })
 
-        const playlistData = await playlistResponse.json()
+        const contentData = await contentResponse.json()
 
-        if (!playlistResponse.ok) {
-          throw new Error(playlistData.error || "Failed to assign content to screen")
+        if (!contentResponse.ok) {
+          throw new Error(contentData.error || "Failed to assign content to screen")
         }
       }
 
