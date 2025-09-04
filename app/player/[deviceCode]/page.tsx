@@ -197,7 +197,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     }
 
     if (presentationId) {
-      return `https://docs.google.com/presentation/d/${presentationId}/embed?start=false&loop=false&delayms=3000`
+      return `https://docs.google.com/presentation/d/${presentationId}/embed?start=false&loop=false&delayms=3000&rm=minimal&chrome=false`
     }
 
     return null

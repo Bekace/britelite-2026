@@ -1403,20 +1403,86 @@ export default function PlaylistsPage() {
 
                   <Card>
                     <CardHeader>
-                      <CardTitle>Statistics</CardTitle>
+                      <CardTitle>Media Scaling</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-2 gap-4">
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label htmlFor="scale-image">Scale Image</Label>
+                        <select
+                          id="scale-image"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                          defaultValue="fit"
+                        >
+                          <option value="fit">Fit</option>
+                          <option value="fill">Fill</option>
+                          <option value="stretch">Stretch</option>
+                          <option value="center">Center</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label htmlFor="scale-video">Scale Video</Label>
+                        <select
+                          id="scale-video"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                          defaultValue="fit"
+                        >
+                          <option value="fit">Fit</option>
+                          <option value="fill">Fill</option>
+                          <option value="stretch">Stretch</option>
+                          <option value="center">Center</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label htmlFor="scale-document">Scale Document</Label>
+                        <select
+                          id="scale-document"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                          defaultValue="fit"
+                        >
+                          <option value="fit">Fit</option>
+                          <option value="fill">Fill</option>
+                          <option value="stretch">Stretch</option>
+                          <option value="center">Center</option>
+                        </select>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Playback Settings</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-gray-600">Total Items</p>
-                          <p className="text-2xl font-bold">{playlistItems.length}</p>
+                          <Label htmlFor="shuffle">Shuffle</Label>
+                          <p className="text-sm text-gray-500">Randomize playlist order</p>
                         </div>
-                        <div>
-                          <p className="text-sm text-gray-600">Total Duration</p>
-                          <p className="text-2xl font-bold">
-                            {playlistItems.reduce((sum, item) => sum + item.duration_override, 0)}s
-                          </p>
+                        <div className="flex items-center">
+                          <input
+                            id="shuffle"
+                            type="checkbox"
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <label htmlFor="shuffle" className="ml-2 text-sm font-medium text-gray-900">
+                            OFF
+                          </label>
                         </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="default-transition">Default Transition</Label>
+                        <select
+                          id="default-transition"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
+                          defaultValue="fade"
+                        >
+                          <option value="fade">Fade</option>
+                          <option value="slide-left">Slide Left</option>
+                          <option value="slide-right">Slide Right</option>
+                          <option value="cross-fade">Cross Fade</option>
+                          <option value="zoom">Zoom</option>
+                          <option value="none">None</option>
+                        </select>
                       </div>
                     </CardContent>
                   </Card>
