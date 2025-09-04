@@ -175,6 +175,34 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     return filePath
   }
 
+  const isGoogleSlides = (media: MediaItem["media"]) => {
+    return (
+      media.mime_type === "application/vnd.google-apps.presentation" ||
+      media.name.toLowerCase().includes("google slides") ||
+      media.file_path.includes("docs.google.com/presentation")
+    )
+  }
+
+  const getGoogleSlidesEmbedUrl = (media: MediaItem["media"]) => {
+    // Extract presentation ID from various possible formats
+    let presentationId = ""
+
+    if (media.file_path.includes("docs.google.com/presentation")) {
+      const match = media.file_path.match(/\/presentation\/d\/([a-zA-Z0-9-_]+)/)
+      if (match) presentationId = match[1]
+    } else if (media.name.includes("-")) {
+      // If the name contains a dash, assume the part after the last dash is the ID
+      const parts = media.name.split("-")
+      presentationId = parts[parts.length - 1].trim()
+    }
+
+    if (presentationId) {
+      return `https://docs.google.com/presentation/d/${presentationId}/embed?start=false&loop=false&delayms=3000`
+    }
+
+    return null
+  }
+
   const getScreenStyles = () => {
     const isPortrait = config?.screen.orientation === "portrait"
     return {
@@ -278,6 +306,13 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
                       return nextIndex >= screen.content.length ? 0 : nextIndex
                     })
                   }}
+                />
+              ) : isGoogleSlides(currentMedia.media) ? (
+                <iframe
+                  src={getGoogleSlidesEmbedUrl(currentMedia.media) || ""}
+                  className="w-full h-full border-0"
+                  allowFullScreen
+                  title={currentMedia.media.name}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-white">
