@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@supabase/supabase-js"
 import { type NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest, { params }: { params: { deviceCode: string } }) {
@@ -9,10 +9,7 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       return NextResponse.json({ error: "Device code is required" }, { status: 400 })
     }
 
-    const supabase = await createClient()
-    if (!supabase) {
-      return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
-    }
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
     const { data: device, error: deviceError } = await supabase
       .from("devices")
