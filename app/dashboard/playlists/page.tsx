@@ -41,6 +41,11 @@ interface Playlist {
   created_at: string
   playlist_media: { count: number }[]
   background_color?: string
+  scale_image?: string
+  scale_video?: string
+  scale_document?: string
+  shuffle?: boolean
+  default_transition?: string
 }
 
 interface PlaylistItem {
@@ -1132,6 +1137,41 @@ export default function PlaylistsPage() {
     }
   }
 
+  const handleUpdatePlaylistSettings = async (
+    settings: Partial<{
+      scale_image: string
+      scale_video: string
+      scale_document: string
+      shuffle: boolean
+      default_transition: string
+    }>,
+  ) => {
+    if (!selectedPlaylist) return
+
+    try {
+      const response = await fetch(`/api/playlists/${selectedPlaylist.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      })
+
+      if (!response.ok) throw new Error("Failed to update playlist settings")
+
+      const { playlist } = await response.json()
+
+      setPlaylists((prev) => prev.map((p) => (p.id === selectedPlaylist.id ? { ...p, ...settings } : p)))
+
+      setSelectedPlaylist({ ...selectedPlaylist, ...settings })
+    } catch (error) {
+      console.error("Error updating playlist settings:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update playlist settings",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <div className="flex h-full gap-6">
       <div className="w-1/3 space-y-6">
@@ -1427,7 +1467,14 @@ export default function PlaylistsPage() {
                         <select
                           id="scale-image"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                          defaultValue="fit"
+                          value={selectedPlaylist ? selectedPlaylist.scale_image || "fit" : newPlaylist.scale_image}
+                          onChange={(e) => {
+                            if (selectedPlaylist) {
+                              handleUpdatePlaylistSettings({ scale_image: e.target.value })
+                            } else {
+                              setNewPlaylist((prev) => ({ ...prev, scale_image: e.target.value }))
+                            }
+                          }}
                         >
                           <option value="fit">Fit</option>
                           <option value="fill">Fill</option>
@@ -1440,7 +1487,14 @@ export default function PlaylistsPage() {
                         <select
                           id="scale-video"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                          defaultValue="fit"
+                          value={selectedPlaylist ? selectedPlaylist.scale_video || "fit" : newPlaylist.scale_video}
+                          onChange={(e) => {
+                            if (selectedPlaylist) {
+                              handleUpdatePlaylistSettings({ scale_video: e.target.value })
+                            } else {
+                              setNewPlaylist((prev) => ({ ...prev, scale_video: e.target.value }))
+                            }
+                          }}
                         >
                           <option value="fit">Fit</option>
                           <option value="fill">Fill</option>
@@ -1453,7 +1507,16 @@ export default function PlaylistsPage() {
                         <select
                           id="scale-document"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                          defaultValue="fit"
+                          value={
+                            selectedPlaylist ? selectedPlaylist.scale_document || "fit" : newPlaylist.scale_document
+                          }
+                          onChange={(e) => {
+                            if (selectedPlaylist) {
+                              handleUpdatePlaylistSettings({ scale_document: e.target.value })
+                            } else {
+                              setNewPlaylist((prev) => ({ ...prev, scale_document: e.target.value }))
+                            }
+                          }}
                         >
                           <option value="fit">Fit</option>
                           <option value="fill">Fill</option>
@@ -1479,9 +1542,19 @@ export default function PlaylistsPage() {
                             id="shuffle"
                             type="checkbox"
                             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                            checked={selectedPlaylist ? selectedPlaylist.shuffle || false : newPlaylist.shuffle}
+                            onChange={(e) => {
+                              if (selectedPlaylist) {
+                                handleUpdatePlaylistSettings({ shuffle: e.target.checked })
+                              } else {
+                                setNewPlaylist((prev) => ({ ...prev, shuffle: e.target.checked }))
+                              }
+                            }}
                           />
                           <label htmlFor="shuffle" className="ml-2 text-sm font-medium text-gray-900">
-                            OFF
+                            {(selectedPlaylist ? selectedPlaylist.shuffle || false : newPlaylist.shuffle)
+                              ? "ON"
+                              : "OFF"}
                           </label>
                         </div>
                       </div>
@@ -1490,7 +1563,18 @@ export default function PlaylistsPage() {
                         <select
                           id="default-transition"
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                          defaultValue="fade"
+                          value={
+                            selectedPlaylist
+                              ? selectedPlaylist.default_transition || "fade"
+                              : newPlaylist.default_transition
+                          }
+                          onChange={(e) => {
+                            if (selectedPlaylist) {
+                              handleUpdatePlaylistSettings({ default_transition: e.target.value })
+                            } else {
+                              setNewPlaylist((prev) => ({ ...prev, default_transition: e.target.value }))
+                            }
+                          }}
                         >
                           <option value="fade">Fade</option>
                           <option value="slide-left">Slide Left</option>
