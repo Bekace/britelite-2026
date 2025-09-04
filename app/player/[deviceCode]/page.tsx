@@ -126,20 +126,29 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       return
     }
 
+    if (config.screen.content.length === 1) {
+      // If only one item, don't cycle
+      return
+    }
+
     const currentMedia = config.screen.content[currentMediaIndex]
     if (!currentMedia) {
       setCurrentMediaIndex(0)
       return
     }
 
+    // Use duration_override if available, otherwise media duration, fallback to 10 seconds
     const duration = (currentMedia.duration_override || currentMedia.media.duration || 10) * 1000
 
     const timer = setTimeout(() => {
-      setCurrentMediaIndex((prev) => (prev + 1 >= config.screen.content.length ? 0 : prev + 1))
+      setCurrentMediaIndex((prev) => {
+        const nextIndex = prev + 1
+        return nextIndex >= config.screen.content.length ? 0 : nextIndex
+      })
     }, duration)
 
     return () => clearTimeout(timer)
-  }, [currentMediaIndex, config])
+  }, [currentMediaIndex, config?.screen.content])
 
   const handleRetry = () => {
     if (retryCount >= maxRetries) {
@@ -164,6 +173,17 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     if (filePath.startsWith("blob/")) return `https://blob.vercel-storage.com/${filePath}`
     // Otherwise assume it's a relative path
     return filePath
+  }
+
+  const getScreenStyles = () => {
+    const isPortrait = config?.screen.orientation === "portrait"
+    return {
+      backgroundColor: config?.screen.playlist?.background_color || "#000000",
+      width: "100vw",
+      height: "100vh",
+      transform: isPortrait ? "rotate(90deg)" : "none",
+      transformOrigin: "center center",
+    }
   }
 
   if (loading) {
@@ -231,12 +251,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const currentMedia = screen.content?.[currentMediaIndex]
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center"
-      style={{
-        backgroundColor: screen.playlist?.background_color || "#000000",
-      }}
-    >
+    <div className="fixed inset-0 flex items-center justify-center overflow-hidden" style={getScreenStyles()}>
       {screen.content && screen.content.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
           {currentMedia && (
@@ -257,7 +272,12 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
                   autoPlay
                   muted
                   playsInline
-                  onEnded={() => setCurrentMediaIndex((prev) => (prev + 1 >= screen.content.length ? 0 : prev + 1))}
+                  onEnded={() => {
+                    setCurrentMediaIndex((prev) => {
+                      const nextIndex = prev + 1
+                      return nextIndex >= screen.content.length ? 0 : nextIndex
+                    })
+                  }}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-white">
