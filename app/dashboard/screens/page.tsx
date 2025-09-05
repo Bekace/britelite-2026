@@ -48,6 +48,7 @@ interface Screen {
   last_seen: string | null
   created_at: string
   playlists?: { id: string; name: string }
+  media_id?: string
 }
 
 interface Playlist {
@@ -960,6 +961,7 @@ export default function ScreensPage() {
       ...screen,
       playlists: activePlaylist || null,
       playlist_id: activePlaylist?.id || null,
+      media_id: screen.media_id || null,
     }
   }
 
@@ -1116,6 +1118,10 @@ export default function ScreensPage() {
                       <div className="bg-green-50 border border-green-200 rounded p-2 text-sm">
                         Playlist: {screen.playlists.name}
                       </div>
+                    ) : screen.media_id ? (
+                      <div className="bg-green-50 border border-green-200 rounded p-2 text-sm">
+                        Asset: {mediaItems.find((media) => media.id === screen.media_id)?.name}
+                      </div>
                     ) : (
                       <div className="bg-amber-50 border border-amber-200 rounded p-2 text-sm text-amber-800">
                         No content assigned
@@ -1151,7 +1157,7 @@ export default function ScreensPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Screen</DialogTitle>
-            <DialogDescription>Update screen settings and assign playlists.</DialogDescription>
+            <DialogDescription>Update screen settings and assign content.</DialogDescription>
           </DialogHeader>
           {editingScreen && (
             <div className="space-y-4">
@@ -1174,36 +1180,84 @@ export default function ScreensPage() {
               <div>
                 <Label htmlFor="edit-content">Assigned Content</Label>
                 <Select
-                  value={editingScreen.playlists?.id || "none"}
+                  value={editingScreen.playlists?.id || editingScreen.media_id || "none"}
                   onValueChange={(value) => {
                     if (value === "none") {
-                      setEditingScreen((prev) => prev && { ...prev, playlists: null })
-                    } else {
-                      const selectedPlaylist = playlists.find((p) => p.id === value)
                       setEditingScreen(
                         (prev) =>
                           prev && {
                             ...prev,
-                            playlists: selectedPlaylist || null,
-                            playlist_id: value,
+                            playlists: null,
+                            media_id: null,
+                            playlist_id: null,
                           },
                       )
+                    } else {
+                      // Check if it's a playlist or media item
+                      const selectedPlaylist = playlists.find((p) => p.id === value)
+                      const selectedMedia = mediaItems.find((m) => m.id === value)
+
+                      if (selectedPlaylist) {
+                        setEditingScreen(
+                          (prev) =>
+                            prev && {
+                              ...prev,
+                              playlists: selectedPlaylist,
+                              playlist_id: value,
+                              media_id: null,
+                            },
+                        )
+                      } else if (selectedMedia) {
+                        setEditingScreen(
+                          (prev) =>
+                            prev && {
+                              ...prev,
+                              playlists: null,
+                              playlist_id: null,
+                              media_id: value,
+                            },
+                        )
+                      }
                     }
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a playlist" />
+                    <SelectValue placeholder="Select content" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No content</SelectItem>
-                    {playlists.map((playlist) => (
-                      <SelectItem key={playlist.id} value={playlist.id}>
-                        {playlist.name}
-                      </SelectItem>
-                    ))}
+
+                    {playlists.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-sm font-semibold text-gray-500">Playlists</div>
+                        {playlists.map((playlist) => (
+                          <SelectItem key={`playlist-${playlist.id}`} value={playlist.id}>
+                            <div className="flex items-center gap-2">
+                              <PlayCircle className="h-4 w-4" />
+                              {playlist.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+
+                    {mediaItems.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-sm font-semibold text-gray-500">Media Assets</div>
+                        {mediaItems.map((media) => (
+                          <SelectItem key={`media-${media.id}`} value={media.id}>
+                            <div className="flex items-center gap-2">
+                              <ImageIcon className="h-4 w-4" />
+                              {media.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="edit-resolution">Resolution</Label>
