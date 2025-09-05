@@ -1172,7 +1172,7 @@ export default function ScreensPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="edit-playlist">Assigned Playlist</Label>
+                <Label htmlFor="edit-content">Assigned Content</Label>
                 <Select
                   value={editingScreen.playlists?.id || "none"}
                   onValueChange={(value) => {
@@ -1195,7 +1195,7 @@ export default function ScreensPage() {
                     <SelectValue placeholder="Select a playlist" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No playlist</SelectItem>
+                    <SelectItem value="none">No content</SelectItem>
                     {playlists.map((playlist) => (
                       <SelectItem key={playlist.id} value={playlist.id}>
                         {playlist.name}
