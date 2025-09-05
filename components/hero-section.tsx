@@ -442,7 +442,7 @@ export function HeroSection() {
           AI-Powered Smart Digital Signage 
         </h1>
         <p className="text-muted-foreground text-base md:text-base lg:text-lg font-medium leading-relaxed max-w-lg mx-auto">
-          Use AI to analyze visitor insights, captivate audiences with digital signage, and maximize revenue from your prime spaces.
+          We use AI to analyze visitor insights, captivate audiences with digital signage, and maximize revenue from your prime spaces.
         </p>
       </div>
 
