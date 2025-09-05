@@ -12,8 +12,6 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
 
     const { screenCode } = params
 
-    console.log("[v0] Looking for screen with code:", screenCode)
-
     // Get screen by screen code
     const { data: screen, error: screenError } = await supabase
       .from("screens")
@@ -28,11 +26,8 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       .eq("screen_code", screenCode)
       .single()
 
-    console.log("[v0] Screen query result:", { screen, screenError })
-
     if (screenError || !screen) {
-      console.log("[v0] Screen not found for code:", screenCode)
-      return NextResponse.json({ error: "Screen not found" }, { status: 404 })
+      return NextResponse.json({ error: "Screen configuration not found" }, { status: 404 })
     }
 
     let content: any[] = []
@@ -104,14 +99,23 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       content = [...content].sort(() => Math.random() - 0.5)
     }
 
-    return NextResponse.json({
-      screen: {
-        ...screen,
-        content,
+    return NextResponse.json(
+      {
+        screen: {
+          ...screen,
+          content,
+        },
       },
-    })
+      {
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    )
   } catch (error) {
-    console.error("[v0] Screen config error:", error)
+    console.error("Screen config error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
