@@ -74,16 +74,22 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const requestData = await request.json()
     const { name, location, resolution, orientation, playlist_id, media_id } = requestData
 
+    const updateData: any = {
+      name,
+      location,
+      resolution,
+      orientation,
+      updated_at: new Date().toISOString(),
+    }
+
+    // Only add media_id if it's provided (for backward compatibility)
+    if (media_id !== undefined) {
+      updateData.media_id = media_id || null
+    }
+
     const { data: screen, error } = await supabase
       .from("screens")
-      .update({
-        name,
-        location,
-        resolution,
-        orientation,
-        media_id: media_id || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", params.id)
       .eq("user_id", user.id)
       .select()
@@ -91,10 +97,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     if (error) {
       console.error("Database error:", error)
+      if (error.message?.includes('column "media_id" of relation "screens" does not exist')) {
+        return NextResponse.json(
+          {
+            error: "Database schema needs to be updated. Please run the media_id migration script.",
+          },
+          { status: 500 },
+        )
+      }
       return NextResponse.json({ error: "Failed to update screen" }, { status: 500 })
     }
 
-    if (media_id) {
+    if (media_id && updateData.media_id !== undefined) {
       const { error: deactivateError } = await supabase
         .from("screen_playlists")
         .update({ is_active: false })
