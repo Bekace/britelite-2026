@@ -12,35 +12,26 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
 
     const { screenCode } = params
 
-    // Get screen by screen code
+    if (!screenCode) {
+      return NextResponse.json({ error: "Screen code is required" }, { status: 400 })
+    }
+
     const { data: screen, error: screenError } = await supabase
       .from("screens")
-      .select(`
-        id,
-        name,
-        orientation,
-        background_color,
-        media_id,
-        screen_code,
-        content_type
-      `)
+      .select("*")
       .eq("screen_code", screenCode)
       .single()
 
     if (screenError || !screen) {
-      return NextResponse.json({ error: "Screen configuration not found" }, { status: 404 })
+      return NextResponse.json({ error: "Screen not found" }, { status: 404 })
     }
 
     let content: any[] = []
 
-    if (screen.content_type === "asset" && screen.media_id) {
-      const { data: media, error: mediaError } = await supabase
-        .from("media")
-        .select("id, name, file_path, mime_type")
-        .eq("id", screen.media_id)
-        .single()
+    if (screen.media_id) {
+      const { data: media } = await supabase.from("media").select("*").eq("id", screen.media_id).single()
 
-      if (media && !mediaError) {
+      if (media) {
         content = [
           {
             id: media.id,
@@ -49,54 +40,33 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
           },
         ]
       }
-    } else {
-      // Handle playlist content or fallback to any assigned playlist
-      const { data: playlistItems } = await supabase
+    }
+
+    if (content.length === 0) {
+      const { data: screenPlaylists } = await supabase
         .from("screen_playlists")
         .select(`
           playlist:playlists!inner(
-            id,
-            name,
-            background_color,
-            scale_image,
-            scale_video,
-            scale_document,
-            shuffle,
-            default_transition,
+            *,
             playlist_items(
-              id,
-              position,
-              duration_override,
-              media:media!inner(
-                id,
-                name,
-                file_path,
-                mime_type
-              )
+              *,
+              media:media!inner(*)
             )
           )
         `)
         .eq("screen_id", screen.id)
         .eq("is_active", true)
 
-      if (playlistItems?.[0]?.playlist?.playlist_items) {
-        const playlist = playlistItems[0].playlist
+      if (screenPlaylists?.[0]?.playlist?.playlist_items) {
+        const playlist = screenPlaylists[0].playlist
         content = playlist.playlist_items.sort((a: any, b: any) => a.position - b.position)
 
-        if (playlist.background_color) {
-          screen.background_color = playlist.background_color
-        }
+        // Apply playlist settings to screen
+        if (playlist.background_color) screen.background_color = playlist.background_color
         screen.scale_image = playlist.scale_image || "fit"
         screen.scale_video = playlist.scale_video || "fit"
-        screen.scale_document = playlist.scale_document || "fit"
         screen.shuffle = playlist.shuffle || false
-        screen.default_transition = playlist.default_transition || "fade"
       }
-    }
-
-    // Apply shuffle if enabled
-    if (screen.shuffle && content.length > 1) {
-      content = [...content].sort(() => Math.random() - 0.5)
     }
 
     return NextResponse.json(
@@ -108,14 +78,11 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       },
       {
         headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
+          "Cache-Control": "no-store, max-age=0",
         },
       },
     )
   } catch (error) {
-    console.error("Screen config error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ error: "Server error" }, { status: 500 })
   }
 }
