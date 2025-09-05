@@ -22,6 +22,5 @@ export default async function ScreenPlayerPage({
     )
   }
 
-  // Display screen content directly without redirect
-  return <ScreenContentPlayer params={params} />
+  return <ScreenContentPlayer screenCode={params.screenCode} />
 }

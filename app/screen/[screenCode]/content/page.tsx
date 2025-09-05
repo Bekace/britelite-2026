@@ -28,9 +28,9 @@ interface ScreenConfig {
 }
 
 export default function ScreenContentPlayer({
-  params,
+  screenCode,
 }: {
-  params: { screenCode: string }
+  screenCode: string
 }) {
   const [config, setConfig] = useState<ScreenConfig | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -39,11 +39,11 @@ export default function ScreenContentPlayer({
 
   useEffect(() => {
     fetchScreenConfig()
-  }, [params.screenCode])
+  }, [screenCode]) // Use screenCode directly instead of params.screenCode
 
   const fetchScreenConfig = async () => {
     try {
-      const response = await fetch(`/api/screens/config/${params.screenCode}`)
+      const response = await fetch(`/api/screens/config/${screenCode}`)
       if (!response.ok) {
         throw new Error("Screen configuration not found")
       }
