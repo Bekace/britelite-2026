@@ -12,6 +12,8 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
 
     const { screenCode } = params
 
+    console.log("[v0] Screen config API called for:", screenCode)
+
     // Get screen by screen code
     const { data: screen, error: screenError } = await supabase
       .from("screens")
@@ -27,11 +29,16 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       .eq("screen_code", screenCode)
       .single()
 
+    console.log("[v0] Screen lookup result:", { screen, screenError })
+
     if (screenError || !screen) {
+      console.log("[v0] Screen not found for code:", screenCode)
       return NextResponse.json({ error: "Screen configuration not found" }, { status: 404 })
     }
 
     let content: any[] = []
+
+    console.log("[v0] Screen content type:", screen.content_type, "media_id:", screen.media_id)
 
     if (screen.content_type === "asset" && screen.media_id) {
       const { data: media, error: mediaError } = await supabase
@@ -39,6 +46,8 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         .select("id, name, file_path, mime_type")
         .eq("id", screen.media_id)
         .single()
+
+      console.log("[v0] Media lookup result:", { media, mediaError })
 
       if (media && !mediaError) {
         content = [
@@ -98,6 +107,12 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
     if (screen.shuffle && content.length > 1) {
       content = [...content].sort(() => Math.random() - 0.5)
     }
+
+    console.log("[v0] Screen config response:", {
+      screenId: screen.id,
+      contentType: screen.content_type,
+      contentCount: content.length,
+    })
 
     return NextResponse.json(
       {

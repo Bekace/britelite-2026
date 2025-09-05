@@ -5,6 +5,8 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
   try {
     const { deviceCode } = params
 
+    console.log("[v0] Device config API called for:", deviceCode)
+
     if (!deviceCode) {
       return NextResponse.json({ error: "Device code is required" }, { status: 400 })
     }
@@ -17,11 +19,15 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       .eq("device_code", deviceCode)
       .maybeSingle()
 
+    console.log("[v0] Device lookup result:", { device, deviceError })
+
     if (deviceError || !device) {
+      console.log("[v0] Device not found for code:", deviceCode)
       return NextResponse.json({ error: "Device not found" }, { status: 404 })
     }
 
     if (!device.screen_id) {
+      console.log("[v0] Device not paired to screen:", deviceCode)
       return NextResponse.json({ error: "Device not paired to screen" }, { status: 404 })
     }
 
@@ -30,6 +36,8 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       .select("id, name, orientation, status")
       .eq("id", device.screen_id)
       .single()
+
+    console.log("[v0] Screen lookup result:", { screen, screenError })
 
     if (screenError || !screen) {
       return NextResponse.json({ error: "Screen not found" }, { status: 404 })
@@ -93,6 +101,12 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         last_heartbeat: new Date().toISOString(),
       })
       .eq("id", device.id)
+
+    console.log("[v0] Device config response:", {
+      deviceId: device.id,
+      screenId: screen.id,
+      contentCount: playlistContent.length,
+    })
 
     const responseData = {
       device: {
