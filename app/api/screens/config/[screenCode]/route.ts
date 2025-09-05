@@ -1,9 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@supabase/supabase-js"
 
 export async function GET(request: NextRequest, { params }: { params: { screenCode: string } }) {
   try {
-    const supabase = createClient()
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+
     const { screenCode } = params
 
     // Get screen by screen code
@@ -14,12 +20,7 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         name,
         orientation,
         background_color,
-        media_id,
-        scale_image,
-        scale_video,
-        scale_document,
-        shuffle,
-        default_transition
+        media_id
       `)
       .eq("screen_code", screenCode)
       .single()
@@ -81,25 +82,14 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         const playlist = playlistItems[0].playlist
         content = playlist.playlist_items.sort((a: any, b: any) => a.position - b.position)
 
-        // Apply playlist settings to screen if not set
-        if (!screen.background_color && playlist.background_color) {
+        if (playlist.background_color) {
           screen.background_color = playlist.background_color
         }
-        if (!screen.scale_image && playlist.scale_image) {
-          screen.scale_image = playlist.scale_image
-        }
-        if (!screen.scale_video && playlist.scale_video) {
-          screen.scale_video = playlist.scale_video
-        }
-        if (!screen.scale_document && playlist.scale_document) {
-          screen.scale_document = playlist.scale_document
-        }
-        if (screen.shuffle === null && playlist.shuffle !== null) {
-          screen.shuffle = playlist.shuffle
-        }
-        if (!screen.default_transition && playlist.default_transition) {
-          screen.default_transition = playlist.default_transition
-        }
+        screen.scale_image = playlist.scale_image || "fit"
+        screen.scale_video = playlist.scale_video || "fit"
+        screen.scale_document = playlist.scale_document || "fit"
+        screen.shuffle = playlist.shuffle || false
+        screen.default_transition = playlist.default_transition || "fade"
       }
     }
 
