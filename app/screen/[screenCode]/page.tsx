@@ -47,7 +47,7 @@ export default function ScreenPlayerPage({ params }: { params: { screenCode: str
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [retryCount, setRetryCount] = useState(0)
-  const [maxRetries] = useState(3)
+  const [maxRetries] = useState(50)
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const [shuffledContent, setShuffledContent] = useState<MediaItem[]>([])
   const router = useRouter()
@@ -63,6 +63,8 @@ export default function ScreenPlayerPage({ params }: { params: { screenCode: str
 
   const fetchConfig = async () => {
     try {
+      console.log("[v0] Fetching screen config for:", params.screenCode)
+
       const response = await fetch(`/api/screens/config/${params.screenCode}`, {
         cache: "no-store",
         headers: {
@@ -71,12 +73,17 @@ export default function ScreenPlayerPage({ params }: { params: { screenCode: str
         },
       })
 
+      console.log("[v0] Config response status:", response.status)
+
       if (!response.ok) {
         const errorData = await response.json()
+        console.log("[v0] Config error:", errorData)
         throw new Error(errorData.error || "Failed to fetch configuration")
       }
 
       const data = await response.json()
+      console.log("[v0] Config data:", data)
+
       setConfig(data)
       setError("")
       setRetryCount(0)
@@ -87,6 +94,7 @@ export default function ScreenPlayerPage({ params }: { params: { screenCode: str
         setShuffledContent(data.screen.content || [])
       }
     } catch (err) {
+      console.log("[v0] Config fetch error:", err)
       setError(err instanceof Error ? err.message : "Failed to load configuration")
 
       if (retryCount < maxRetries) {
@@ -148,7 +156,7 @@ export default function ScreenPlayerPage({ params }: { params: { screenCode: str
   }
 
   const handleBackToSetup = () => {
-    router.push("/")
+    router.push("/player")
   }
 
   const getMediaUrl = (filePath: string) => {
