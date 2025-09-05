@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
     const { data: screen, error: screenError } = await supabase
       .from("screens")
-      .select("id, name, orientation, status")
+      .select("id, name, orientation, status, media_id, content_type")
       .eq("id", device.screen_id)
       .single()
 
@@ -43,54 +43,91 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       return NextResponse.json({ error: "Screen not found" }, { status: 404 })
     }
 
-    const { data: screenPlaylist, error: playlistError } = await supabase
-      .from("screen_playlists")
-      .select(`
-        playlist_id,
-        playlists (
-          id,
-          name,
-          background_color,
-          is_active,
-          scale_image,
-          scale_video,
-          scale_document,
-          shuffle,
-          default_transition
-        )
-      `)
-      .eq("screen_id", screen.id)
-      .eq("is_active", true)
-      .maybeSingle()
-
     let playlistContent = []
     let activePlaylist = null
 
-    if (screenPlaylist?.playlists) {
-      activePlaylist = screenPlaylist.playlists
+    // Check for individual asset first
+    if (screen.media_id) {
+      const { data: mediaItem, error: mediaError } = await supabase
+        .from("media")
+        .select("id, name, file_path, mime_type, file_size, duration")
+        .eq("id", screen.media_id)
+        .single()
 
-      const { data: playlistItems, error: itemsError } = await supabase
-        .from("playlist_items")
+      if (!mediaError && mediaItem) {
+        playlistContent = [
+          {
+            id: `asset-${mediaItem.id}`,
+            position: 1,
+            duration_override: null,
+            transition_type: null,
+            transition_duration: null,
+            media: mediaItem,
+          },
+        ]
+
+        // Create a virtual playlist for asset display
+        activePlaylist = {
+          id: `asset-playlist-${screen.id}`,
+          name: `Asset: ${mediaItem.name}`,
+          background_color: "#000000",
+          is_active: true,
+          scale_image: "fit",
+          scale_video: "fit",
+          scale_document: "fit",
+          shuffle: false,
+          default_transition: "fade",
+        }
+      }
+    }
+    // If no asset, check for playlist
+    else {
+      const { data: screenPlaylist, error: playlistError } = await supabase
+        .from("screen_playlists")
         .select(`
-          id,
-          position,
-          duration_override,
-          transition_type,
-          transition_duration,
-          media (
+          playlist_id,
+          playlists (
             id,
             name,
-            file_path,
-            mime_type,
-            file_size,
-            duration
+            background_color,
+            is_active,
+            scale_image,
+            scale_video,
+            scale_document,
+            shuffle,
+            default_transition
           )
         `)
-        .eq("playlist_id", activePlaylist.id)
-        .order("position")
+        .eq("screen_id", screen.id)
+        .eq("is_active", true)
+        .maybeSingle()
 
-      if (!itemsError && playlistItems) {
-        playlistContent = playlistItems.filter((item) => item.media) // Only include items with valid media
+      if (screenPlaylist?.playlists) {
+        activePlaylist = screenPlaylist.playlists
+
+        const { data: playlistItems, error: itemsError } = await supabase
+          .from("playlist_items")
+          .select(`
+            id,
+            position,
+            duration_override,
+            transition_type,
+            transition_duration,
+            media (
+              id,
+              name,
+              file_path,
+              mime_type,
+              file_size,
+              duration
+            )
+          `)
+          .eq("playlist_id", activePlaylist.id)
+          .order("position")
+
+        if (!itemsError && playlistItems) {
+          playlistContent = playlistItems.filter((item) => item.media)
+        }
       }
     }
 
