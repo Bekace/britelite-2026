@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@supabase/supabase-js"
 
 export default async function ScreenPlayerPage({
   params,
 }: {
   params: { screenCode: string }
 }) {
-  const supabase = createClient()
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
   // Find screen by screen code
   const { data: screen } = await supabase.from("screens").select("id").eq("screen_code", params.screenCode).single()
