@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation"
 import { createClient } from "@supabase/supabase-js"
+import ScreenContentPlayer from "./content/page"
 
 export default async function ScreenPlayerPage({
   params,
@@ -22,6 +22,6 @@ export default async function ScreenPlayerPage({
     )
   }
 
-  // Redirect to the screen content player
-  redirect(`/screen/${params.screenCode}/content`)
+  // Display screen content directly without redirect
+  return <ScreenContentPlayer params={params} />
 }
