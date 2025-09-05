@@ -72,7 +72,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const requestData = await request.json()
-    const { name, location, resolution, orientation, playlist_id, media_id } = requestData
+    const { name, location, resolution, orientation, playlist_id, media_id, content_type } = requestData
 
     const updateData: any = {
       name,
@@ -80,6 +80,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       resolution,
       orientation,
       updated_at: new Date().toISOString(),
+    }
+
+    if (content_type !== undefined) {
+      updateData.content_type = content_type
+    } else if (playlist_id) {
+      updateData.content_type = "playlist"
+    } else if (media_id) {
+      updateData.content_type = "asset"
+    } else if (playlist_id === null && media_id === null) {
+      updateData.content_type = "none"
     }
 
     // Only add media_id if it's provided (for backward compatibility)

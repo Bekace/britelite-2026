@@ -298,6 +298,7 @@ export default function ScreensPage() {
           description: wizardState.description,
           location: wizardState.location,
           orientation: wizardState.orientation,
+          content_type: wizardState.selectedContentId ? wizardState.contentType : "none",
         }),
       })
 
@@ -332,6 +333,7 @@ export default function ScreensPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            content_type: wizardState.contentType,
             ...(wizardState.contentType === "playlist"
               ? { playlist_id: wizardState.selectedContentId }
               : { media_id: wizardState.selectedContentId }),
