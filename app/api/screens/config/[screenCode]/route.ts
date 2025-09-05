@@ -21,7 +21,8 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         orientation,
         background_color,
         media_id,
-        screen_code
+        screen_code,
+        content_type
       `)
       .eq("screen_code", screenCode)
       .single()
@@ -32,15 +33,14 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
 
     let content: any[] = []
 
-    // Check if screen has individual media assigned
-    if (screen.media_id) {
-      const { data: media } = await supabase
+    if (screen.content_type === "asset" && screen.media_id) {
+      const { data: media, error: mediaError } = await supabase
         .from("media")
         .select("id, name, file_path, mime_type")
         .eq("id", screen.media_id)
         .single()
 
-      if (media) {
+      if (media && !mediaError) {
         content = [
           {
             id: media.id,
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
           },
         ]
       }
-    } else {
+    } else if (screen.content_type === "playlist") {
       // Get playlist content
       const { data: playlistItems } = await supabase
         .from("screen_playlists")
