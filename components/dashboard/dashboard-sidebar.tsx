@@ -14,7 +14,12 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Users,
+  CreditCard,
+  Shield,
+  TrendingUp,
 } from "lucide-react"
+import { useUser } from "@/hooks/use-user"
 
 const navigation = [
   {
@@ -49,9 +54,35 @@ const navigation = [
   },
 ]
 
+const adminNavigation = [
+  {
+    name: "Admin Overview",
+    href: "/dashboard/admin/overview",
+    icon: TrendingUp,
+  },
+  {
+    name: "User Management",
+    href: "/dashboard/admin/users",
+    icon: Users,
+  },
+  {
+    name: "Plan Management",
+    href: "/dashboard/admin/plans",
+    icon: CreditCard,
+  },
+  {
+    name: "Feature Management",
+    href: "/dashboard/admin/features",
+    icon: Shield,
+  },
+]
+
 export function DashboardSidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
+  const { user } = useUser()
+
+  const isSuperAdmin = user?.role === "superadmin"
 
   return (
     <div
@@ -105,6 +136,40 @@ export function DashboardSidebar() {
               </Link>
             )
           })}
+
+          {isSuperAdmin && (
+            <>
+              {!collapsed && (
+                <div className="pt-4 pb-2">
+                  <div className="px-3 text-xs font-medium text-sidebar-foreground/60 uppercase tracking-wider">
+                    Administration
+                  </div>
+                </div>
+              )}
+              {adminNavigation.map((item) => {
+                const isActive = pathname === item.href
+                const Icon = item.icon
+
+                return (
+                  <Link key={item.name} href={item.href}>
+                    <Button
+                      variant={isActive ? "default" : "ghost"}
+                      className={cn(
+                        "w-full justify-start gap-3 h-11",
+                        isActive
+                          ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/10",
+                        collapsed && "px-3",
+                      )}
+                    >
+                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      {!collapsed && <span>{item.name}</span>}
+                    </Button>
+                  </Link>
+                )
+              })}
+            </>
+          )}
         </nav>
       </div>
     </div>
