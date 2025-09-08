@@ -8,7 +8,7 @@ CHECK (role IN ('user', 'admin', 'superadmin'));
 -- Now promote your user to superadmin (replace with your actual email)
 UPDATE profiles 
 SET role = 'superadmin' 
-WHERE email = 'your-email@example.com';
+WHERE email = 'bekace.multimedia@gmail.com';
 
 -- Verify the update
-SELECT email, role FROM profiles WHERE email = 'your-email@example.com';
+SELECT email, role FROM profiles WHERE email = 'bekace.multimedia@gmail.com';
