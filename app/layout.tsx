@@ -3,8 +3,8 @@ import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Xkreen - AI-Powered Digital Signage",
-  description: "AI-Powered Digital Signage",
+  title: "Xkreen - AI-Powered Smart Digital Signage",
+  description: "AI-Powered Smart Digital Signage",
   generator: "v0.app",
 }
 
