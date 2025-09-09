@@ -33,39 +33,61 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const getUser = async () => {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser()
+      try {
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser()
 
-      if (authUser) {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", authUser.id).single()
+        if (authUser) {
+          const { data: profile } = await supabase.from("profiles").select("*").eq("id", authUser.id).single()
 
-        if (profile) {
-          setUser({ ...authUser, ...profile })
+          if (profile) {
+            setUser({ ...authUser, ...profile })
+          }
         }
+      } catch (error) {
+        console.error("[v0] Error getting user:", error)
+        setUser(null)
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
 
     getUser()
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
+    let subscription: any
+    try {
+      const {
+        data: { subscription: authSubscription },
+      } = supabase.auth.onAuthStateChange(async (event, session) => {
+        try {
+          if (session?.user) {
+            const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single()
 
-        if (profile) {
-          setUser({ ...session.user, ...profile })
+            if (profile) {
+              setUser({ ...session.user, ...profile })
+            }
+          } else {
+            setUser(null)
+          }
+        } catch (error) {
+          console.error("[v0] Error in auth state change:", error)
+          setUser(null)
+        } finally {
+          setLoading(false)
         }
-      } else {
-        setUser(null)
-      }
+      })
+      subscription = authSubscription
+    } catch (error) {
+      console.error("[v0] Error setting up auth listener:", error)
       setLoading(false)
-    })
+    }
 
-    return () => subscription.unsubscribe()
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
   }, [supabase])
 
   return <UserContext.Provider value={{ user, loading }}>{children}</UserContext.Provider>
