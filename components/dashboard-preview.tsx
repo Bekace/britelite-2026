@@ -1,6 +1,6 @@
 export function DashboardPreview() {
   return (
-    <div className="w-[calc(100vw-32px)] md:w-[1160px]">
+    <div className="w-[calc(100vw-32px)] md:w-[1460px]">
       <div className="bg-primary-light/50 rounded-2xl p-2 shadow-2xl text-white bg-teal-300">
         <video
           src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/DISPL-compress-2Evaetaq5I8rlQQzrQ6qMF3vdgoPnw.mp4"
