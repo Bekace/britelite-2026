@@ -59,6 +59,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { data: subscription } = await supabase
+      .from("user_subscriptions")
+      .select(`
+        subscription_plans (
+          features
+        )
+      `)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .single()
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("current_playlists_count")
+      .eq("id", user.id)
+      .single()
+
+    if (subscription?.subscription_plans && profile) {
+      const features = (subscription.subscription_plans.features as any) || {}
+      const maxPlaylists = features.max_playlists || 0
+      const currentPlaylists = profile.current_playlists_count || 0
+
+      if (currentPlaylists >= maxPlaylists) {
+        return NextResponse.json(
+          {
+            error: `Playlist limit reached. Your plan allows ${maxPlaylists} playlists maximum.`,
+          },
+          { status: 403 },
+        )
+      }
+    }
+
     const {
       name,
       description,

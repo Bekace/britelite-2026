@@ -27,6 +27,52 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
+    const { data: subscription } = await supabase
+      .from("user_subscriptions")
+      .select(`
+        subscription_plans (
+          max_media_storage,
+          features
+        )
+      `)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .single()
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("current_media_count, current_storage_used_mb")
+      .eq("id", user.id)
+      .single()
+
+    if (subscription?.subscription_plans && profile) {
+      const plan = subscription.subscription_plans
+      const features = (plan.features as any) || {}
+      const maxMediaAssets = features.max_media_assets || 0
+      const maxStorageMB = Math.floor((plan.max_media_storage || 0) / (1024 * 1024))
+      const currentMedia = profile.current_media_count || 0
+      const currentStorageMB = profile.current_storage_used_mb || 0
+      const fileSizeMB = file.size / (1024 * 1024)
+
+      if (currentMedia >= maxMediaAssets) {
+        return NextResponse.json(
+          {
+            error: `Media asset limit reached. Your plan allows ${maxMediaAssets} files maximum.`,
+          },
+          { status: 403 },
+        )
+      }
+
+      if (currentStorageMB + fileSizeMB > maxStorageMB) {
+        return NextResponse.json(
+          {
+            error: `Storage limit exceeded. Your plan allows ${maxStorageMB}MB maximum. This file would exceed your limit.`,
+          },
+          { status: 403 },
+        )
+      }
+    }
+
     // Validate file type
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "video/mp4", "video/webm"]
     if (!allowedTypes.includes(file.type)) {

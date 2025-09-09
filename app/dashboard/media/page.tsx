@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog" // Added import for custom confirmation dialog
 import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { useFeatureLimits } from "@/hooks/use-feature-limits"
 
 interface MediaItem {
   id: string
@@ -163,6 +164,7 @@ export default function MediaLibraryPage() {
   })
   const [previewMedia, setPreviewMedia] = useState<MediaItem | null>(null)
   const { toast } = useToast()
+  const { canUploadMedia, limits, usage, refreshUsage } = useFeatureLimits()
 
   useEffect(() => {
     checkAuthAndFetchMedia()
@@ -231,6 +233,23 @@ export default function MediaLibraryPage() {
   const handleUpload = async () => {
     if (!selectedFile) return
 
+    const fileSizeMB = selectedFile.size / (1024 * 1024)
+    if (!canUploadMedia(fileSizeMB)) {
+      const reason =
+        usage && limits
+          ? usage.currentMedia >= limits.maxMediaAssets
+            ? `Media limit reached (${limits.maxMediaAssets} files maximum)`
+            : `Storage limit exceeded (${limits.maxStorageMB}MB maximum)`
+          : "Upload limit reached"
+
+      toast({
+        title: "Upload Limit Reached",
+        description: `${reason}. Upgrade your plan to upload more media.`,
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const supabase = createClient()
       const {
@@ -274,6 +293,9 @@ export default function MediaLibraryPage() {
         setMedia((prev) => [newMedia, ...prev])
         setSelectedFile(null)
         setTags("")
+
+        await refreshUsage()
+
         toast({
           title: "Success",
           description: "Media uploaded successfully",
@@ -384,7 +406,15 @@ export default function MediaLibraryPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Media Library</h1>
-          <p className="text-gray-600 mt-1">Upload and manage your digital signage content</p>
+          <p className="text-gray-600 mt-1">
+            Upload and manage your digital signage content
+            {usage && limits && (
+              <span className="ml-2 text-sm">
+                ({usage.currentMedia}/{limits.maxMediaAssets} files, {Math.round(usage.currentStorageMB)}/
+                {limits.maxStorageMB}MB used)
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>
@@ -415,8 +445,11 @@ export default function MediaLibraryPage() {
             />
             <Button
               onClick={handleUpload}
-              disabled={!selectedFile || uploading}
-              className="bg-cyan-500 hover:bg-cyan-600"
+              disabled={
+                !selectedFile || uploading || (selectedFile && !canUploadMedia(selectedFile.size / (1024 * 1024)))
+              }
+              className="bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50"
+              title={selectedFile && !canUploadMedia(selectedFile.size / (1024 * 1024)) ? "Upload limit reached" : ""}
             >
               {uploading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -427,9 +460,14 @@ export default function MediaLibraryPage() {
             </Button>
           </div>
           {selectedFile && (
-            <p className="text-sm text-gray-600">
-              Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-gray-600">
+                Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+              </p>
+              {!canUploadMedia(selectedFile.size / (1024 * 1024)) && (
+                <p className="text-sm text-red-600">⚠️ This file cannot be uploaded due to plan limits</p>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

@@ -36,6 +36,7 @@ import {
   Settings,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useFeatureLimits } from "@/hooks/use-feature-limits"
 
 interface Screen {
   id: string
@@ -128,6 +129,7 @@ export default function ScreensPage() {
   })
 
   const { toast } = useToast()
+  const { canCreateScreen, limits, usage, refreshUsage } = useFeatureLimits()
 
   useEffect(() => {
     fetchScreens()
@@ -266,6 +268,15 @@ export default function ScreensPage() {
   }
 
   const handleCreateScreen = async () => {
+    if (!canCreateScreen) {
+      toast({
+        title: "Screen Limit Reached",
+        description: `Your plan allows ${limits?.maxScreens || 0} screens maximum. Upgrade your plan to create more screens.`,
+        variant: "destructive",
+      })
+      return
+    }
+
     if (!wizardState.name.trim()) {
       toast({
         title: "Error",
@@ -307,6 +318,8 @@ export default function ScreensPage() {
       if (!screenResponse.ok) {
         throw new Error(screenData.error || "Failed to create screen")
       }
+
+      await refreshUsage()
 
       // Pair device to screen
       const pairResponse = await fetch("/api/devices/pair", {
@@ -980,81 +993,24 @@ export default function ScreensPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Screens</h1>
-          <p className="text-gray-600 mt-1">Manage your digital signage displays</p>
+          <p className="text-gray-600 mt-1">
+            Manage your digital signage displays
+            {usage && limits && (
+              <span className="ml-2 text-sm">
+                ({usage.currentScreens}/{limits.maxScreens} screens used)
+              </span>
+            )}
+          </p>
         </div>
-        <Dialog
-          open={isCreateDialogOpen}
-          onOpenChange={(open) => {
-            setIsCreateDialogOpen(open)
-            if (!open) resetWizard()
-          }}
+        <Button
+          onClick={() => setIsCreateDialogOpen(true)}
+          disabled={!canCreateScreen}
+          className="bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50"
+          title={!canCreateScreen ? `Screen limit reached (${limits?.maxScreens || 0} maximum)` : ""}
         >
-          <DialogTrigger asChild>
-            <Button className="bg-cyan-500 hover:bg-cyan-600">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Screen
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Create New Screen - Step {wizardState.step} of 5</DialogTitle>
-              <DialogDescription>
-                {wizardState.step === 1 && "Connect your device to the platform"}
-                {wizardState.step === 2 && "Choose the type of content to display"}
-                {wizardState.step === 3 && "Select specific content for your screen"}
-                {wizardState.step === 4 && "Configure screen orientation and details"}
-                {wizardState.step === 5 && "Set up advanced display options"}
-              </DialogDescription>
-            </DialogHeader>
-
-            {wizardState.step === 1 && renderStep1()}
-            {wizardState.step === 2 && renderStep2()}
-            {wizardState.step === 3 && renderStep3()}
-            {wizardState.step === 4 && renderStep4()}
-            {wizardState.step === 5 && renderStep5()}
-
-            <DialogFooter>
-              <div className="flex justify-between w-full">
-                <Button
-                  variant="outline"
-                  onClick={wizardState.step === 1 ? () => setIsCreateDialogOpen(false) : prevStep}
-                >
-                  {wizardState.step === 1 ? (
-                    "Cancel"
-                  ) : (
-                    <>
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Back
-                    </>
-                  )}
-                </Button>
-
-                {wizardState.step < 5 ? (
-                  <Button
-                    onClick={nextStep}
-                    disabled={
-                      (wizardState.step === 1 && !wizardState.isPaired) ||
-                      (wizardState.step === 2 && !wizardState.contentType) ||
-                      (wizardState.step === 3 &&
-                        !wizardState.selectedContentId &&
-                        wizardState.contentType !== "schedule") ||
-                      (wizardState.step === 4 && !wizardState.name.trim())
-                    }
-                  >
-                    Next <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                ) : (
-                  <Button onClick={handleCreateScreen} disabled={creating || !wizardState.name.trim()}>
-                    {creating ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    ) : null}
-                    Create Screen
-                  </Button>
-                )}
-              </div>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Screen
+        </Button>
       </div>
 
       {/* Search */}
@@ -1153,6 +1109,81 @@ export default function ScreensPage() {
           ))}
         </div>
       )}
+
+      {/* Create Screen Dialog */}
+      <Dialog
+        open={isCreateDialogOpen}
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open)
+          if (!open) resetWizard()
+        }}
+      >
+        <DialogTrigger asChild>
+          <Button className="bg-cyan-500 hover:bg-cyan-600">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Screen
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Screen - Step {wizardState.step} of 5</DialogTitle>
+            <DialogDescription>
+              {wizardState.step === 1 && "Connect your device to the platform"}
+              {wizardState.step === 2 && "Choose the type of content to display"}
+              {wizardState.step === 3 && "Select specific content for your screen"}
+              {wizardState.step === 4 && "Configure screen orientation and details"}
+              {wizardState.step === 5 && "Set up advanced display options"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {wizardState.step === 1 && renderStep1()}
+          {wizardState.step === 2 && renderStep2()}
+          {wizardState.step === 3 && renderStep3()}
+          {wizardState.step === 4 && renderStep4()}
+          {wizardState.step === 5 && renderStep5()}
+
+          <DialogFooter>
+            <div className="flex justify-between w-full">
+              <Button
+                variant="outline"
+                onClick={wizardState.step === 1 ? () => setIsCreateDialogOpen(false) : prevStep}
+              >
+                {wizardState.step === 1 ? (
+                  "Cancel"
+                ) : (
+                  <>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back
+                  </>
+                )}
+              </Button>
+
+              {wizardState.step < 5 ? (
+                <Button
+                  onClick={nextStep}
+                  disabled={
+                    (wizardState.step === 1 && !wizardState.isPaired) ||
+                    (wizardState.step === 2 && !wizardState.contentType) ||
+                    (wizardState.step === 3 &&
+                      !wizardState.selectedContentId &&
+                      wizardState.contentType !== "schedule") ||
+                    (wizardState.step === 4 && !wizardState.name.trim())
+                  }
+                >
+                  Next <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+              ) : (
+                <Button onClick={handleCreateScreen} disabled={creating || !wizardState.name.trim()}>
+                  {creating ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  ) : null}
+                  Create Screen
+                </Button>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Screen Dialog */}
       <Dialog open={!!editingScreen} onOpenChange={() => setEditingScreen(null)}>

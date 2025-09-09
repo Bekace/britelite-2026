@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { UserProvider } from "@/hooks/use-user"
+import { FeatureLimitsProvider } from "@/hooks/use-feature-limits"
 
 export const dynamic = "force-dynamic"
 
@@ -45,19 +46,21 @@ export default async function DashboardLayout({
 
     return (
       <UserProvider>
-        <div className="flex h-screen bg-background">
-          {/* Sidebar */}
-          <DashboardSidebar />
+        <FeatureLimitsProvider>
+          <div className="flex h-screen bg-background">
+            {/* Sidebar */}
+            <DashboardSidebar />
 
-          {/* Main Content */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Header */}
-            <DashboardHeader user={user} />
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Header */}
+              <DashboardHeader user={user} />
 
-            {/* Page Content */}
-            <main className="flex-1 overflow-y-auto p-6">{children}</main>
+              {/* Page Content */}
+              <main className="flex-1 overflow-y-auto p-6">{children}</main>
+            </div>
           </div>
-        </div>
+        </FeatureLimitsProvider>
       </UserProvider>
     )
   } catch (error) {

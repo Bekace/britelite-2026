@@ -60,6 +60,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { data: subscription } = await supabase
+      .from("user_subscriptions")
+      .select(`
+        subscription_plans (
+          max_screens
+        )
+      `)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .single()
+
+    const { data: profile } = await supabase.from("profiles").select("current_screens_count").eq("id", user.id).single()
+
+    if (subscription?.subscription_plans && profile) {
+      const maxScreens = subscription.subscription_plans.max_screens || 0
+      const currentScreens = profile.current_screens_count || 0
+
+      if (currentScreens >= maxScreens) {
+        return NextResponse.json(
+          {
+            error: `Screen limit reached. Your plan allows ${maxScreens} screens maximum.`,
+          },
+          { status: 403 },
+        )
+      }
+    }
+
     const { name, location, resolution, orientation, content_type } = await request.json()
 
     if (!name) {

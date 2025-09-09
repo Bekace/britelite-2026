@@ -4,12 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Monitor, ImageIcon, PlayCircle, Activity, Plus, TrendingUp, Zap } from "lucide-react"
 import type { User } from "@supabase/supabase-js"
+import { UsageWidget } from "./usage-widget"
+import { useFeatureLimits } from "@/hooks/use-feature-limits"
 
 interface DashboardOverviewProps {
   user: User
 }
 
 export function DashboardOverview({ user }: DashboardOverviewProps) {
+  const { canCreateScreen, canCreatePlaylist, canUploadMedia } = useFeatureLimits()
+
   const stats = [
     {
       title: "Active Screens",
@@ -47,18 +51,24 @@ export function DashboardOverview({ user }: DashboardOverviewProps) {
       description: "Connect a new display to your network",
       icon: Monitor,
       href: "/dashboard/screens/new",
+      disabled: !canCreateScreen,
+      disabledReason: "Screen limit reached",
     },
     {
       title: "Upload Media",
       description: "Add images and videos to your library",
       icon: ImageIcon,
       href: "/dashboard/media/upload",
+      disabled: false, // Will check file size on upload
+      disabledReason: "",
     },
     {
       title: "Create Playlist",
       description: "Build a new content playlist",
       icon: PlayCircle,
       href: "/dashboard/playlists/new",
+      disabled: !canCreatePlaylist,
+      disabledReason: "Playlist limit reached",
     },
   ]
 
@@ -137,18 +147,26 @@ export function DashboardOverview({ user }: DashboardOverviewProps) {
               return (
                 <div
                   key={action.title}
-                  className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
+                  className={`flex items-center justify-between p-4 border border-border rounded-lg transition-colors ${
+                    action.disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-muted/50"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <Icon className="w-5 h-5 text-primary" />
+                    <div
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        action.disabled ? "bg-muted" : "bg-primary/10"
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 ${action.disabled ? "text-muted-foreground" : "text-primary"}`} />
                     </div>
                     <div>
                       <h4 className="font-medium text-foreground">{action.title}</h4>
-                      <p className="text-sm text-muted-foreground">{action.description}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {action.disabled ? action.disabledReason : action.description}
+                      </p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" disabled={action.disabled}>
                     <Plus className="w-4 h-4" />
                   </Button>
                 </div>
@@ -157,32 +175,7 @@ export function DashboardOverview({ user }: DashboardOverviewProps) {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="w-5 h-5 text-secondary" />
-              Recent Activity
-            </CardTitle>
-            <CardDescription>Latest updates from your network</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {recentActivity.map((activity, index) => {
-              const Icon = activity.icon
-              return (
-                <div key={index} className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center flex-shrink-0">
-                    <Icon className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground">{activity.action}</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
-                  </div>
-                </div>
-              )
-            })}
-          </CardContent>
-        </Card>
+        <UsageWidget />
       </div>
     </div>
   )
