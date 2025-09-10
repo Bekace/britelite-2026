@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -44,16 +43,47 @@ export function PlanFormModal({ isOpen, onClose, onSuccess, plan, mode }: PlanFo
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<Plan>({
-    name: plan?.name || "",
-    description: plan?.description || "",
-    price: plan?.price || 0,
-    billing_cycle: plan?.billing_cycle || "monthly",
-    max_screens: plan?.max_screens || 1,
-    max_playlists: plan?.max_playlists || 1,
-    max_media_assets: plan?.max_media_assets || 10,
-    max_media_storage: plan?.max_media_storage || 1073741824, // 1GB in bytes
-    is_active: plan?.is_active ?? true,
+    name: "",
+    description: "",
+    price: 0,
+    billing_cycle: "monthly",
+    max_screens: 1,
+    max_playlists: 1,
+    max_media_assets: 10,
+    max_media_storage: 1073741824, // 1GB in bytes
+    is_active: true,
   })
+
+  useEffect(() => {
+    if (isOpen) {
+      if (mode === "edit" && plan) {
+        setFormData({
+          name: plan.name || "",
+          description: plan.description || "",
+          price: plan.price || 0,
+          billing_cycle: plan.billing_cycle || "monthly",
+          max_screens: plan.max_screens || 1,
+          max_playlists: plan.max_playlists || 1,
+          max_media_assets: plan.max_media_assets || 10,
+          max_media_storage: plan.max_media_storage || 1073741824,
+          is_active: plan.is_active ?? true,
+        })
+      } else {
+        // Reset form for create mode
+        setFormData({
+          name: "",
+          description: "",
+          price: 0,
+          billing_cycle: "monthly",
+          max_screens: 1,
+          max_playlists: 1,
+          max_media_assets: 10,
+          max_media_storage: 1073741824,
+          is_active: true,
+        })
+      }
+    }
+  }, [isOpen, plan, mode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
