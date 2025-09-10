@@ -70,6 +70,7 @@ export default function PlanManagementPage() {
   }
 
   const handleEditPlan = (plan: Plan) => {
+    console.log("[v0] Opening edit modal for plan:", plan)
     setEditingPlan(plan)
     setModalMode("edit")
     setModalOpen(true)
@@ -238,8 +239,14 @@ export default function PlanManagementPage() {
 
       <PlanFormModal
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSuccess={fetchPlans}
+        onClose={() => {
+          console.log("[v0] Modal onClose called")
+          setModalOpen(false)
+        }}
+        onSuccess={() => {
+          console.log("[v0] Modal onSuccess called, fetching plans")
+          fetchPlans()
+        }}
         plan={editingPlan}
         mode={modalMode}
       />
