@@ -20,29 +20,17 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const body = await request.json()
-    const {
-      name,
-      description,
-      price,
-      billing_cycle,
-      max_screens,
-      max_playlists,
-      max_media_assets,
-      max_media_storage,
-      is_active,
-    } = body
+    const { name, description, price, billing_cycle, max_screens, max_media_storage, is_active } = body
 
     const { data: plan, error } = await supabase
       .from("subscription_plans")
       .update({
         name,
         description,
-        price: Number.parseFloat(price),
+        price: Number.parseFloat(price || 0),
         billing_cycle,
-        max_screens: Number.parseInt(max_screens),
-        max_playlists: Number.parseInt(max_playlists || 0),
-        max_media_assets: Number.parseInt(max_media_assets || 0),
-        max_media_storage: Number.parseInt(max_media_storage),
+        max_screens: Number.parseInt(max_screens || 0),
+        max_media_storage: Number.parseInt(max_media_storage || 0),
         is_active,
       })
       .eq("id", params.id)
