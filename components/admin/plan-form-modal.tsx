@@ -89,14 +89,9 @@ export function PlanFormModal({ isOpen, onClose, onSuccess, plan, mode }: PlanFo
     e.preventDefault()
     setLoading(true)
 
-    console.log("[v0] Form submitted with data:", formData)
-    console.log("[v0] Mode:", mode, "Plan ID:", plan?.id)
-
     try {
       const url = mode === "create" ? "/api/plans" : `/api/plans/${plan?.id}`
       const method = mode === "create" ? "POST" : "PUT"
-
-      console.log("[v0] Making request to:", url, "with method:", method)
 
       const response = await fetch(url, {
         method,
@@ -104,28 +99,19 @@ export function PlanFormModal({ isOpen, onClose, onSuccess, plan, mode }: PlanFo
         body: JSON.stringify(formData),
       })
 
-      console.log("[v0] Response status:", response.status)
-
       if (!response.ok) {
         const error = await response.json()
-        console.log("[v0] Error response:", error)
         throw new Error(error.error || "Failed to save plan")
       }
-
-      const result = await response.json()
-      console.log("[v0] Success response:", result)
 
       toast({
         title: "Success",
         description: `Plan ${mode === "create" ? "created" : "updated"} successfully`,
       })
 
-      console.log("[v0] Calling onSuccess callback")
-      onSuccess()
-      console.log("[v0] Calling onClose callback")
+      await onSuccess()
       onClose()
     } catch (error) {
-      console.log("[v0] Error in handleSubmit:", error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Something went wrong",
@@ -136,8 +122,13 @@ export function PlanFormModal({ isOpen, onClose, onSuccess, plan, mode }: PlanFo
     }
   }
 
+  const handleClose = () => {
+    setLoading(false)
+    onClose()
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Create New Plan" : "Edit Plan"}</DialogTitle>
@@ -256,7 +247,7 @@ export function PlanFormModal({ isOpen, onClose, onSuccess, plan, mode }: PlanFo
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
