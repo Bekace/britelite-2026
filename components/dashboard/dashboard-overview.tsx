@@ -2,43 +2,77 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Monitor, ImageIcon, PlayCircle, Activity, Plus, TrendingUp, Zap } from "lucide-react"
+import { Monitor, ImageIcon, PlayCircle, Activity, Plus, TrendingUp, Zap, Crown } from "lucide-react"
 import type { User } from "@supabase/supabase-js"
 import { UsageWidget } from "./usage-widget"
 import { useFeatureLimits } from "@/hooks/use-feature-limits"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 
 interface DashboardOverviewProps {
   user: User
 }
 
+interface DashboardStats {
+  activeScreens: number
+  storageUsedMB: number
+  activePlaylists: number
+  totalViews: number
+  currentPlan: {
+    name: string
+    price: number
+    billing_cycle: string
+  } | null
+}
+
 export function DashboardOverview({ user }: DashboardOverviewProps) {
   const { canCreateScreen, canCreatePlaylist, canUploadMedia } = useFeatureLimits()
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const stats = [
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const response = await fetch("/api/dashboard/stats")
+        if (response.ok) {
+          const data = await response.json()
+          setStats(data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard stats:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchStats()
+  }, [])
+
+  const statCards = [
     {
       title: "Active Screens",
-      value: "12",
+      value: loading ? "..." : stats?.activeScreens.toString() || "0",
       change: "+2 from last month",
       icon: Monitor,
       color: "text-primary",
     },
     {
       title: "Storage Used",
-      value: "248 MB",
+      value: loading ? "..." : `${stats?.storageUsedMB || 0} MB`,
       change: "+18 MB this week",
       icon: ImageIcon,
       color: "text-secondary",
     },
     {
       title: "Active Playlists",
-      value: "8",
+      value: loading ? "..." : stats?.activePlaylists.toString() || "0",
       change: "+1 this week",
       icon: PlayCircle,
       color: "text-accent",
     },
     {
       title: "Total Views",
-      value: "1,429",
+      value: loading ? "..." : stats?.totalViews.toLocaleString() || "0",
       change: "+12% from last week",
       icon: Activity,
       color: "text-chart-4",
@@ -48,50 +82,24 @@ export function DashboardOverview({ user }: DashboardOverviewProps) {
   const quickActions = [
     {
       title: "Add New Screen",
-      description: "Connect a new display to your network",
+      description: canCreateScreen ? "Connect a new display to your network" : "Screen limit reached for your plan",
       icon: Monitor,
       href: "/dashboard/screens/new",
       disabled: !canCreateScreen,
-      disabledReason: "Screen limit reached for your plan",
     },
     {
       title: "Upload Media",
-      description: "Add images and videos to your library",
+      description: canUploadMedia ? "Add images and videos to your library" : "Storage limit reached for your plan",
       icon: ImageIcon,
       href: "/dashboard/media/upload",
-      disabled: false, // Will check file size and storage on upload
-      disabledReason: "",
+      disabled: !canUploadMedia,
     },
     {
       title: "Create Playlist",
-      description: "Build a new content playlist",
+      description: canCreatePlaylist ? "Build a new content playlist" : "Playlist limit reached for your plan",
       icon: PlayCircle,
       href: "/dashboard/playlists/new",
       disabled: !canCreatePlaylist,
-      disabledReason: "Playlist limit reached for your plan",
-    },
-  ]
-
-  const recentActivity = [
-    {
-      action: "Screen 'Lobby Display' went online",
-      time: "2 minutes ago",
-      icon: Monitor,
-    },
-    {
-      action: "New media file 'summer-promo.mp4' uploaded",
-      time: "15 minutes ago",
-      icon: ImageIcon,
-    },
-    {
-      action: "Playlist 'Morning Announcements' updated",
-      time: "1 hour ago",
-      icon: PlayCircle,
-    },
-    {
-      action: "Screen 'Cafeteria Display' went offline",
-      time: "2 hours ago",
-      icon: Monitor,
     },
   ]
 
@@ -102,16 +110,31 @@ export function DashboardOverview({ user }: DashboardOverviewProps) {
         <div>
           <h2 className="text-3xl font-bold text-foreground">Welcome back, {user.email?.split("@")[0]}!</h2>
           <p className="text-muted-foreground mt-1">Here's what's happening with your digital signage network today.</p>
+          {stats?.currentPlan && (
+            <div className="flex items-center gap-2 mt-2">
+              <Crown className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-primary">
+                Current Plan: {stats.currentPlan.name}
+                {stats.currentPlan.price > 0 && (
+                  <span className="text-muted-foreground ml-1">
+                    (${stats.currentPlan.price}/{stats.currentPlan.billing_cycle})
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
         </div>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Plus className="w-4 h-4 mr-2" />
-          Quick Setup
+        <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
+          <Link href="/dashboard/billing">
+            <Crown className="w-4 h-4 mr-2" />
+            Upgrade Plan
+          </Link>
         </Button>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
+        {statCards.map((stat) => {
           const Icon = stat.icon
           return (
             <Card key={stat.title}>
@@ -161,14 +184,20 @@ export function DashboardOverview({ user }: DashboardOverviewProps) {
                     </div>
                     <div>
                       <h4 className="font-medium text-foreground">{action.title}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {action.disabled ? action.disabledReason : action.description}
-                      </p>
+                      <p className="text-sm text-muted-foreground">{action.description}</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" disabled={action.disabled}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
+                  {action.disabled ? (
+                    <Button variant="ghost" size="sm" disabled>
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  ) : (
+                    <Button asChild variant="ghost" size="sm">
+                      <Link href={action.href}>
+                        <Plus className="w-4 h-4" />
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               )
             })}
