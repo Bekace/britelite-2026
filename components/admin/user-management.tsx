@@ -44,7 +44,8 @@ interface User {
   email: string
   role: "user" | "admin" | "superadmin"
   created_at: string
-  last_sign_in_at?: string
+  full_name?: string
+  company_name?: string
   subscription_status?: "active" | "inactive" | "expired"
   subscription_plan?: string
 }
@@ -322,7 +323,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
                   <TableHead>User</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Subscription</TableHead>
-                  <TableHead>Last Sign In</TableHead>
+                  <TableHead>Company</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -333,7 +334,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
                     <TableCell>
                       <div>
                         <p className="font-medium">{user.email}</p>
-                        <p className="text-sm text-muted-foreground">{user.id}</p>
+                        {user.full_name && <p className="text-sm text-muted-foreground">{user.full_name}</p>}
                       </div>
                     </TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
@@ -345,9 +346,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : "Never"}
-                    </TableCell>
+                    <TableCell>{user.company_name || <span className="text-muted-foreground">-</span>}</TableCell>
                     <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>

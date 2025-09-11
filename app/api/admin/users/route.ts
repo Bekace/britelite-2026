@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
         email,
         role,
         created_at,
-        last_sign_in_at,
+        full_name,
+        company_name,
         user_subscriptions(
           status,
           subscription_plans(name)
@@ -28,7 +29,8 @@ export async function GET(request: NextRequest) {
       email: user.email,
       role: user.role,
       created_at: user.created_at,
-      last_sign_in_at: user.last_sign_in_at,
+      full_name: user.full_name,
+      company_name: user.company_name,
       subscription_status: user.user_subscriptions?.[0]?.status || "inactive",
       subscription_plan: user.user_subscriptions?.[0]?.subscription_plans?.name,
     }))
