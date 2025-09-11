@@ -42,6 +42,23 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
+    if (request.nextUrl.pathname.startsWith("/admin")) {
+      if (!user) {
+        const url = request.nextUrl.clone()
+        url.pathname = "/auth/login"
+        return NextResponse.redirect(url)
+      }
+
+      // Check if user has admin or superadmin role
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+
+      if (!profile || (profile.role !== "admin" && profile.role !== "superadmin")) {
+        const url = request.nextUrl.clone()
+        url.pathname = "/dashboard"
+        return NextResponse.redirect(url)
+      }
+    }
+
     if (
       request.nextUrl.pathname !== "/" &&
       !user &&
