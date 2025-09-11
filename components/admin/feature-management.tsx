@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Dialog,
@@ -13,30 +12,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Settings,
-  Plus,
-  Edit,
-  Trash2,
-  MoreHorizontal,
-  RefreshCw,
-  Search,
-  Filter,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-} from "lucide-react"
+import { Plus, CheckCircle, XCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface FeaturePermission {
@@ -57,6 +36,14 @@ interface Feature {
   permissions: FeaturePermission[]
 }
 
+interface Plan {
+  id: string
+  name: string
+  price: number
+  billing_cycle: string
+  is_active: boolean
+}
+
 interface FeatureFormData {
   feature_key: string
   feature_name: string
@@ -65,10 +52,8 @@ interface FeatureFormData {
 
 export function FeatureManagement() {
   const [features, setFeatures] = useState<Feature[]>([])
-  const [plans, setPlans] = useState<any[]>([])
+  const [plans, setPlans] = useState<Plan[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filterPlan, setFilterPlan] = useState<string>("all")
   const [editingFeature, setEditingFeature] = useState<Feature | null>(null)
   const [deletingFeature, setDeletingFeature] = useState<Feature | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -114,7 +99,7 @@ export function FeatureManagement() {
       const response = await fetch("/api/admin/plans")
       if (response.ok) {
         const data = await response.json()
-        setPlans(data.plans)
+        setPlans(data.plans.filter((p: Plan) => p.is_active))
       }
     } catch (error) {
       console.error("[v0] Error fetching plans:", error)
@@ -271,28 +256,12 @@ export function FeatureManagement() {
     setEditingFeature(feature)
   }
 
-  const filteredFeatures = features.filter((feature) => {
-    const matchesSearch =
-      feature.feature_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      feature.feature_key.toLowerCase().includes(searchTerm.toLowerCase())
-
-    if (filterPlan === "all") return matchesSearch
-
-    const hasMatchingPlan = feature.permissions.some((p) => p.plan_id === filterPlan)
-    return matchesSearch && hasMatchingPlan
-  })
-
-  const getFeatureStats = () => {
-    const totalFeatures = features.length
-    const enabledFeatures = features.reduce((count, feature) => {
-      return count + feature.permissions.filter((p) => p.is_enabled).length
-    }, 0)
-    const totalPermissions = features.reduce((count, feature) => count + feature.permissions.length, 0)
-
-    return { totalFeatures, enabledFeatures, totalPermissions }
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(amount)
   }
-
-  const stats = getFeatureStats()
 
   if (loading) {
     return (
@@ -304,139 +273,45 @@ export function FeatureManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Feature Management</h1>
-          <p className="text-muted-foreground mt-1">Manage feature permissions across subscription plans</p>
+          <p className="text-muted-foreground mt-1">Define and manage feature access based on subscription tiers</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={fetchFeatures} variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Feature
-          </Button>
-        </div>
+        <Button onClick={() => setShowCreateDialog(true)} className="bg-emerald-500 hover:bg-emerald-600">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Feature
+        </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Features</CardTitle>
-            <Settings className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalFeatures}</div>
-            <p className="text-xs text-muted-foreground">Available features</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Enabled Permissions</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.enabledFeatures}</div>
-            <p className="text-xs text-muted-foreground">of {stats.totalPermissions} total permissions</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Coverage Rate</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.totalPermissions > 0 ? Math.round((stats.enabledFeatures / stats.totalPermissions) * 100) : 0}%
-            </div>
-            <p className="text-xs text-muted-foreground">Features enabled</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Plans</CardTitle>
-            <Filter className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{plans.filter((p) => p.is_active).length}</div>
-            <p className="text-xs text-muted-foreground">of {plans.length} total plans</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
-            Feature Permissions Matrix
-          </CardTitle>
+          <CardTitle>Feature Matrix</CardTitle>
           <CardDescription>Configure which features are available for each subscription plan</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4 mb-6">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  placeholder="Search features..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Select value={filterPlan} onValueChange={setFilterPlan}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by plan" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Plans</SelectItem>
-                {plans.map((plan) => (
-                  <SelectItem key={plan.id} value={plan.id}>
-                    {plan.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Features Table */}
           <div className="border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Feature</TableHead>
+                  <TableHead className="w-80">Feature</TableHead>
                   {plans.map((plan) => (
-                    <TableHead key={plan.id} className="text-center">
+                    <TableHead key={plan.id} className="text-center min-w-32">
                       <div>
                         <p className="font-medium">{plan.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          ${plan.price}/{plan.billing_interval}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{formatCurrency(plan.price)}/monthly</p>
                       </div>
                     </TableHead>
                   ))}
-                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredFeatures.map((feature) => (
+                {features.map((feature) => (
                   <TableRow key={feature.feature_key}>
                     <TableCell>
                       <div>
                         <p className="font-medium">{feature.feature_name}</p>
-                        <p className="text-sm text-muted-foreground">{feature.feature_key}</p>
-                        {feature.description && (
-                          <p className="text-xs text-muted-foreground mt-1">{feature.description}</p>
-                        )}
+                        <p className="text-sm text-muted-foreground">{feature.description}</p>
                       </div>
                     </TableCell>
                     {plans.map((plan) => {
@@ -462,27 +337,6 @@ export function FeatureManagement() {
                         </TableCell>
                       )
                     })}
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => openEditDialog(feature)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Feature
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setDeletingFeature(feature)} className="text-red-600">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Feature
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

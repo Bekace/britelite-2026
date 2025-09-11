@@ -18,27 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  CreditCard,
-  Plus,
-  Edit,
-  Trash2,
-  MoreHorizontal,
-  Users,
-  Monitor,
-  HardDrive,
-  RefreshCw,
-  DollarSign,
-  Calendar,
-} from "lucide-react"
+import { Plus, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface SubscriptionPlan {
@@ -46,11 +26,9 @@ interface SubscriptionPlan {
   name: string
   description: string
   price: number
-  billing_interval: "monthly" | "yearly"
+  billing_cycle: "monthly" | "yearly"
   max_screens: number
-  max_users: number
-  max_storage_gb: number
-  features: string[]
+  max_media_storage: number
   is_active: boolean
   subscriber_count?: number
   created_at: string
@@ -60,11 +38,9 @@ interface PlanFormData {
   name: string
   description: string
   price: string
-  billing_interval: "monthly" | "yearly"
+  billing_cycle: "monthly" | "yearly"
   max_screens: string
-  max_users: string
-  max_storage_gb: string
-  features: string[]
+  max_media_storage: string
   is_active: boolean
 }
 
@@ -78,14 +54,11 @@ export function PlanManagement() {
     name: "",
     description: "",
     price: "0",
-    billing_interval: "monthly",
+    billing_cycle: "monthly",
     max_screens: "1",
-    max_users: "1",
-    max_storage_gb: "1",
-    features: [],
+    max_media_storage: "1",
     is_active: true,
   })
-  const [newFeature, setNewFeature] = useState("")
   const { toast } = useToast()
 
   useEffect(() => {
@@ -123,8 +96,7 @@ export function PlanManagement() {
         ...formData,
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
-        max_users: formData.max_users === "-1" ? -1 : Number.parseInt(formData.max_users),
-        max_storage_gb: Number.parseInt(formData.max_storage_gb),
+        max_media_storage: Number.parseInt(formData.max_media_storage),
       }
 
       const response = await fetch("/api/admin/plans", {
@@ -167,8 +139,7 @@ export function PlanManagement() {
         ...formData,
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
-        max_users: formData.max_users === "-1" ? -1 : Number.parseInt(formData.max_users),
-        max_storage_gb: Number.parseInt(formData.max_storage_gb),
+        max_media_storage: Number.parseInt(formData.max_media_storage),
       }
 
       const response = await fetch(`/api/admin/plans/${editingPlan.id}`, {
@@ -239,14 +210,11 @@ export function PlanManagement() {
       name: "",
       description: "",
       price: "0",
-      billing_interval: "monthly",
+      billing_cycle: "monthly",
       max_screens: "1",
-      max_users: "1",
-      max_storage_gb: "1",
-      features: [],
+      max_media_storage: "1",
       is_active: true,
     })
-    setNewFeature("")
   }
 
   const openEditDialog = (plan: SubscriptionPlan) => {
@@ -254,31 +222,12 @@ export function PlanManagement() {
       name: plan.name,
       description: plan.description,
       price: plan.price.toString(),
-      billing_interval: plan.billing_interval,
+      billing_cycle: plan.billing_cycle,
       max_screens: plan.max_screens.toString(),
-      max_users: plan.max_users.toString(),
-      max_storage_gb: plan.max_storage_gb.toString(),
-      features: [...plan.features],
+      max_media_storage: plan.max_media_storage.toString(),
       is_active: plan.is_active,
     })
     setEditingPlan(plan)
-  }
-
-  const addFeature = () => {
-    if (newFeature.trim() && !formData.features.includes(newFeature.trim())) {
-      setFormData({
-        ...formData,
-        features: [...formData.features, newFeature.trim()],
-      })
-      setNewFeature("")
-    }
-  }
-
-  const removeFeature = (index: number) => {
-    setFormData({
-      ...formData,
-      features: formData.features.filter((_, i) => i !== index),
-    })
   }
 
   const formatCurrency = (amount: number) => {
@@ -288,8 +237,11 @@ export function PlanManagement() {
     }).format(amount)
   }
 
-  const formatLimitValue = (value: number) => {
-    return value === -1 ? "Unlimited" : value.toString()
+  const formatStorage = (gb: number) => {
+    if (gb >= 1000) {
+      return `${gb / 1000}TB`
+    }
+    return `${gb}GB`
   }
 
   if (loading) {
@@ -302,173 +254,127 @@ export function PlanManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Plan Management</h1>
           <p className="text-muted-foreground mt-1">Manage subscription plans and pricing</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={fetchPlans} variant="outline" size="sm">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Plan
-          </Button>
-        </div>
+        <Button onClick={() => setShowCreateDialog(true)} className="bg-emerald-500 hover:bg-emerald-600">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Plan
+        </Button>
       </div>
 
-      {/* Plans Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Plans</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{plans.length}</div>
-            <p className="text-xs text-muted-foreground">{plans.filter((p) => p.is_active).length} active</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {plans
+          .filter((plan) => plan.is_active)
+          .map((plan) => (
+            <Card key={plan.id} className="relative">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl">{plan.name}</CardTitle>
+                  <Badge className="bg-emerald-500 text-white">Active</Badge>
+                </div>
+                <CardDescription className="text-sm">{plan.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="text-3xl font-bold">
+                    {formatCurrency(plan.price)}
+                    <span className="text-sm font-normal text-muted-foreground">/monthly</span>
+                  </div>
+                </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Subscribers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {plans.reduce((sum, plan) => sum + (plan.subscriber_count || 0), 0)}
-            </div>
-            <p className="text-xs text-muted-foreground">Across all plans</p>
-          </CardContent>
-        </Card>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Max Screens:</span>
+                    <span className="font-medium">{plan.max_screens}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Storage:</span>
+                    <span className="font-medium">{formatStorage(plan.max_media_storage)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subscribers:</span>
+                    <span className="font-medium">{plan.subscriber_count || 0}</span>
+                  </div>
+                </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(
-                plans
-                  .filter((p) => p.billing_interval === "monthly")
-                  .reduce((sum, plan) => sum + plan.price * (plan.subscriber_count || 0), 0),
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">Monthly plans only</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Yearly Revenue</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(
-                plans
-                  .filter((p) => p.billing_interval === "yearly")
-                  .reduce((sum, plan) => sum + plan.price * 12 * (plan.subscriber_count || 0), 0),
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">Yearly plans annualized</p>
-          </CardContent>
-        </Card>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 bg-transparent"
+                    onClick={() => openEditDialog(plan)}
+                  >
+                    <Edit className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDeletingPlan(plan)}
+                    disabled={(plan.subscriber_count || 0) > 0}
+                  >
+                    <Trash2 className="w-3 h-3 text-red-500" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
       </div>
 
-      {/* Plans Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="w-5 h-5" />
-            Subscription Plans
-          </CardTitle>
-          <CardDescription>Manage pricing and features for all subscription tiers</CardDescription>
+          <CardTitle>Plan Details</CardTitle>
+          <CardDescription>Detailed view of all subscription plans</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Plan Details</TableHead>
-                  <TableHead>Pricing</TableHead>
-                  <TableHead>Limits</TableHead>
+                  <TableHead>Plan Name</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Billing</TableHead>
+                  <TableHead>Max Screens</TableHead>
+                  <TableHead>Storage</TableHead>
                   <TableHead>Subscribers</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {plans.map((plan) => (
                   <TableRow key={plan.id}>
+                    <TableCell className="font-medium">{plan.name}</TableCell>
+                    <TableCell>{formatCurrency(plan.price)}</TableCell>
+                    <TableCell className="capitalize">{plan.billing_cycle}</TableCell>
+                    <TableCell>{plan.max_screens}</TableCell>
+                    <TableCell>{formatStorage(plan.max_media_storage)}</TableCell>
+                    <TableCell>{plan.subscriber_count || 0}</TableCell>
                     <TableCell>
-                      <div>
-                        <p className="font-medium">{plan.name}</p>
-                        <p className="text-sm text-muted-foreground">{plan.description}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{formatCurrency(plan.price)}</p>
-                        <p className="text-sm text-muted-foreground">per {plan.billing_interval}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1 text-xs">
-                          <Monitor className="w-3 h-3" />
-                          {formatLimitValue(plan.max_screens)} screens
-                        </div>
-                        <div className="flex items-center gap-1 text-xs">
-                          <Users className="w-3 h-3" />
-                          {formatLimitValue(plan.max_users)} users
-                        </div>
-                        <div className="flex items-center gap-1 text-xs">
-                          <HardDrive className="w-3 h-3" />
-                          {plan.max_storage_gb}GB storage
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-center">
-                        <p className="font-medium">{plan.subscriber_count || 0}</p>
-                        <p className="text-xs text-muted-foreground">subscribers</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={plan.is_active ? "default" : "secondary"}>
+                      <Badge
+                        variant={plan.is_active ? "default" : "secondary"}
+                        className={plan.is_active ? "bg-emerald-500" : ""}
+                      >
                         {plan.is_active ? "Active" : "Inactive"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => openEditDialog(plan)}>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Plan
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => setDeletingPlan(plan)}
-                            className="text-red-600"
-                            disabled={(plan.subscriber_count || 0) > 0}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete Plan
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => openEditDialog(plan)}>
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeletingPlan(plan)}
+                          disabled={(plan.subscriber_count || 0) > 0}
+                        >
+                          <Trash2 className="w-3 h-3 text-red-500" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -507,8 +413,8 @@ export function PlanManagement() {
               <div>
                 <Label>Billing Interval</Label>
                 <Select
-                  value={formData.billing_interval}
-                  onValueChange={(value: "monthly" | "yearly") => setFormData({ ...formData, billing_interval: value })}
+                  value={formData.billing_cycle}
+                  onValueChange={(value: "monthly" | "yearly") => setFormData({ ...formData, billing_cycle: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -570,29 +476,10 @@ export function PlanManagement() {
                 </Select>
               </div>
               <div>
-                <Label>Max Users</Label>
-                <Select
-                  value={formData.max_users}
-                  onValueChange={(value) => setFormData({ ...formData, max_users: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1</SelectItem>
-                    <SelectItem value="3">3</SelectItem>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="-1">Unlimited</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
                 <Label>Storage (GB)</Label>
                 <Select
-                  value={formData.max_storage_gb}
-                  onValueChange={(value) => setFormData({ ...formData, max_storage_gb: value })}
+                  value={formData.max_media_storage}
+                  onValueChange={(value) => setFormData({ ...formData, max_media_storage: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -606,33 +493,6 @@ export function PlanManagement() {
                     <SelectItem value="100">100 GB</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label>Features</Label>
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <Input
-                    value={newFeature}
-                    onChange={(e) => setNewFeature(e.target.value)}
-                    placeholder="Add a feature..."
-                    onKeyPress={(e) => e.key === "Enter" && addFeature()}
-                  />
-                  <Button type="button" onClick={addFeature} size="sm">
-                    Add
-                  </Button>
-                </div>
-                <div className="space-y-1">
-                  {formData.features.map((feature, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-muted rounded">
-                      <span className="text-sm">{feature}</span>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeFeature(index)}>
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
           </div>
@@ -667,7 +527,7 @@ export function PlanManagement() {
             <div className="p-4 bg-muted rounded-lg">
               <p className="font-medium">{deletingPlan.name}</p>
               <p className="text-sm text-muted-foreground">
-                {formatCurrency(deletingPlan.price)} per {deletingPlan.billing_interval}
+                {formatCurrency(deletingPlan.price)} per {deletingPlan.billing_cycle}
               </p>
               <p className="text-sm text-muted-foreground">{deletingPlan.subscriber_count || 0} subscribers</p>
             </div>
