@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/admin/auth"
+import { PlanManagement } from "@/components/admin/plan-management"
 
 export default async function PlanManagementPage() {
   const { user, profile } = await requireAdmin()
@@ -10,10 +11,7 @@ export default async function PlanManagementPage() {
         <p className="text-muted-foreground mt-1">Manage subscription plans and pricing</p>
       </div>
 
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-foreground">Plan Management</h2>
-        <p className="text-muted-foreground mt-2">Subscription plan management interface coming soon.</p>
-      </div>
+      <PlanManagement />
     </div>
   )
 }
