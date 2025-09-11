@@ -3,9 +3,18 @@
 import type React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Input, Textarea } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import {
   PlayCircle,
   Plus,
@@ -20,6 +29,7 @@ import {
   Maximize,
   Minimize,
   X,
+  Edit,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFeatureLimits } from "@/hooks/use-feature-limits"
@@ -36,6 +46,7 @@ interface Playlist {
   scale_document?: string
   shuffle?: boolean
   default_transition?: string
+  auto_loop?: boolean
 }
 
 interface PlaylistItem {
@@ -520,6 +531,7 @@ export default function PlaylistsPage() {
     scale_document: "fit",
     shuffle: false,
     default_transition: "fade",
+    auto_loop: true,
   })
   const [creating, setCreating] = useState(false)
   const [previewPlaylist, setPreviewPlaylist] = useState<Playlist | null>(null)
@@ -564,6 +576,17 @@ export default function PlaylistsPage() {
   )
 
   const { toast } = useToast()
+
+  const [editingPlaylist, setEditingPlaylist] = useState<Playlist | null>(null)
+  const [showEditPlaylistDialog, setShowEditPlaylistDialog] = useState(false)
+  const [editPlaylistForm, setEditPlaylistForm] = useState({
+    name: "",
+    description: "",
+    background_color: "#000000",
+    auto_loop: true,
+    shuffle: false,
+    default_transition: "fade" as "fade" | "slide-left" | "slide-right" | "cross-fade" | "zoom",
+  })
 
   useEffect(() => {
     fetchPlaylists()
@@ -741,6 +764,7 @@ export default function PlaylistsPage() {
           scale_document: "fit",
           shuffle: false,
           default_transition: "fade",
+          auto_loop: true,
         })
         setShowCreateDialog(false)
         setSelectedPlaylist(newPlaylistData)
@@ -959,10 +983,8 @@ export default function PlaylistsPage() {
     setShowEditDialog(true)
   }
 
-  const [items, setItems] = useState<PlaylistItem[]>([])
-
   const goToNext = useCallback(() => {
-    console.log("[v0] goToNext called, currentIndex:", currentIndex, "total items:", items.length)
+    console.log("[v0] goToNext called, currentIndex:", currentIndex, "total items:", playlistItems.length)
 
     if (currentIndex < playlistItems.length - 1) {
       const nextItem = playlistItems[currentIndex + 1]
@@ -1104,12 +1126,55 @@ export default function PlaylistsPage() {
     setIsPlaying(!isPlaying)
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
-      </div>
-    )
+  const handleEditPlaylist = (playlist: Playlist) => {
+    setEditingPlaylist(playlist)
+    setEditPlaylistForm({
+      name: playlist.name,
+      description: playlist.description || "",
+      background_color: playlist.background_color || "#000000",
+      auto_loop: playlist.auto_loop ?? true,
+      shuffle: playlist.shuffle ?? false,
+      default_transition: (playlist.default_transition as any) || "fade",
+    })
+    setShowEditPlaylistDialog(true)
+  }
+
+  const handleUpdatePlaylist = async () => {
+    if (!editingPlaylist) return
+
+    setCreating(true)
+    try {
+      const response = await fetch(`/api/playlists/${editingPlaylist.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editPlaylistForm),
+      })
+
+      if (!response.ok) throw new Error("Failed to update playlist")
+
+      // Update the playlist in the local state
+      setPlaylists((prev) =>
+        prev.map((playlist) => (playlist.id === editingPlaylist.id ? { ...playlist, ...editPlaylistForm } : playlist)),
+      )
+
+      // Update selected playlist if it's the one being edited
+      if (selectedPlaylist?.id === editingPlaylist.id) {
+        setSelectedPlaylist({ ...selectedPlaylist, ...editPlaylistForm })
+      }
+
+      setShowEditPlaylistDialog(false)
+      setEditingPlaylist(null)
+      toast({ title: "Playlist updated successfully" })
+    } catch (error) {
+      console.error("Error updating playlist:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update playlist",
+        variant: "destructive",
+      })
+    } finally {
+      setCreating(false)
+    }
   }
 
   const handleUpdatePlaylistBackground = async (backgroundColor: string) => {
@@ -1174,6 +1239,14 @@ export default function PlaylistsPage() {
         variant: "destructive",
       })
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+      </div>
+    )
   }
 
   return (
@@ -1261,6 +1334,17 @@ export default function PlaylistsPage() {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
+                        handleEditPlaylist(playlist)
+                      }}
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
                         handleDeletePlaylist(playlist.id)
                       }}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
@@ -1274,6 +1358,99 @@ export default function PlaylistsPage() {
           ))
         )}
       </div>
+
+      <Dialog open={showEditPlaylistDialog} onOpenChange={setShowEditPlaylistDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Playlist</DialogTitle>
+            <DialogDescription>Update your playlist settings and information.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700">
+                Name
+              </label>
+              <Input
+                id="edit-name"
+                value={editPlaylistForm.name}
+                onChange={(e) => setEditPlaylistForm({ ...editPlaylistForm, name: e.target.value })}
+                placeholder="Enter playlist name"
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700">
+                Description
+              </label>
+              <Textarea
+                id="edit-description"
+                value={editPlaylistForm.description}
+                onChange={(e) => setEditPlaylistForm({ ...editPlaylistForm, description: e.target.value })}
+                placeholder="Enter playlist description"
+                rows={3}
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-background-color" className="block text-sm font-medium text-gray-700">
+                Background Color
+              </label>
+              <Input
+                id="edit-background-color"
+                type="color"
+                value={editPlaylistForm.background_color}
+                onChange={(e) => setEditPlaylistForm({ ...editPlaylistForm, background_color: e.target.value })}
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-default-transition" className="block text-sm font-medium text-gray-700">
+                Default Transition
+              </label>
+              <Select
+                value={editPlaylistForm.default_transition}
+                onValueChange={(value: any) => setEditPlaylistForm({ ...editPlaylistForm, default_transition: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fade">Fade</SelectItem>
+                  <SelectItem value="slide-left">Slide Left</SelectItem>
+                  <SelectItem value="slide-right">Slide Right</SelectItem>
+                  <SelectItem value="cross-fade">Cross Fade</SelectItem>
+                  <SelectItem value="zoom">Zoom</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="edit-auto-loop"
+                checked={editPlaylistForm.auto_loop}
+                onCheckedChange={(checked) => setEditPlaylistForm({ ...editPlaylistForm, auto_loop: !!checked })}
+              />
+              <label htmlFor="edit-auto-loop" className="text-sm font-medium text-gray-700">
+                Auto Loop
+              </label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="edit-shuffle"
+                checked={editPlaylistForm.shuffle}
+                onCheckedChange={(checked) => setEditPlaylistForm({ ...editPlaylistForm, shuffle: !!checked })}
+              />
+              <label htmlFor="edit-shuffle" className="text-sm font-medium text-gray-700">
+                Shuffle
+              </label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditPlaylistDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdatePlaylist} disabled={creating || !editPlaylistForm.name.trim()}>
+              {creating ? "Updating..." : "Update Playlist"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
