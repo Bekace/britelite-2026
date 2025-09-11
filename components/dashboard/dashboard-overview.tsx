@@ -23,9 +23,9 @@ export function DashboardOverview({ user }: DashboardOverviewProps) {
       color: "text-primary",
     },
     {
-      title: "Media Files",
-      value: "248",
-      change: "+18 this week",
+      title: "Storage Used",
+      value: "248 MB",
+      change: "+18 MB this week",
       icon: ImageIcon,
       color: "text-secondary",
     },
@@ -52,14 +52,14 @@ export function DashboardOverview({ user }: DashboardOverviewProps) {
       icon: Monitor,
       href: "/dashboard/screens/new",
       disabled: !canCreateScreen,
-      disabledReason: "Screen limit reached",
+      disabledReason: "Screen limit reached for your plan",
     },
     {
       title: "Upload Media",
       description: "Add images and videos to your library",
       icon: ImageIcon,
       href: "/dashboard/media/upload",
-      disabled: false, // Will check file size on upload
+      disabled: false, // Will check file size and storage on upload
       disabledReason: "",
     },
     {
@@ -68,7 +68,7 @@ export function DashboardOverview({ user }: DashboardOverviewProps) {
       icon: PlayCircle,
       href: "/dashboard/playlists/new",
       disabled: !canCreatePlaylist,
-      disabledReason: "Playlist limit reached",
+      disabledReason: "Playlist limit reached for your plan",
     },
   ]
 

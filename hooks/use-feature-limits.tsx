@@ -19,9 +19,16 @@ interface UsageStats {
   currentStorageMB: number
 }
 
+interface PlanInfo {
+  name: string
+  price: number
+  billingCycle: string
+}
+
 interface FeatureLimitsContextType {
   limits: FeatureLimits | null
   usage: UsageStats | null
+  planInfo: PlanInfo | null
   loading: boolean
   canCreateScreen: boolean
   canCreatePlaylist: boolean
@@ -34,6 +41,7 @@ const FeatureLimitsContext = createContext<FeatureLimitsContextType | undefined>
 export function FeatureLimitsProvider({ children }: { children: React.ReactNode }) {
   const [limits, setLimits] = useState<FeatureLimits | null>(null)
   const [usage, setUsage] = useState<UsageStats | null>(null)
+  const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
   const supabase = createBrowserClient(
@@ -48,11 +56,13 @@ export function FeatureLimitsProvider({ children }: { children: React.ReactNode 
       } = await supabase.auth.getUser()
       if (!user) return
 
-      // Get user's current subscription and limits
       const { data: subscription } = await supabase
         .from("user_subscriptions")
         .select(`
           subscription_plans (
+            name,
+            price,
+            billing_cycle,
             max_screens,
             max_media_storage,
             features
@@ -62,7 +72,6 @@ export function FeatureLimitsProvider({ children }: { children: React.ReactNode 
         .eq("status", "active")
         .single()
 
-      // Get user's current usage
       const { data: profile } = await supabase
         .from("profiles")
         .select("current_screens_count, current_playlists_count, current_media_count, current_storage_used_mb")
@@ -72,6 +81,12 @@ export function FeatureLimitsProvider({ children }: { children: React.ReactNode 
       if (subscription?.subscription_plans && profile) {
         const plan = subscription.subscription_plans
         const features = (plan.features as any) || {}
+
+        setPlanInfo({
+          name: plan.name || "Unknown Plan",
+          price: plan.price || 0,
+          billingCycle: plan.billing_cycle || "monthly",
+        })
 
         setLimits({
           maxScreens: plan.max_screens || 0,
@@ -111,6 +126,7 @@ export function FeatureLimitsProvider({ children }: { children: React.ReactNode 
       value={{
         limits,
         usage,
+        planInfo,
         loading,
         canCreateScreen,
         canCreatePlaylist,

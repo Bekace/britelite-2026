@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress"
 import { Loader2 } from "lucide-react"
 
 export function UsageWidget() {
-  const { limits, usage, loading } = useFeatureLimits()
+  const { limits, usage, planInfo, loading } = useFeatureLimits()
 
   if (loading) {
     return (
@@ -48,7 +48,7 @@ export function UsageWidget() {
     },
     {
       label: "Storage",
-      current: usage.currentStorageMB,
+      current: Math.round(usage.currentStorageMB),
       max: limits.maxStorageMB,
       unit: "MB",
     },
@@ -57,7 +57,15 @@ export function UsageWidget() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Usage Overview</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <span>Usage Overview</span>
+          {planInfo && <span className="text-sm font-normal text-muted-foreground">{planInfo.name} Plan</span>}
+        </CardTitle>
+        {planInfo && (
+          <div className="text-xs text-muted-foreground">
+            ${planInfo.price}/{planInfo.billingCycle}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {usageItems.map((item) => {
