@@ -4,7 +4,7 @@ import type React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input, Textarea } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -30,9 +30,11 @@ import {
   Minimize,
   X,
   Edit,
+  Settings,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useFeatureLimits } from "@/hooks/use-feature-limits"
+import { PlaylistContent } from "./components/playlist-content"
 
 interface Playlist {
   id: string
@@ -1274,89 +1276,189 @@ export default function PlaylistsPage() {
         </Button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input
-          placeholder="Search playlists..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-200px)]">
+        {/* Left Column - Playlists List */}
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search playlists..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
-      <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-300px)]">
-        {filteredPlaylists.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-8">
-              <PlayCircle className="h-8 w-8 text-gray-400 mb-2" />
-              <p className="text-sm text-gray-600 text-center">
-                {playlists.length === 0 ? "No playlists yet" : "No playlists match your search"}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredPlaylists.map((playlist) => (
-            <Card
-              key={playlist.id}
-              className={`cursor-pointer transition-all hover:shadow-md ${
-                selectedPlaylist?.id === playlist.id ? "ring-2 ring-cyan-500 bg-cyan-50" : ""
-              }`}
-              onClick={() => setSelectedPlaylist(playlist)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold truncate" title={playlist.name}>
-                      {playlist.name}
-                    </h3>
-                    {playlist.description && (
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">{playlist.description}</p>
-                    )}
-                    <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
-                      <span>{playlist.playlist_media?.[0]?.count || 0} items</span>
-                      <span>{new Date(playlist.created_at).toLocaleDateString()}</span>
+          <div className="space-y-2 overflow-y-auto max-h-full">
+            {filteredPlaylists.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-8">
+                  <PlayCircle className="h-8 w-8 text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-600 text-center">
+                    {playlists.length === 0 ? "No playlists yet" : "No playlists match your search"}
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              filteredPlaylists.map((playlist) => (
+                <Card
+                  key={playlist.id}
+                  className={`cursor-pointer transition-all hover:shadow-md ${
+                    selectedPlaylist?.id === playlist.id ? "ring-2 ring-cyan-500 bg-cyan-50" : ""
+                  }`}
+                  onClick={() => setSelectedPlaylist(playlist)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold truncate" title={playlist.name}>
+                          {playlist.name}
+                        </h3>
+                        {playlist.description && (
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{playlist.description}</p>
+                        )}
+                        <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+                          <span>{playlist.playlist_media?.[0]?.count || 0} items</span>
+                          <span>{new Date(playlist.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handlePreviewPlaylist(playlist)
+                          }}
+                          className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditPlaylist(playlist)
+                          }}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeletePlaylist(playlist.id)
+                          }}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Right Column - Content & Settings */}
+        <div className="space-y-4">
+          {selectedPlaylist ? (
+            <>
+              {/* Playlist Settings */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-700 mb-2">Playlist Information</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="font-medium">Name:</span> {selectedPlaylist.name}
+                      </div>
+                      {selectedPlaylist.description && (
+                        <div>
+                          <span className="font-medium">Description:</span> {selectedPlaylist.description}
+                        </div>
+                      )}
+                      <div>
+                        <span className="font-medium">Items:</span> {selectedPlaylist.playlist_media?.[0]?.count || 0}
+                      </div>
+                      <div>
+                        <span className="font-medium">Created:</span>{" "}
+                        {new Date(selectedPlaylist.created_at).toLocaleDateString()}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 ml-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handlePreviewPlaylist(playlist)
-                      }}
-                      className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleEditPlaylist(playlist)
-                      }}
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeletePlaylist(playlist.id)
-                      }}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+
+                  <div>
+                    <h4 className="font-medium text-sm text-gray-700 mb-2">Playback Settings</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="font-medium">Auto Loop:</span>{" "}
+                        {selectedPlaylist.auto_loop ? "Enabled" : "Disabled"}
+                      </div>
+                      <div>
+                        <span className="font-medium">Shuffle:</span>{" "}
+                        {selectedPlaylist.shuffle ? "Enabled" : "Disabled"}
+                      </div>
+                      <div>
+                        <span className="font-medium">Transition:</span> {selectedPlaylist.default_transition || "None"}
+                      </div>
+                      {selectedPlaylist.background_color && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">Background:</span>
+                          <div
+                            className="w-4 h-4 rounded border"
+                            style={{ backgroundColor: selectedPlaylist.background_color }}
+                          />
+                          {selectedPlaylist.background_color}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
+
+              {/* Playlist Content */}
+              <Card className="flex-1">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PlayCircle className="h-5 w-5" />
+                    Content
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <PlaylistContent
+                    playlistId={selectedPlaylist.id}
+                    onUpdate={() => {
+                      fetchPlaylists()
+                      refreshUsage()
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <Card className="h-full">
+              <CardContent className="flex flex-col items-center justify-center h-full py-12">
+                <PlayCircle className="h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Playlist</h3>
+                <p className="text-sm text-gray-600 text-center">
+                  Choose a playlist from the left to view its settings and content
+                </p>
               </CardContent>
             </Card>
-          ))
-        )}
+          )}
+        </div>
       </div>
 
       <Dialog open={showEditPlaylistDialog} onOpenChange={setShowEditPlaylistDialog}>
