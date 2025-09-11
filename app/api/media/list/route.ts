@@ -3,7 +3,12 @@ import { NextResponse } from "next/server"
 
 export async function GET() {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
+
+    if (!supabase) {
+      console.error("Failed to create Supabase client")
+      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
+    }
 
     // Check authentication
     const {
