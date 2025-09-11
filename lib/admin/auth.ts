@@ -5,6 +5,9 @@ import { redirect } from "next/navigation"
 export async function requireSuperAdmin() {
   const cookieStore = cookies()
 
+  console.log("[v0] SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "exists" : "missing")
+  console.log("[v0] SUPABASE_ANON_KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "exists" : "missing")
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -45,6 +48,9 @@ export async function requireSuperAdmin() {
 
 export async function requireAdmin() {
   const cookieStore = cookies()
+
+  console.log("[v0] SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "exists" : "missing")
+  console.log("[v0] SUPABASE_ANON_KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "exists" : "missing")
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
