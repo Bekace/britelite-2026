@@ -18,14 +18,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       }
     }
 
-    const { data: updatedUser, error } = await supabase
-      .from("profiles")
-      .update({ role })
-      .eq("id", userId)
-      .select()
-      .single()
+    const { data: updatedUsers, error } = await supabase.from("profiles").update({ role }).eq("id", userId).select()
 
     if (error) throw error
+
+    if (!updatedUsers || updatedUsers.length === 0) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    const updatedUser = updatedUsers[0]
 
     await logAdminAction({
       action: "update_user_role",
