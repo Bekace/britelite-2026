@@ -450,7 +450,6 @@ export function UserManagement({ userRole }: UserManagementProps) {
       {/* Edit User Dialog */}
       <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
         <DialogContent className="max-w-md">
-          {" "}
           {/* Made dialog wider for subscription fields */}
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
@@ -524,6 +523,21 @@ export function UserManagement({ userRole }: UserManagementProps) {
               onClick={async () => {
                 if (editingUser) {
                   console.log("[v0] Starting user update process") // Added debug logging
+                  console.log("[v0] Editing user data:", editingUser) // Added full user data logging
+
+                  const userExists = users.find((u) => u.id === editingUser.id)
+                  if (!userExists) {
+                    console.log("[v0] User not found in current users list, refreshing...")
+                    await fetchUsers()
+                    toast({
+                      title: "Error",
+                      description: "User data is outdated. Please try again after refresh.",
+                      variant: "destructive",
+                    })
+                    setEditingUser(null)
+                    return
+                  }
+
                   let success = true
 
                   const roleUpdateSuccess = await handleUpdateUser(editingUser.id, { role: editingUser.role })
@@ -543,7 +557,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
                   }
 
                   if (success) {
-                    console.log("[v0] All updates completed successfully, closing dialog") // Added debug logging
+                    console.log("[v0] All updates completed successfully, closing dialog")
                     setEditingUser(null)
                   }
                 }
