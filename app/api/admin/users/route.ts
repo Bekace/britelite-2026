@@ -1,12 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/admin/auth"
 import { logAdminAction } from "@/lib/admin/audit"
+import { createClient } from "@supabase/supabase-js"
 
 export async function GET(request: NextRequest) {
   try {
     const { supabase } = await requireAdmin()
 
-    const { data: users, error } = await supabase
+    const adminSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+    const { data: users, error } = await adminSupabase
       .from("profiles")
       .select(`
         id,
