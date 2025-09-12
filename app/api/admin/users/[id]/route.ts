@@ -8,7 +8,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const { role } = await request.json()
     const userId = params.id
 
-    // Check permissions
+    console.log("[v0] Updating user ID:", userId, "with role:", role)
+
     if (profile.role === "admin") {
       // Admins can only modify regular users
       const { data: targetUser } = await supabase.from("profiles").select("role").eq("id", userId).single()
@@ -17,8 +18,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
       }
     }
+    // Superadmins can update any user (no additional checks needed)
 
     const { data: updatedUsers, error } = await supabase.from("profiles").update({ role }).eq("id", userId).select()
+
+    console.log("[v0] Update result:", { updatedUsers, error })
 
     if (error) throw error
 
