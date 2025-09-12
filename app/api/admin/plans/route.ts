@@ -10,15 +10,16 @@ export async function GET(request: NextRequest) {
       .from("subscription_plans")
       .select(`
         *,
-        user_subscriptions(count)
+        user_subscriptions!inner(count)
       `)
+      .eq("user_subscriptions.status", "active")
       .order("created_at", { ascending: false })
 
     if (error) throw error
 
     const formattedPlans = plans.map((plan: any) => ({
       ...plan,
-      subscriber_count: plan.user_subscriptions?.length || 0,
+      subscriber_count: plan.user_subscriptions?.[0]?.count || 0,
     }))
 
     await logAdminAction({
