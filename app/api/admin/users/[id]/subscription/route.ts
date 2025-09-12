@@ -1,9 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@supabase/supabase-js"
+import { requireAdmin } from "@/lib/admin/auth"
+import { logAdminAction } from "@/lib/admin/audit"
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = createClient()
+    await requireAdmin()
+
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
     const { planId, status } = await request.json()
 
     // Check if user already has a subscription
@@ -37,6 +42,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
       if (error) throw error
     }
+
+    await logAdminAction({
+      action: "update_user_subscription",
+      targetType: "user",
+      targetId: params.id,
+      details: { planId, status: status || "active" },
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {
