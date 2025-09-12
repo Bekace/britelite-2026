@@ -119,6 +119,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
 
   const handleUpdateUser = async (userId: string, updates: Partial<User>) => {
     try {
+      console.log("[v0] Updating user with data:", updates) // Added debug logging
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -126,19 +127,22 @@ export function UserManagement({ userRole }: UserManagementProps) {
       })
 
       if (response.ok) {
+        console.log("[v0] User update successful") // Added debug logging
         await fetchUsers()
-        setEditingUser(null)
         toast({
           title: "Success",
           description: "User updated successfully",
         })
+        return true // Return success status
       } else {
         const error = await response.json()
+        console.log("[v0] User update failed:", error) // Added debug logging
         toast({
           title: "Error",
           description: error.message || "Failed to update user",
           variant: "destructive",
         })
+        return false // Return failure status
       }
     } catch (error) {
       console.error("[v0] Error updating user:", error)
@@ -147,6 +151,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
         description: "Failed to update user",
         variant: "destructive",
       })
+      return false // Return failure status
     }
   }
 
@@ -183,6 +188,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
 
   const handleUpdateSubscription = async (userId: string, planId: string, status = "active") => {
     try {
+      console.log("[v0] Updating subscription with planId:", planId, "status:", status) // Added debug logging
       const response = await fetch(`/api/admin/users/${userId}/subscription`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -190,19 +196,22 @@ export function UserManagement({ userRole }: UserManagementProps) {
       })
 
       if (response.ok) {
+        console.log("[v0] Subscription update successful") // Added debug logging
         await fetchUsers()
-        setEditingUser(null)
         toast({
           title: "Success",
           description: "User subscription updated successfully",
         })
+        return true // Return success status
       } else {
         const error = await response.json()
+        console.log("[v0] Subscription update failed:", error) // Added debug logging
         toast({
           title: "Error",
           description: error.error || "Failed to update subscription",
           variant: "destructive",
         })
+        return false // Return failure status
       }
     } catch (error) {
       console.error("Error updating subscription:", error)
@@ -211,6 +220,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
         description: "Failed to update subscription",
         variant: "destructive",
       })
+      return false // Return failure status
     }
   }
 
@@ -511,17 +521,30 @@ export function UserManagement({ userRole }: UserManagementProps) {
               Cancel
             </Button>
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (editingUser) {
-                  // Update role first
-                  handleUpdateUser(editingUser.id, { role: editingUser.role })
-                  // Update subscription if plan is selected
-                  if (editingUser.subscription_plan_id && editingUser.subscription_plan_id !== "none") {
-                    handleUpdateSubscription(
+                  console.log("[v0] Starting user update process") // Added debug logging
+                  let success = true
+
+                  const roleUpdateSuccess = await handleUpdateUser(editingUser.id, { role: editingUser.role })
+                  if (!roleUpdateSuccess) {
+                    success = false
+                  }
+
+                  if (success && editingUser.subscription_plan_id && editingUser.subscription_plan_id !== "none") {
+                    const subscriptionUpdateSuccess = await handleUpdateSubscription(
                       editingUser.id,
                       editingUser.subscription_plan_id,
                       editingUser.subscription_status || "active",
                     )
+                    if (!subscriptionUpdateSuccess) {
+                      success = false
+                    }
+                  }
+
+                  if (success) {
+                    console.log("[v0] All updates completed successfully, closing dialog") // Added debug logging
+                    setEditingUser(null)
                   }
                 }
               }}
