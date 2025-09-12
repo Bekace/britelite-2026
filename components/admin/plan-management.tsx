@@ -317,6 +317,9 @@ export function PlanManagement() {
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
+                      console.log("[v0] Delete button clicked for plan:", plan.name)
+                      console.log("[v0] Plan subscriber count:", plan.subscriber_count)
+                      console.log("[v0] Button disabled?", (plan.subscriber_count || 0) > 0)
                       setDeletingPlan(plan)
                     }}
                     disabled={(plan.subscriber_count || 0) > 0}
@@ -377,6 +380,9 @@ export function PlanManagement() {
                           onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
+                            console.log("[v0] Table delete button clicked for plan:", plan.name)
+                            console.log("[v0] Plan subscriber count:", plan.subscriber_count)
+                            console.log("[v0] Button disabled?", (plan.subscriber_count || 0) > 0)
                             setDeletingPlan(plan)
                           }}
                           disabled={(plan.subscriber_count || 0) > 0}
