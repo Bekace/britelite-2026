@@ -315,10 +315,7 @@ export function PlanManagement() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      console.log("[v0] Delete button clicked for plan:", plan.name)
-                      setDeletingPlan(plan)
-                    }}
+                    onClick={() => setDeletingPlan(plan)}
                     disabled={(plan.subscriber_count || 0) > 0}
                   >
                     <Trash2 className="w-3 h-3 text-red-500" />
@@ -374,10 +371,7 @@ export function PlanManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            console.log("[v0] Table delete button clicked for plan:", plan.name)
-                            setDeletingPlan(plan)
-                          }}
+                          onClick={() => setDeletingPlan(plan)}
                           disabled={(plan.subscriber_count || 0) > 0}
                         >
                           <Trash2 className="w-3 h-3 text-red-500" />
