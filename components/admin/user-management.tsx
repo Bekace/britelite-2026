@@ -521,45 +521,39 @@ export function UserManagement({ userRole }: UserManagementProps) {
             </Button>
             <Button
               onClick={async () => {
-                if (editingUser) {
-                  console.log("[v0] Starting user update process") // Added debug logging
-                  console.log("[v0] Editing user data:", editingUser) // Added full user data logging
+                if (!editingUser) return
 
-                  const userExists = users.find((u) => u.id === editingUser.id)
-                  if (!userExists) {
-                    console.log("[v0] User not found in current users list, refreshing...")
-                    await fetchUsers()
-                    toast({
-                      title: "Error",
-                      description: "User data is outdated. Please try again after refresh.",
-                      variant: "destructive",
-                    })
-                    setEditingUser(null)
-                    return
-                  }
+                console.log("[v0] Save Changes clicked for user:", editingUser.id)
+                console.log("[v0] Current user data:", editingUser)
 
-                  let success = true
+                try {
+                  const roleUpdateSuccess = await handleUpdateUser(editingUser.id, {
+                    role: editingUser.role,
+                  })
 
-                  const roleUpdateSuccess = await handleUpdateUser(editingUser.id, { role: editingUser.role })
-                  if (!roleUpdateSuccess) {
-                    success = false
-                  }
-
-                  if (success && editingUser.subscription_plan_id && editingUser.subscription_plan_id !== "none") {
-                    const subscriptionUpdateSuccess = await handleUpdateSubscription(
-                      editingUser.id,
-                      editingUser.subscription_plan_id,
-                      editingUser.subscription_status || "active",
-                    )
-                    if (!subscriptionUpdateSuccess) {
-                      success = false
+                  if (roleUpdateSuccess) {
+                    // Only update subscription if role update succeeded and there's a subscription plan
+                    if (editingUser.subscription_plan_id && editingUser.subscription_plan_id !== "none") {
+                      await handleUpdateSubscription(
+                        editingUser.id,
+                        editingUser.subscription_plan_id,
+                        editingUser.subscription_status || "active",
+                      )
                     }
-                  }
 
-                  if (success) {
-                    console.log("[v0] All updates completed successfully, closing dialog")
+                    // Close dialog on success
                     setEditingUser(null)
+                    console.log("[v0] Save completed successfully")
+                  } else {
+                    console.log("[v0] Role update failed, not proceeding with subscription update")
                   }
+                } catch (error) {
+                  console.error("[v0] Error in save process:", error)
+                  toast({
+                    title: "Error",
+                    description: "Failed to save changes",
+                    variant: "destructive",
+                  })
                 }
               }}
             >
