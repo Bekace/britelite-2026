@@ -175,10 +175,13 @@ export function PlanManagement() {
   }
 
   const handleDeletePlan = async (planId: string) => {
+    console.log("[v0] Delete plan called with ID:", planId)
     try {
       const response = await fetch(`/api/admin/plans/${planId}`, {
         method: "DELETE",
       })
+
+      console.log("[v0] Delete response status:", response.status)
 
       if (response.ok) {
         await fetchPlans()
@@ -189,6 +192,7 @@ export function PlanManagement() {
         })
       } else {
         const error = await response.json()
+        console.log("[v0] Delete error response:", error)
         toast({
           title: "Error",
           description: error.message || "Failed to delete plan",
@@ -313,7 +317,10 @@ export function PlanManagement() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setDeletingPlan(plan)}
+                    onClick={() => {
+                      console.log("[v0] Delete button clicked for plan:", plan.name)
+                      setDeletingPlan(plan)
+                    }}
                     disabled={(plan.subscriber_count || 0) > 0}
                   >
                     <Trash2 className="w-3 h-3 text-red-500" />
@@ -369,7 +376,10 @@ export function PlanManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setDeletingPlan(plan)}
+                          onClick={() => {
+                            console.log("[v0] Table delete button clicked for plan:", plan.name)
+                            setDeletingPlan(plan)
+                          }}
                           disabled={(plan.subscriber_count || 0) > 0}
                         >
                           <Trash2 className="w-3 h-3 text-red-500" />
