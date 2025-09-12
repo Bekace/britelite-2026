@@ -498,27 +498,65 @@ export function PlanManagement() {
 
       {/* Delete Plan Dialog */}
       <Dialog open={!!deletingPlan} onOpenChange={() => setDeletingPlan(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Plan</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this subscription plan? This action cannot be undone.
+            <DialogTitle className="text-red-600 flex items-center gap-2">
+              <Trash2 className="w-5 h-5" />
+              Delete Subscription Plan
+            </DialogTitle>
+            <DialogDescription className="text-base">
+              This action cannot be undone. The plan will be permanently removed from the system.
             </DialogDescription>
           </DialogHeader>
           {deletingPlan && (
-            <div className="p-4 bg-muted rounded-lg">
-              <p className="font-medium">{deletingPlan.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {formatCurrency(deletingPlan.price)} per {deletingPlan.billing_cycle}
-              </p>
-              <p className="text-sm text-muted-foreground">{deletingPlan.subscriber_count || 0} subscribers</p>
+            <div className="space-y-4">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="font-semibold text-red-900">{deletingPlan.name}</p>
+                <p className="text-sm text-red-700">
+                  {formatCurrency(deletingPlan.price)} per {deletingPlan.billing_cycle}
+                </p>
+                <p className="text-sm text-red-700 mt-1">Current subscribers: {deletingPlan.subscriber_count || 0}</p>
+              </div>
+
+              {(deletingPlan.subscriber_count || 0) > 0 && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800 font-medium">
+                    ⚠️ This plan has active subscribers and cannot be deleted.
+                  </p>
+                  <p className="text-xs text-yellow-700 mt-1">Please migrate all subscribers to another plan first.</p>
+                </div>
+              )}
+
+              {(deletingPlan.subscriber_count || 0) === 0 && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    Type <strong>DELETE</strong> to confirm this action:
+                  </p>
+                  <Input
+                    className="mt-2"
+                    placeholder="Type DELETE to confirm"
+                    onChange={(e) => {
+                      const button = document.getElementById("confirm-delete-btn") as HTMLButtonElement
+                      if (button) {
+                        button.disabled = e.target.value !== "DELETE"
+                      }
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeletingPlan(null)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={() => deletingPlan && handleDeletePlan(deletingPlan.id)}>
+            <Button
+              id="confirm-delete-btn"
+              variant="destructive"
+              disabled={(deletingPlan?.subscriber_count || 0) > 0}
+              onClick={() => deletingPlan && handleDeletePlan(deletingPlan.id)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
               Delete Plan
             </Button>
           </DialogFooter>
