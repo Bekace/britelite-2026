@@ -20,15 +20,13 @@ export async function GET(request: NextRequest) {
         company_name,
         user_subscriptions(
           status,
-          subscription_plans(name)
+          plan_id,
+          subscription_plans(name, id)
         )
       `)
       .order("created_at", { ascending: false })
 
     if (error) throw error
-
-    console.log("[v0] Raw users from database:", users)
-    console.log("[v0] Number of users found:", users?.length || 0)
 
     const formattedUsers = users.map((user: any) => ({
       id: user.id,
@@ -39,9 +37,8 @@ export async function GET(request: NextRequest) {
       company_name: user.company_name,
       subscription_status: user.user_subscriptions?.[0]?.status || "inactive",
       subscription_plan: user.user_subscriptions?.[0]?.subscription_plans?.name,
+      subscription_plan_id: user.user_subscriptions?.[0]?.plan_id,
     }))
-
-    console.log("[v0] Formatted users being returned:", formattedUsers)
 
     await logAdminAction({
       action: "view_users",
@@ -51,7 +48,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ users: formattedUsers })
   } catch (error) {
-    console.error("[v0] Admin users fetch error:", error)
+    console.error("Admin users fetch error:", error)
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 })
   }
 }
@@ -65,8 +62,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and role are required" }, { status: 400 })
     }
 
-    // Create user in auth.users (this would typically be done via Supabase Admin API)
-    // For now, we'll create a profile entry assuming the user exists
     const { data: newUser, error } = await supabase
       .from("profiles")
       .insert({
@@ -87,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ user: newUser })
   } catch (error) {
-    console.error("[v0] Admin user creation error:", error)
+    console.error("Admin user creation error:", error)
     return NextResponse.json({ error: "Failed to create user" }, { status: 500 })
   }
 }

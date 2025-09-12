@@ -48,6 +48,15 @@ interface User {
   company_name?: string
   subscription_status?: "active" | "inactive" | "expired"
   subscription_plan?: string
+  subscription_plan_id?: string // Added subscription_plan_id field
+}
+
+interface SubscriptionPlan {
+  id: string
+  name: string
+  price: number
+  billing_cycle: string
+  is_active: boolean
 }
 
 interface UserManagementProps {
@@ -63,10 +72,12 @@ export function UserManagement({ userRole }: UserManagementProps) {
   const [deletingUser, setDeletingUser] = useState<User | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [newUser, setNewUser] = useState({ email: "", role: "user" })
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]) // Added subscription plans state
   const { toast } = useToast()
 
   useEffect(() => {
     fetchUsers()
+    fetchSubscriptionPlans() // Fetch subscription plans on component mount
   }, [])
 
   const fetchUsers = async () => {
@@ -91,6 +102,18 @@ export function UserManagement({ userRole }: UserManagementProps) {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchSubscriptionPlans = async () => {
+    try {
+      const response = await fetch("/api/admin/plans")
+      if (response.ok) {
+        const data = await response.json()
+        setSubscriptionPlans(data.plans || [])
+      }
+    } catch (error) {
+      console.error("Error fetching subscription plans:", error)
     }
   }
 
@@ -153,6 +176,39 @@ export function UserManagement({ userRole }: UserManagementProps) {
       toast({
         title: "Error",
         description: "Failed to delete user",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleUpdateSubscription = async (userId: string, planId: string, status = "active") => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/subscription`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId, status }),
+      })
+
+      if (response.ok) {
+        await fetchUsers()
+        setEditingUser(null)
+        toast({
+          title: "Success",
+          description: "User subscription updated successfully",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to update subscription",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error updating subscription:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update subscription",
         variant: "destructive",
       })
     }
@@ -383,10 +439,13 @@ export function UserManagement({ userRole }: UserManagementProps) {
 
       {/* Edit User Dialog */}
       <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
+          {" "}
+          {/* Made dialog wider for subscription fields */}
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update user role and permissions</DialogDescription>
+            <DialogDescription>Update user role, permissions, and subscription</DialogDescription>{" "}
+            {/* Updated description */}
           </DialogHeader>
           {editingUser && (
             <div className="space-y-4">
@@ -410,13 +469,63 @@ export function UserManagement({ userRole }: UserManagementProps) {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Subscription Plan</Label>
+                <Select
+                  value={editingUser.subscription_plan_id || "none"} // Updated default value to "none"
+                  onValueChange={(value) => setEditingUser({ ...editingUser, subscription_plan_id: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Plan</SelectItem> // Updated value to "none"
+                    {subscriptionPlans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.name} - ${plan.price}/{plan.billing_cycle}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Subscription Status</Label>
+                <Select
+                  value={editingUser.subscription_status || "inactive"}
+                  onValueChange={(value) => setEditingUser({ ...editingUser, subscription_status: value as any })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingUser(null)}>
               Cancel
             </Button>
-            <Button onClick={() => editingUser && handleUpdateUser(editingUser.id, { role: editingUser.role })}>
+            <Button
+              onClick={() => {
+                if (editingUser) {
+                  // Update role first
+                  handleUpdateUser(editingUser.id, { role: editingUser.role })
+                  // Update subscription if plan is selected
+                  if (editingUser.subscription_plan_id && editingUser.subscription_plan_id !== "none") {
+                    handleUpdateSubscription(
+                      editingUser.id,
+                      editingUser.subscription_plan_id,
+                      editingUser.subscription_status || "active",
+                    )
+                  }
+                }
+              }}
+            >
               Save Changes
             </Button>
           </DialogFooter>

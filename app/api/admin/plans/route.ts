@@ -10,16 +10,15 @@ export async function GET(request: NextRequest) {
       .from("subscription_plans")
       .select(`
         *,
-        user_subscriptions!inner(count)
+        user_subscriptions(count)
       `)
-      .eq("user_subscriptions.status", "active")
       .order("created_at", { ascending: false })
 
     if (error) throw error
 
     const formattedPlans = plans.map((plan: any) => ({
       ...plan,
-      subscriber_count: plan.user_subscriptions?.[0]?.count || 0,
+      subscriber_count: plan.user_subscriptions?.filter((sub: any) => sub.count > 0).length || 0,
     }))
 
     await logAdminAction({
@@ -30,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ plans: formattedPlans })
   } catch (error) {
-    console.error("[v0] Admin plans fetch error:", error)
+    console.error("Admin plans fetch error:", error)
     return NextResponse.json({ error: "Failed to fetch subscription plans" }, { status: 500 })
   }
 }
