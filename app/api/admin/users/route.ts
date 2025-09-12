@@ -24,6 +24,9 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error
 
+    console.log("[v0] Raw users from database:", users)
+    console.log("[v0] Number of users found:", users?.length || 0)
+
     const formattedUsers = users.map((user: any) => ({
       id: user.id,
       email: user.email,
@@ -34,6 +37,8 @@ export async function GET(request: NextRequest) {
       subscription_status: user.user_subscriptions?.[0]?.status || "inactive",
       subscription_plan: user.user_subscriptions?.[0]?.subscription_plans?.name,
     }))
+
+    console.log("[v0] Formatted users being returned:", formattedUsers)
 
     await logAdminAction({
       action: "view_users",
