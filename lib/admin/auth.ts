@@ -49,10 +49,14 @@ export async function requireSuperAdmin() {
 export async function requireAdmin() {
   const cookieStore = cookies()
 
+  console.log("[v0] NEXT_PUBLIC_SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "present" : "missing")
+  console.log("[v0] NEXT_PUBLIC_SUPABASE_ANON_KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "present" : "missing")
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
   if (!supabaseUrl || !supabaseAnonKey) {
+    console.log("[v0] Missing environment variables - URL:", !!supabaseUrl, "Key:", !!supabaseAnonKey)
     throw new Error("Missing Supabase environment variables")
   }
 
