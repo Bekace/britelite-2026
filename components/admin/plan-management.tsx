@@ -198,7 +198,6 @@ export function PlanManagement() {
         })
       }
     } catch (error) {
-      console.error("Error deleting plan:", error)
       toast({
         title: "Error",
         description: "Failed to delete plan",
@@ -315,7 +314,11 @@ export function PlanManagement() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setDeletingPlan(plan)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setDeletingPlan(plan)
+                    }}
                     disabled={(plan.subscriber_count || 0) > 0}
                   >
                     <Trash2 className="w-3 h-3 text-red-500" />
@@ -371,7 +374,11 @@ export function PlanManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setDeletingPlan(plan)}
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setDeletingPlan(plan)
+                          }}
                           disabled={(plan.subscriber_count || 0) > 0}
                         >
                           <Trash2 className="w-3 h-3 text-red-500" />
