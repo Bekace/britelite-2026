@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const formattedUsers = users.map((user: any) => ({
       id: user.id,
       email: user.email,
-      role: user.role,
+      role: user.role || "user",
       created_at: user.created_at,
       full_name: user.full_name,
       company_name: user.company_name,
