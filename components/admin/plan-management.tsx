@@ -311,19 +311,7 @@ export function PlanManagement() {
                     <Edit className="w-3 h-3 mr-1" />
                     Edit
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      console.log("[v0] Delete button clicked for plan:", plan.name)
-                      console.log("[v0] Plan subscriber count:", plan.subscriber_count)
-                      console.log("[v0] Button disabled?", (plan.subscriber_count || 0) > 0)
-                      setDeletingPlan(plan)
-                    }}
-                    disabled={(plan.subscriber_count || 0) > 0}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => setDeletingPlan(plan)}>
                     <Trash2 className="w-3 h-3 text-red-500" />
                   </Button>
                 </div>
@@ -374,19 +362,7 @@ export function PlanManagement() {
                         <Button variant="ghost" size="sm" onClick={() => openEditDialog(plan)}>
                           <Edit className="w-3 h-3" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            console.log("[v0] Table delete button clicked for plan:", plan.name)
-                            console.log("[v0] Plan subscriber count:", plan.subscriber_count)
-                            console.log("[v0] Button disabled?", (plan.subscriber_count || 0) > 0)
-                            setDeletingPlan(plan)
-                          }}
-                          disabled={(plan.subscriber_count || 0) > 0}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => setDeletingPlan(plan)}>
                           <Trash2 className="w-3 h-3 text-red-500" />
                         </Button>
                       </div>
