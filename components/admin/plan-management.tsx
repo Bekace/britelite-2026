@@ -458,41 +458,23 @@ export function PlanManagement() {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Max Screens</Label>
-                <Select
+                <Input
+                  type="number"
+                  min="1"
                   value={formData.max_screens}
-                  onValueChange={(value) => setFormData({ ...formData, max_screens: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1</SelectItem>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="-1">Unlimited</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onChange={(e) => setFormData({ ...formData, max_screens: e.target.value })}
+                  placeholder="e.g., 5"
+                />
               </div>
               <div>
                 <Label>Storage (GB)</Label>
-                <Select
+                <Input
+                  type="number"
+                  min="1"
                   value={formData.max_media_storage}
-                  onValueChange={(value) => setFormData({ ...formData, max_media_storage: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 GB</SelectItem>
-                    <SelectItem value="5">5 GB</SelectItem>
-                    <SelectItem value="10">10 GB</SelectItem>
-                    <SelectItem value="25">25 GB</SelectItem>
-                    <SelectItem value="50">50 GB</SelectItem>
-                    <SelectItem value="100">100 GB</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onChange={(e) => setFormData({ ...formData, max_media_storage: e.target.value })}
+                  placeholder="e.g., 10"
+                />
               </div>
             </div>
           </div>
