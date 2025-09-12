@@ -50,6 +50,7 @@ export function PlanManagement() {
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null)
   const [deletingPlan, setDeletingPlan] = useState<SubscriptionPlan | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState("")
   const [formData, setFormData] = useState<PlanFormData>({
     name: "",
     description: "",
@@ -175,24 +176,21 @@ export function PlanManagement() {
   }
 
   const handleDeletePlan = async (planId: string) => {
-    console.log("[v0] Delete plan called with ID:", planId)
     try {
       const response = await fetch(`/api/admin/plans/${planId}`, {
         method: "DELETE",
       })
 
-      console.log("[v0] Delete response status:", response.status)
-
       if (response.ok) {
         await fetchPlans()
         setDeletingPlan(null)
+        setDeleteConfirmation("")
         toast({
           title: "Success",
           description: "Subscription plan deleted successfully",
         })
       } else {
         const error = await response.json()
-        console.log("[v0] Delete error response:", error)
         toast({
           title: "Error",
           description: error.message || "Failed to delete plan",
@@ -200,7 +198,7 @@ export function PlanManagement() {
         })
       }
     } catch (error) {
-      console.error("[v0] Error deleting plan:", error)
+      console.error("Error deleting plan:", error)
       toast({
         title: "Error",
         description: "Failed to delete plan",
@@ -507,7 +505,13 @@ export function PlanManagement() {
       </Dialog>
 
       {/* Delete Plan Dialog */}
-      <Dialog open={!!deletingPlan} onOpenChange={() => setDeletingPlan(null)}>
+      <Dialog
+        open={!!deletingPlan}
+        onOpenChange={() => {
+          setDeletingPlan(null)
+          setDeleteConfirmation("")
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-red-600 flex items-center gap-2">
@@ -545,25 +549,26 @@ export function PlanManagement() {
                   <Input
                     className="mt-2"
                     placeholder="Type DELETE to confirm"
-                    onChange={(e) => {
-                      const button = document.getElementById("confirm-delete-btn") as HTMLButtonElement
-                      if (button) {
-                        button.disabled = e.target.value !== "DELETE"
-                      }
-                    }}
+                    value={deleteConfirmation}
+                    onChange={(e) => setDeleteConfirmation(e.target.value)}
                   />
                 </div>
               )}
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletingPlan(null)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeletingPlan(null)
+                setDeleteConfirmation("")
+              }}
+            >
               Cancel
             </Button>
             <Button
-              id="confirm-delete-btn"
               variant="destructive"
-              disabled={(deletingPlan?.subscriber_count || 0) > 0}
+              disabled={(deletingPlan?.subscriber_count || 0) > 0 || deleteConfirmation !== "DELETE"}
               onClick={() => deletingPlan && handleDeletePlan(deletingPlan.id)}
             >
               <Trash2 className="w-4 h-4 mr-2" />
