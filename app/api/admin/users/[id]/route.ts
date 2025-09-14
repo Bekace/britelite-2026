@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/admin/auth"
 import { logAdminAction } from "@/lib/admin/audit"
+import { createClient } from "@supabase/supabase-js"
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -10,9 +11,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     console.log("[v0] Updating user ID:", userId, "with role:", role)
 
+    const adminSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
     if (profile.role === "admin") {
       // Admins can only modify regular users
-      const { data: targetUser } = await supabase.from("profiles").select("role").eq("id", userId).single()
+      const { data: targetUser } = await adminSupabase.from("profiles").select("role").eq("id", userId).single()
 
       if (targetUser?.role !== "user") {
         return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
@@ -20,7 +23,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
     // Superadmins can update any user (no additional checks needed)
 
-    const { data: updatedUsers, error } = await supabase.from("profiles").update({ role }).eq("id", userId).select()
+    const { data: updatedUsers, error } = await adminSupabase
+      .from("profiles")
+      .update({ role })
+      .eq("id", userId)
+      .select()
 
     console.log("[v0] Update result:", { updatedUsers, error })
 
@@ -51,10 +58,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const { supabase, profile } = await requireAdmin()
     const userId = params.id
 
+    const adminSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
     // Check permissions
     if (profile.role === "admin") {
       // Admins can only delete regular users
-      const { data: targetUser } = await supabase.from("profiles").select("role").eq("id", userId).single()
+      const { data: targetUser } = await adminSupabase.from("profiles").select("role").eq("id", userId).single()
 
       if (targetUser?.role !== "user") {
         return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
@@ -63,14 +72,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     // Prevent superadmins from deleting other superadmins
     if (profile.role === "superadmin") {
-      const { data: targetUser } = await supabase.from("profiles").select("role").eq("id", userId).single()
+      const { data: targetUser } = await adminSupabase.from("profiles").select("role").eq("id", userId).single()
 
       if (targetUser?.role === "superadmin") {
         return NextResponse.json({ error: "Cannot delete other super admins" }, { status: 403 })
       }
     }
 
-    const { error } = await supabase.from("profiles").delete().eq("id", userId)
+    const { error } = await adminSupabase.from("profiles").delete().eq("id", userId)
 
     if (error) throw error
 

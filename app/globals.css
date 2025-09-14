@@ -5,9 +5,9 @@
 @layer base {
   :root {
     /* Themeable Colors - Restored to Original Vibe */
-    /*--background: 255 255 255; *//* #ffffff - White background */
+    /*--background: 255 255 255; */ /* #ffffff - White background */
     /*--foreground: 22 78 99;*/ /* #164e63 - Cyan-800 for primary text */
-    --card: 220 17% 98% / 0.01;
+    --card: 210 11% 12%; /* Dark card background for proper contrast with light text */
     --card-foreground: 160 14% 93%;
 
     --popover: 210 11% 7%;
@@ -20,16 +20,14 @@
     --secondary-foreground: 165 14% 8%; /* #141a18 */
 
     --muted: 240 2% 16%; /* #27272a */
-    --muted-foreground: 160 14% 93% / 0.7;
+    --muted-foreground: 160 14% 75%; /* Increased muted-foreground opacity for better contrast */
 
     --accent: 240 2% 25%; /* #3f3f42 */
     --accent-foreground: 240 2% 96%; /* #f4f4f5 */
 
-
-
     /*--background: 210 11% 7%;*/ /* #0f1211 */
-        --background: 179 3% 16%; /* #e4f2ed */
-    
+    --background: 179 3% 16%; /* #e4f2ed */
+
     --foreground: 160 14% 93%; /* #e7eceb */
 
     --muted-foreground-light: 71 85 105 / 0.5;
@@ -43,7 +41,7 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 210 17% 6% / 0.05; /* rgba(16,24,40,0.05) */
+    --border: 210 17% 6% / 0.2; /* Fixed border opacity for better visibility */
     --input: 240 2% 16%;
     --ring: 165 96% 71%;
 
@@ -71,7 +69,7 @@
     --background: 210 11% 7%; /* #0f1211 */
     --foreground: 160 14% 93%; /* #e7eceb */
 
-    --card: 220 17% 98% / 0.01;
+    --card: 210 11% 12%; /* Dark card background for proper contrast with light text */
     --card-foreground: 160 14% 93%;
 
     --popover: 210 11% 7%;
@@ -84,7 +82,7 @@
     --secondary-foreground: 165 14% 8%; /* #141a18 */
 
     --muted: 240 2% 16%; /* #27272a */
-    --muted-foreground: 160 14% 93% / 0.7;
+    --muted-foreground: 160 14% 85%; /* Increased muted-foreground opacity for better contrast in dark mode */
 
     --accent: 240 2% 25%; /* #3f3f42 */
     --accent-foreground: 240 2% 96%; /* #f4f4f5 */
@@ -92,7 +90,7 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 210 17% 6% / 0.05; /* rgba(16,24,40,0.05) */
+    --border: 210 17% 6% / 0.15; /* Fixed border opacity for better visibility in dark mode */
     --input: 240 2% 16%;
     --ring: 165 96% 71%;
 
