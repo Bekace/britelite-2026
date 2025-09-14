@@ -119,7 +119,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
 
   const handleUpdateUser = async (userId: string, updates: Partial<User>) => {
     try {
-      console.log("[v0] Updating user with data:", updates) // Added debug logging
+      console.log("[v0] Updating user with data:", updates)
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -127,22 +127,21 @@ export function UserManagement({ userRole }: UserManagementProps) {
       })
 
       if (response.ok) {
-        console.log("[v0] User update successful") // Added debug logging
-        await fetchUsers()
+        console.log("[v0] User update successful")
         toast({
           title: "Success",
           description: "User updated successfully",
         })
-        return true // Return success status
+        return true
       } else {
         const error = await response.json()
-        console.log("[v0] User update failed:", error) // Added debug logging
+        console.log("[v0] User update failed:", error)
         toast({
           title: "Error",
           description: error.message || "Failed to update user",
           variant: "destructive",
         })
-        return false // Return failure status
+        return false
       }
     } catch (error) {
       console.error("[v0] Error updating user:", error)
@@ -151,7 +150,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
         description: "Failed to update user",
         variant: "destructive",
       })
-      return false // Return failure status
+      return false
     }
   }
 
@@ -188,7 +187,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
 
   const handleUpdateSubscription = async (userId: string, planId: string, status = "active") => {
     try {
-      console.log("[v0] Updating subscription with planId:", planId, "status:", status) // Added debug logging
+      console.log("[v0] Updating subscription with planId:", planId, "status:", status)
       const response = await fetch(`/api/admin/users/${userId}/subscription`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -196,22 +195,21 @@ export function UserManagement({ userRole }: UserManagementProps) {
       })
 
       if (response.ok) {
-        console.log("[v0] Subscription update successful") // Added debug logging
-        await fetchUsers()
+        console.log("[v0] Subscription update successful")
         toast({
           title: "Success",
           description: "User subscription updated successfully",
         })
-        return true // Return success status
+        return true
       } else {
         const error = await response.json()
-        console.log("[v0] Subscription update failed:", error) // Added debug logging
+        console.log("[v0] Subscription update failed:", error)
         toast({
           title: "Error",
           description: error.error || "Failed to update subscription",
           variant: "destructive",
         })
-        return false // Return failure status
+        return false
       }
     } catch (error) {
       console.error("Error updating subscription:", error)
@@ -220,7 +218,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
         description: "Failed to update subscription",
         variant: "destructive",
       })
-      return false // Return failure status
+      return false
     }
   }
 
@@ -538,12 +536,25 @@ export function UserManagement({ userRole }: UserManagementProps) {
                       )
                     }
 
-                    // Close dialog after successful update (matching plan management pattern)
+                    setUsers((prevUsers) =>
+                      prevUsers.map((user) =>
+                        user.id === editingUser.id
+                          ? {
+                              ...user,
+                              role: editingUser.role,
+                              subscription_status: editingUser.subscription_status,
+                              subscription_plan_id: editingUser.subscription_plan_id,
+                              subscription_plan:
+                                editingUser.subscription_plan_id !== "none"
+                                  ? subscriptionPlans.find((p) => p.id === editingUser.subscription_plan_id)?.name
+                                  : undefined,
+                            }
+                          : user,
+                      ),
+                    )
+
+                    // Close dialog after successful update
                     setEditingUser(null)
-                    toast({
-                      title: "Success",
-                      description: "User updated successfully",
-                    })
                   }
                 } catch (error) {
                   console.error("[v0] Error saving changes:", error)
