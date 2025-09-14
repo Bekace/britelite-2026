@@ -523,32 +523,30 @@ export function UserManagement({ userRole }: UserManagementProps) {
               onClick={async () => {
                 if (!editingUser) return
 
-                console.log("[v0] Save Changes clicked for user:", editingUser.id)
-                console.log("[v0] Current user data:", editingUser)
-
                 try {
+                  // Update user role
                   const roleUpdateSuccess = await handleUpdateUser(editingUser.id, {
                     role: editingUser.role,
                   })
 
-                  if (roleUpdateSuccess) {
-                    // Only update subscription if role update succeeded and there's a subscription plan
-                    if (editingUser.subscription_plan_id && editingUser.subscription_plan_id !== "none") {
-                      await handleUpdateSubscription(
-                        editingUser.id,
-                        editingUser.subscription_plan_id,
-                        editingUser.subscription_status || "active",
-                      )
-                    }
+                  if (
+                    roleUpdateSuccess &&
+                    editingUser.subscription_plan_id &&
+                    editingUser.subscription_plan_id !== "none"
+                  ) {
+                    // Update subscription if role update succeeded and there's a plan
+                    await handleUpdateSubscription(
+                      editingUser.id,
+                      editingUser.subscription_plan_id,
+                      editingUser.subscription_status || "active",
+                    )
+                  }
 
-                    // Close dialog on success
+                  if (roleUpdateSuccess) {
                     setEditingUser(null)
-                    console.log("[v0] Save completed successfully")
-                  } else {
-                    console.log("[v0] Role update failed, not proceeding with subscription update")
                   }
                 } catch (error) {
-                  console.error("[v0] Error in save process:", error)
+                  console.error("[v0] Error saving changes:", error)
                   toast({
                     title: "Error",
                     description: "Failed to save changes",
