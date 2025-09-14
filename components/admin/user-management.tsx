@@ -524,26 +524,26 @@ export function UserManagement({ userRole }: UserManagementProps) {
                 if (!editingUser) return
 
                 try {
-                  // Update user role
                   const roleUpdateSuccess = await handleUpdateUser(editingUser.id, {
                     role: editingUser.role,
                   })
 
-                  if (
-                    roleUpdateSuccess &&
-                    editingUser.subscription_plan_id &&
-                    editingUser.subscription_plan_id !== "none"
-                  ) {
-                    // Update subscription if role update succeeded and there's a plan
-                    await handleUpdateSubscription(
-                      editingUser.id,
-                      editingUser.subscription_plan_id,
-                      editingUser.subscription_status || "active",
-                    )
-                  }
-
                   if (roleUpdateSuccess) {
+                    // Update subscription if there's a plan selected
+                    if (editingUser.subscription_plan_id && editingUser.subscription_plan_id !== "none") {
+                      await handleUpdateSubscription(
+                        editingUser.id,
+                        editingUser.subscription_plan_id,
+                        editingUser.subscription_status || "active",
+                      )
+                    }
+
+                    // Close dialog after successful update (matching plan management pattern)
                     setEditingUser(null)
+                    toast({
+                      title: "Success",
+                      description: "User updated successfully",
+                    })
                   }
                 } catch (error) {
                   console.error("[v0] Error saving changes:", error)
