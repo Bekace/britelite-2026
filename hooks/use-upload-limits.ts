@@ -31,11 +31,9 @@ export function useUploadLimits(): UploadLimits & { loading: boolean; error: str
 
   const fetchUploadLimits = async () => {
     try {
-      console.log("[v0] Fetching upload limits...")
       const response = await fetch("/api/upload-limits")
       if (response.ok) {
         const data = await response.json()
-        console.log("[v0] Upload limits API response:", data)
 
         const isUnlimited = data.maxStorageGB === -1
         const maxStorageBytes = isUnlimited ? Number.MAX_SAFE_INTEGER : data.maxStorageGB * 1024 * 1024 * 1024
@@ -45,15 +43,6 @@ export function useUploadLimits(): UploadLimits & { loading: boolean; error: str
           ? Number.MAX_SAFE_INTEGER
           : Math.max(0, data.maxStorageGB - currentStorageGB)
         const storageUsagePercentage = isUnlimited ? 0 : (currentStorageGB / data.maxStorageGB) * 100
-
-        console.log("[v0] Calculated storage values:", {
-          maxStorageGB: data.maxStorageGB,
-          currentStorageBytes,
-          currentStorageGB,
-          remainingStorageGB,
-          storageUsagePercentage,
-          isUnlimited,
-        })
 
         setLimits({
           maxStorageGB: data.maxStorageGB,
@@ -69,11 +58,9 @@ export function useUploadLimits(): UploadLimits & { loading: boolean; error: str
         })
         setError(null)
       } else {
-        console.error("[v0] Upload limits API error:", response.status, response.statusText)
         setError("Failed to fetch upload limits")
       }
     } catch (err) {
-      console.error("[v0] Upload limits fetch error:", err)
       setError("Failed to fetch upload limits")
     } finally {
       setLoading(false)

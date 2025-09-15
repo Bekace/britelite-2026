@@ -31,7 +31,6 @@ export async function GET() {
       .single()
 
     if (userError) {
-      console.error("User data error:", userError)
       // Default to Free plan if no subscription found
       return NextResponse.json({
         maxStorageGB: 1,
@@ -50,10 +49,7 @@ export async function GET() {
       .select("file_size")
       .eq("user_id", user.id)
 
-    console.log("[v0] Media data query result:", { mediaData, mediaError })
-
     if (mediaError) {
-      console.error("Media data error:", mediaError)
       return NextResponse.json({ error: "Failed to calculate storage usage" }, { status: 500 })
     }
 
@@ -63,20 +59,11 @@ export async function GET() {
         return total + fileSize
       }, 0) || 0
 
-    console.log("[v0] Storage calculation:", {
-      mediaCount: mediaData?.length || 0,
-      currentStorageBytes,
-      currentStorageGB: currentStorageBytes / (1024 * 1024 * 1024),
-      maxStorageBytes,
-      maxStorageGB,
-    })
-
     return NextResponse.json({
       maxStorageGB,
       currentStorageBytes,
     })
   } catch (error) {
-    console.error("Upload limits API error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

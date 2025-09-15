@@ -23,6 +23,12 @@ export function StorageUsageBar({ currentGB, maxGB, usagePercentage, className }
 
   const formatStorageDisplay = () => {
     if (maxGB === -1) return "Unlimited"
+
+    if (currentGB < 1) {
+      const currentMB = currentGB * 1024
+      return `${currentMB.toFixed(2)} MB / ${maxGB} GB`
+    }
+
     return `${currentGB.toFixed(2)} GB / ${maxGB} GB`
   }
 
