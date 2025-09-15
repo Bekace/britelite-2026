@@ -35,15 +35,16 @@ export async function POST(request: NextRequest) {
         user_subscriptions!inner(
           status,
           subscription_plans(
-            max_storage_gb
+            max_media_storage
           )
         )
       `)
       .eq("id", user.id)
       .single()
 
-    const maxStorageGB = userData?.user_subscriptions?.[0]?.subscription_plans?.max_storage_gb || 1
-    const maxStorageBytes = maxStorageGB * 1024 * 1024 * 1024
+    const maxStorageBytes =
+      userData?.user_subscriptions?.[0]?.subscription_plans?.max_media_storage || 1 * 1024 * 1024 * 1024
+    const maxStorageGB = Math.round(maxStorageBytes / (1024 * 1024 * 1024))
 
     // Calculate current storage usage
     const { data: mediaData, error: mediaError } = await supabase
