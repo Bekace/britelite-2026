@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog" // Added import for custom confirmation dialog
 import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { useUploadLimits } from "@/hooks/use-upload-limits"
+import { StorageUsageBar } from "@/components/ui/storage-usage-bar"
 
 interface MediaItem {
   id: string
@@ -163,6 +165,7 @@ export default function MediaLibraryPage() {
   })
   const [previewMedia, setPreviewMedia] = useState<MediaItem | null>(null)
   const { toast } = useToast()
+  const uploadLimits = useUploadLimits()
 
   useEffect(() => {
     checkAuthAndFetchMedia()
@@ -224,12 +227,29 @@ export default function MediaLibraryPage() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
+      if (!uploadLimits.canUpload(file.size)) {
+        toast({
+          title: "Storage Limit Exceeded",
+          description: `This file (${formatFileSize(file.size)}) would exceed your storage limit. You have ${uploadLimits.remainingStorageGB.toFixed(2)} GB remaining.`,
+          variant: "destructive",
+        })
+        return
+      }
       setSelectedFile(file)
     }
   }
 
   const handleUpload = async () => {
     if (!selectedFile) return
+
+    if (!uploadLimits.canUpload(selectedFile.size)) {
+      toast({
+        title: "Storage Limit Exceeded",
+        description: `Cannot upload file. You have ${uploadLimits.remainingStorageGB.toFixed(2)} GB remaining.`,
+        variant: "destructive",
+      })
+      return
+    }
 
     try {
       const supabase = createClient()
@@ -405,8 +425,22 @@ export default function MediaLibraryPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!uploadLimits.loading && (
+            <StorageUsageBar
+              currentGB={uploadLimits.currentStorageGB}
+              maxGB={uploadLimits.maxStorageGB}
+              usagePercentage={uploadLimits.storageUsagePercentage}
+            />
+          )}
+
           <div className="flex items-center gap-4">
-            <Input type="file" accept="image/*,video/*" onChange={handleFileSelect} className="flex-1" />
+            <Input
+              type="file"
+              accept="image/*,video/*"
+              onChange={handleFileSelect}
+              className="flex-1"
+              disabled={uploadLimits.isAtLimit}
+            />
             <Input
               placeholder="Tags (comma separated)"
               value={tags}
@@ -415,7 +449,7 @@ export default function MediaLibraryPage() {
             />
             <Button
               onClick={handleUpload}
-              disabled={!selectedFile || uploading}
+              disabled={!selectedFile || uploading || uploadLimits.isAtLimit}
               className="bg-cyan-500 hover:bg-cyan-600"
             >
               {uploading ? (
@@ -429,6 +463,11 @@ export default function MediaLibraryPage() {
           {selectedFile && (
             <p className="text-sm text-gray-600">
               Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+            </p>
+          )}
+          {uploadLimits.isAtLimit && (
+            <p className="text-sm text-red-600">
+              Storage limit reached. Please delete some files or upgrade your plan to upload more content.
             </p>
           )}
         </CardContent>

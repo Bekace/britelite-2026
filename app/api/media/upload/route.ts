@@ -27,6 +27,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
+    // Get user's storage limits
+    const { data: userData, error: userError } = await supabase
+      .from("profiles")
+      .select(`
+        *,
+        user_subscriptions!inner(
+          status,
+          subscription_plans(
+            max_storage_gb
+          )
+        )
+      `)
+      .eq("id", user.id)
+      .single()
+
+    const maxStorageGB = userData?.user_subscriptions?.[0]?.subscription_plans?.max_storage_gb || 1
+    const maxStorageBytes = maxStorageGB * 1024 * 1024 * 1024
+
+    // Calculate current storage usage
+    const { data: mediaData, error: mediaError } = await supabase
+      .from("media")
+      .select("file_size")
+      .eq("user_id", user.id)
+
+    if (mediaError) {
+      console.error("Media data error:", mediaError)
+      return NextResponse.json({ error: "Failed to check storage usage" }, { status: 500 })
+    }
+
+    const currentStorageBytes = mediaData?.reduce((total, item) => total + (item.file_size || 0), 0) || 0
+
+    // Check if upload would exceed storage limit
+    if (currentStorageBytes + file.size > maxStorageBytes) {
+      const remainingGB = Math.max(0, (maxStorageBytes - currentStorageBytes) / (1024 * 1024 * 1024))
+      return NextResponse.json(
+        {
+          error: `Storage limit exceeded. You have ${remainingGB.toFixed(2)} GB remaining of your ${maxStorageGB} GB limit.`,
+        },
+        { status: 413 },
+      )
+    }
+
     // Validate file type
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "video/mp4", "video/webm"]
     if (!allowedTypes.includes(file.type)) {
@@ -40,7 +82,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Save metadata to Supabase
-    const { data: mediaData, error: dbError } = await supabase
+    const { data: insertedMediaData, error: dbError } = await supabase
       .from("media")
       .insert({
         user_id: user.id,
@@ -59,13 +101,13 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      id: mediaData.id,
+      id: insertedMediaData.id,
       name: file.name,
       mime_type: file.type,
       file_size: file.size,
       file_path: blob.url,
-      tags: mediaData.tags,
-      created_at: mediaData.created_at,
+      tags: insertedMediaData.tags,
+      created_at: insertedMediaData.created_at,
     })
   } catch (error) {
     console.error("Upload error:", error)
