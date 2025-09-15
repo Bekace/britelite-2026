@@ -57,7 +57,11 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to calculate storage usage" }, { status: 500 })
     }
 
-    const currentStorageBytes = mediaData?.reduce((total, item) => total + (item.file_size || 0), 0) || 0
+    const currentStorageBytes =
+      mediaData?.reduce((total, item) => {
+        const fileSize = item.file_size || 0
+        return total + fileSize
+      }, 0) || 0
 
     console.log("[v0] Storage calculation:", {
       mediaCount: mediaData?.length || 0,
