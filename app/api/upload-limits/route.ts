@@ -23,7 +23,7 @@ export async function GET() {
         user_subscriptions!inner(
           status,
           subscription_plans(
-            max_storage_gb
+            max_media_storage
           )
         )
       `)
@@ -39,8 +39,9 @@ export async function GET() {
       })
     }
 
-    // Get max storage from subscription plan (default to Free plan: 1GB)
-    const maxStorageGB = userData.user_subscriptions?.[0]?.subscription_plans?.max_storage_gb || 1
+    const maxStorageBytes =
+      userData.user_subscriptions?.[0]?.subscription_plans?.max_media_storage || 1 * 1024 * 1024 * 1024
+    const maxStorageGB = Math.round(maxStorageBytes / (1024 * 1024 * 1024))
 
     // Calculate current storage usage
     const { data: mediaData, error: mediaError } = await supabase
