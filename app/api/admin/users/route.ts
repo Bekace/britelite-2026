@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
     const adminSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-    const { data: users, error } = await adminSupabase
+    const { data: usersWithSubs, error } = await adminSupabase
       .from("profiles")
       .select(`
         id,
@@ -18,9 +18,10 @@ export async function GET(request: NextRequest) {
         created_at,
         full_name,
         company_name,
-        user_subscriptions(
+        user_subscriptions!inner(
           status,
           plan_id,
+          created_at,
           subscription_plans(name, id)
         )
       `)
@@ -28,22 +29,85 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error
 
-    const formattedUsers = users.map((user: any) => ({
-      id: user.id,
-      email: user.email,
-      role: user.role || "user",
-      created_at: user.created_at,
-      full_name: user.full_name,
-      company_name: user.company_name,
-      subscription_status: user.user_subscriptions?.[0]?.status || "inactive",
-      subscription_plan: user.user_subscriptions?.[0]?.subscription_plans?.name,
-      subscription_plan_id: user.user_subscriptions?.[0]?.plan_id,
-    }))
+    const formattedUsersWithSubs = usersWithSubs.map((user: any) => {
+      let subscriptionStatus = "inactive"
+      let subscriptionPlan = null
+      let subscriptionPlanId = null
+
+      if (user.user_subscriptions && user.user_subscriptions.length > 0) {
+        // Sort subscriptions to prioritize active ones, then by creation date
+        const sortedSubscriptions = user.user_subscriptions.sort((a: any, b: any) => {
+          if (a.status === "active" && b.status !== "active") return -1
+          if (b.status === "active" && a.status !== "active") return 1
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        })
+
+        const primarySubscription = sortedSubscriptions[0]
+        subscriptionStatus = primarySubscription.status
+        subscriptionPlan = primarySubscription.subscription_plans?.name
+        subscriptionPlanId = primarySubscription.plan_id
+      }
+
+      return {
+        id: user.id,
+        email: user.email,
+        role: user.role || "user",
+        created_at: user.created_at,
+        full_name: user.full_name,
+        company_name: user.company_name,
+        subscription_status: subscriptionStatus,
+        subscription_plan: subscriptionPlan,
+        subscription_plan_id: subscriptionPlanId,
+      }
+    })
+
+    const { data: usersWithoutSubs, error: noSubsError } = await adminSupabase
+      .from("profiles")
+      .select(`
+        id,
+        email,
+        role,
+        created_at,
+        full_name,
+        company_name
+      `)
+      .not("id", "in", `(${usersWithSubs.map((u) => `'${u.id}'`).join(",") || "''"})`)
+      .order("created_at", { ascending: false })
+
+    if (!noSubsError && usersWithoutSubs) {
+      const usersWithoutSubsFormatted = usersWithoutSubs.map((user: any) => ({
+        id: user.id,
+        email: user.email,
+        role: user.role || "user",
+        created_at: user.created_at,
+        full_name: user.full_name,
+        company_name: user.company_name,
+        subscription_status: "inactive",
+        subscription_plan: null,
+        subscription_plan_id: null,
+      }))
+
+      formattedUsersWithSubs.push(...usersWithoutSubsFormatted)
+    }
+
+    // Sort all users by creation date
+    const formattedUsers = formattedUsersWithSubs.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )
+
+    console.log(
+      "[v0] Fetched users with subscription data:",
+      formattedUsers.map((u) => ({
+        email: u.email,
+        subscription_status: u.subscription_status,
+        subscription_plan: u.subscription_plan,
+      })),
+    )
 
     await logAdminAction({
       action: "view_users",
       targetType: "user",
-      details: { count: users.length },
+      details: { count: formattedUsers.length },
     })
 
     return NextResponse.json({ users: formattedUsers })
