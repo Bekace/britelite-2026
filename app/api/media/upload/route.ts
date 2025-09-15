@@ -44,7 +44,8 @@ export async function POST(request: NextRequest) {
 
     const maxStorageBytes =
       userData?.user_subscriptions?.[0]?.subscription_plans?.max_media_storage || 1 * 1024 * 1024 * 1024
-    const maxStorageGB = Math.round(maxStorageBytes / (1024 * 1024 * 1024))
+    const isUnlimited = maxStorageBytes === -1
+    const maxStorageGB = isUnlimited ? -1 : Math.round(maxStorageBytes / (1024 * 1024 * 1024))
 
     // Calculate current storage usage
     const { data: mediaData, error: mediaError } = await supabase
@@ -59,8 +60,7 @@ export async function POST(request: NextRequest) {
 
     const currentStorageBytes = mediaData?.reduce((total, item) => total + (item.file_size || 0), 0) || 0
 
-    // Check if upload would exceed storage limit
-    if (currentStorageBytes + file.size > maxStorageBytes) {
+    if (!isUnlimited && currentStorageBytes + file.size > maxStorageBytes) {
       const remainingGB = Math.max(0, (maxStorageBytes - currentStorageBytes) / (1024 * 1024 * 1024))
       return NextResponse.json(
         {

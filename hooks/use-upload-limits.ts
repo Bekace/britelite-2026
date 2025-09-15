@@ -9,6 +9,7 @@ interface UploadLimits {
   isAtLimit: boolean
   canUpload: (fileSizeBytes: number) => boolean
   storageUsagePercentage: number
+  isUnlimited: boolean
 }
 
 export function useUploadLimits(): UploadLimits & { loading: boolean; error: string | null } {
@@ -19,6 +20,7 @@ export function useUploadLimits(): UploadLimits & { loading: boolean; error: str
     isAtLimit: false,
     canUpload: () => false,
     storageUsagePercentage: 0,
+    isUnlimited: false,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -33,21 +35,26 @@ export function useUploadLimits(): UploadLimits & { loading: boolean; error: str
       if (response.ok) {
         const data = await response.json()
 
-        const maxStorageBytes = data.maxStorageGB * 1024 * 1024 * 1024 // Convert GB to bytes
+        const isUnlimited = data.maxStorageGB === -1
+        const maxStorageBytes = isUnlimited ? Number.MAX_SAFE_INTEGER : data.maxStorageGB * 1024 * 1024 * 1024
         const currentStorageBytes = data.currentStorageBytes || 0
         const currentStorageGB = currentStorageBytes / (1024 * 1024 * 1024)
-        const remainingStorageGB = Math.max(0, data.maxStorageGB - currentStorageGB)
-        const storageUsagePercentage = (currentStorageGB / data.maxStorageGB) * 100
+        const remainingStorageGB = isUnlimited
+          ? Number.MAX_SAFE_INTEGER
+          : Math.max(0, data.maxStorageGB - currentStorageGB)
+        const storageUsagePercentage = isUnlimited ? 0 : (currentStorageGB / data.maxStorageGB) * 100
 
         setLimits({
           maxStorageGB: data.maxStorageGB,
           currentStorageGB,
           remainingStorageGB,
-          isAtLimit: currentStorageBytes >= maxStorageBytes,
+          isAtLimit: !isUnlimited && currentStorageBytes >= maxStorageBytes,
           canUpload: (fileSizeBytes: number) => {
+            if (isUnlimited) return true
             return currentStorageBytes + fileSizeBytes <= maxStorageBytes
           },
           storageUsagePercentage: Math.min(100, storageUsagePercentage),
+          isUnlimited,
         })
         setError(null)
       } else {
