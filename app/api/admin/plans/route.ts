@@ -39,7 +39,28 @@ export async function POST(request: NextRequest) {
     const { supabase } = await requireSuperAdmin()
     const planData = await request.json()
 
-    const { data: newPlan, error } = await supabase.from("subscription_plans").insert(planData).select().single()
+    const { storage_unit, ...planDataWithoutUnit } = planData
+
+    // Try to insert with storage_unit first, fallback without it if column doesn't exist
+    const insertData = planData
+    let newPlan
+    let error
+
+    try {
+      const result = await supabase.from("subscription_plans").insert(insertData).select().single()
+      newPlan = result.data
+      error = result.error
+    } catch (insertError: any) {
+      // If storage_unit column doesn't exist, try without it
+      if (insertError?.message?.includes("storage_unit")) {
+        console.log("[v0] storage_unit column not found, inserting without it")
+        const result = await supabase.from("subscription_plans").insert(planDataWithoutUnit).select().single()
+        newPlan = result.data
+        error = result.error
+      } else {
+        throw insertError
+      }
+    }
 
     if (error) throw error
 

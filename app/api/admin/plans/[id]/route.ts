@@ -8,12 +8,33 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const planData = await request.json()
     const planId = params.id
 
-    const { data: updatedPlan, error } = await supabase
-      .from("subscription_plans")
-      .update(planData)
-      .eq("id", planId)
-      .select()
-      .single()
+    const { storage_unit, ...planDataWithoutUnit } = planData
+
+    // Try to update with storage_unit first, fallback without it if column doesn't exist
+    const updateData = planData
+    let updatedPlan
+    let error
+
+    try {
+      const result = await supabase.from("subscription_plans").update(updateData).eq("id", planId).select().single()
+      updatedPlan = result.data
+      error = result.error
+    } catch (updateError: any) {
+      // If storage_unit column doesn't exist, try without it
+      if (updateError?.message?.includes("storage_unit")) {
+        console.log("[v0] storage_unit column not found, updating without it")
+        const result = await supabase
+          .from("subscription_plans")
+          .update(planDataWithoutUnit)
+          .eq("id", planId)
+          .select()
+          .single()
+        updatedPlan = result.data
+        error = result.error
+      } else {
+        throw updateError
+      }
+    }
 
     if (error) throw error
 
