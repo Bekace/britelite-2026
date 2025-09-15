@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
     const adminSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-    const { data: usersWithSubs, error } = await adminSupabase
+    const { data: users, error } = await adminSupabase
       .from("profiles")
       .select(`
         id,
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
         created_at,
         full_name,
         company_name,
-        user_subscriptions!inner(
+        user_subscriptions(
           status,
           plan_id,
           created_at,
@@ -29,23 +29,17 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error
 
-    const formattedUsersWithSubs = usersWithSubs.map((user: any) => {
+    const formattedUsers = users.map((user: any) => {
       let subscriptionStatus = "inactive"
       let subscriptionPlan = null
       let subscriptionPlanId = null
 
+      // Since each user has only one subscription, take the first (and only) one
       if (user.user_subscriptions && user.user_subscriptions.length > 0) {
-        // Sort subscriptions to prioritize active ones, then by creation date
-        const sortedSubscriptions = user.user_subscriptions.sort((a: any, b: any) => {
-          if (a.status === "active" && b.status !== "active") return -1
-          if (b.status === "active" && a.status !== "active") return 1
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        })
-
-        const primarySubscription = sortedSubscriptions[0]
-        subscriptionStatus = primarySubscription.status
-        subscriptionPlan = primarySubscription.subscription_plans?.name
-        subscriptionPlanId = primarySubscription.plan_id
+        const subscription = user.user_subscriptions[0]
+        subscriptionStatus = subscription.status || "inactive"
+        subscriptionPlan = subscription.subscription_plans?.name || null
+        subscriptionPlanId = subscription.plan_id || null
       }
 
       return {
@@ -60,40 +54,6 @@ export async function GET(request: NextRequest) {
         subscription_plan_id: subscriptionPlanId,
       }
     })
-
-    const { data: usersWithoutSubs, error: noSubsError } = await adminSupabase
-      .from("profiles")
-      .select(`
-        id,
-        email,
-        role,
-        created_at,
-        full_name,
-        company_name
-      `)
-      .not("id", "in", `(${usersWithSubs.map((u) => `'${u.id}'`).join(",") || "''"})`)
-      .order("created_at", { ascending: false })
-
-    if (!noSubsError && usersWithoutSubs) {
-      const usersWithoutSubsFormatted = usersWithoutSubs.map((user: any) => ({
-        id: user.id,
-        email: user.email,
-        role: user.role || "user",
-        created_at: user.created_at,
-        full_name: user.full_name,
-        company_name: user.company_name,
-        subscription_status: "inactive",
-        subscription_plan: null,
-        subscription_plan_id: null,
-      }))
-
-      formattedUsersWithSubs.push(...usersWithoutSubsFormatted)
-    }
-
-    // Sort all users by creation date
-    const formattedUsers = formattedUsersWithSubs.sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    )
 
     console.log(
       "[v0] Fetched users with subscription data:",
