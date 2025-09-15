@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Plus, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { type StorageUnit, STORAGE_UNITS, storageToBytes, bytesToStorage, formatStorage } from "@/lib/storage-utils"
 
 interface SubscriptionPlan {
   id: string
@@ -41,6 +42,7 @@ interface PlanFormData {
   billing_cycle: "monthly" | "yearly"
   max_screens: string
   max_media_storage: string
+  storage_unit: StorageUnit
   is_active: boolean
 }
 
@@ -58,6 +60,7 @@ export function PlanManagement() {
     billing_cycle: "monthly",
     max_screens: "1",
     max_media_storage: "1",
+    storage_unit: "GB",
     is_active: true,
   })
   const { toast } = useToast()
@@ -93,11 +96,16 @@ export function PlanManagement() {
 
   const handleCreatePlan = async () => {
     try {
+      const storageBytes =
+        formData.storage_unit === "unlimited"
+          ? -1
+          : storageToBytes(Number.parseInt(formData.max_media_storage), formData.storage_unit)
+
       const planData = {
         ...formData,
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
-        max_media_storage: Number.parseInt(formData.max_media_storage),
+        max_media_storage: storageBytes,
       }
 
       const response = await fetch("/api/admin/plans", {
@@ -136,11 +144,16 @@ export function PlanManagement() {
     if (!editingPlan) return
 
     try {
+      const storageBytes =
+        formData.storage_unit === "unlimited"
+          ? -1
+          : storageToBytes(Number.parseInt(formData.max_media_storage), formData.storage_unit)
+
       const planData = {
         ...formData,
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
-        max_media_storage: Number.parseInt(formData.max_media_storage),
+        max_media_storage: storageBytes,
       }
 
       const response = await fetch(`/api/admin/plans/${editingPlan.id}`, {
@@ -214,18 +227,22 @@ export function PlanManagement() {
       billing_cycle: "monthly",
       max_screens: "1",
       max_media_storage: "1",
+      storage_unit: "GB",
       is_active: true,
     })
   }
 
   const openEditDialog = (plan: SubscriptionPlan) => {
+    const storageValue = bytesToStorage(plan.max_media_storage)
+
     setFormData({
       name: plan.name,
       description: plan.description,
       price: plan.price.toString(),
       billing_cycle: plan.billing_cycle,
       max_screens: plan.max_screens.toString(),
-      max_media_storage: plan.max_media_storage.toString(),
+      max_media_storage: storageValue.value.toString(),
+      storage_unit: storageValue.unit,
       is_active: plan.is_active,
     })
     setEditingPlan(plan)
@@ -236,13 +253,6 @@ export function PlanManagement() {
       style: "currency",
       currency: "USD",
     }).format(amount)
-  }
-
-  const formatStorage = (gb: number) => {
-    if (gb >= 1000) {
-      return `${gb / 1000}TB`
-    }
-    return `${gb}GB`
   }
 
   if (loading) {
@@ -458,14 +468,39 @@ export function PlanManagement() {
                 />
               </div>
               <div>
-                <Label>Storage (GB)</Label>
+                <Label>Storage Amount</Label>
                 <Input
                   type="number"
                   min="1"
                   value={formData.max_media_storage}
                   onChange={(e) => setFormData({ ...formData, max_media_storage: e.target.value })}
                   placeholder="e.g., 10"
+                  disabled={formData.storage_unit === "unlimited"}
                 />
+              </div>
+              <div>
+                <Label>Storage Unit</Label>
+                <Select
+                  value={formData.storage_unit}
+                  onValueChange={(value: StorageUnit) => {
+                    setFormData({
+                      ...formData,
+                      storage_unit: value,
+                      max_media_storage: value === "unlimited" ? "0" : formData.max_media_storage,
+                    })
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STORAGE_UNITS.map((unit) => (
+                      <SelectItem key={unit.value} value={unit.value}>
+                        {unit.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
