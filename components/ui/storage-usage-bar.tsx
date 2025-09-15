@@ -2,13 +2,20 @@ import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 
 interface StorageUsageBarProps {
-  currentGB: number
-  maxGB: number
+  currentFormatted: number
+  maxStorage: number
+  storageUnit: string
   usagePercentage: number
   className?: string
 }
 
-export function StorageUsageBar({ currentGB, maxGB, usagePercentage, className }: StorageUsageBarProps) {
+export function StorageUsageBar({
+  currentFormatted,
+  maxStorage,
+  storageUnit,
+  usagePercentage,
+  className,
+}: StorageUsageBarProps) {
   const getUsageColor = (percentage: number) => {
     if (percentage >= 90) return "bg-red-500"
     if (percentage >= 75) return "bg-yellow-500"
@@ -22,14 +29,9 @@ export function StorageUsageBar({ currentGB, maxGB, usagePercentage, className }
   }
 
   const formatStorageDisplay = () => {
-    if (maxGB === -1) return "Unlimited"
+    if (maxStorage === -1) return "Unlimited"
 
-    if (currentGB < 1) {
-      const currentMB = currentGB * 1024
-      return `${currentMB.toFixed(2)} MB / ${maxGB} GB`
-    }
-
-    return `${currentGB.toFixed(2)} GB / ${maxGB} GB`
+    return `${currentFormatted.toFixed(2)} ${storageUnit} / ${maxStorage} ${storageUnit}`
   }
 
   return (
@@ -49,7 +51,7 @@ export function StorageUsageBar({ currentGB, maxGB, usagePercentage, className }
         </Badge>
       </div>
 
-      {maxGB !== -1 && (
+      {maxStorage !== -1 && (
         <>
           <Progress
             value={Math.min(usagePercentage, 100)}

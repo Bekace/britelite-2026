@@ -230,7 +230,7 @@ export default function MediaLibraryPage() {
       if (!uploadLimits.canUpload(file.size)) {
         toast({
           title: "Storage Limit Exceeded",
-          description: `This file (${formatFileSize(file.size)}) would exceed your storage limit. You have ${uploadLimits.remainingStorageGB.toFixed(2)} GB remaining.`,
+          description: `This file (${formatFileSize(file.size)}) would exceed your storage limit. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining.`,
           variant: "destructive",
         })
         return
@@ -245,7 +245,7 @@ export default function MediaLibraryPage() {
     if (!uploadLimits.canUpload(selectedFile.size)) {
       toast({
         title: "Storage Limit Exceeded",
-        description: `Cannot upload file. You have ${uploadLimits.remainingStorageGB.toFixed(2)} GB remaining.`,
+        description: `Cannot upload file. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining.`,
         variant: "destructive",
       })
       return
@@ -427,8 +427,9 @@ export default function MediaLibraryPage() {
         <CardContent className="space-y-4">
           {!uploadLimits.loading && (
             <StorageUsageBar
-              currentGB={uploadLimits.currentStorageGB}
-              maxGB={uploadLimits.maxStorageGB}
+              currentFormatted={uploadLimits.currentStorageFormatted}
+              maxStorage={uploadLimits.maxStorage}
+              storageUnit={uploadLimits.storageUnit}
               usagePercentage={uploadLimits.storageUsagePercentage}
             />
           )}

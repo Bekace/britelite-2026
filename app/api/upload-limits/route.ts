@@ -15,7 +15,6 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get user's subscription plan with storage limit
     const { data: userData, error: userError } = await supabase
       .from("profiles")
       .select(`
@@ -23,7 +22,8 @@ export async function GET() {
         user_subscriptions!inner(
           status,
           subscription_plans(
-            max_media_storage
+            max_media_storage,
+            storage_unit
           )
         )
       `)
@@ -33,15 +33,15 @@ export async function GET() {
     if (userError) {
       // Default to Free plan if no subscription found
       return NextResponse.json({
-        maxStorageGB: 1,
+        maxStorage: 100,
+        storageUnit: "MB",
         currentStorageBytes: 0,
       })
     }
 
-    const maxStorageBytes =
-      userData.user_subscriptions?.[0]?.subscription_plans?.max_media_storage || 1 * 1024 * 1024 * 1024
-
-    const maxStorageGB = maxStorageBytes === -1 ? -1 : Math.round(maxStorageBytes / (1024 * 1024 * 1024))
+    const plan = userData.user_subscriptions?.[0]?.subscription_plans
+    const maxStorage = plan?.max_media_storage || 100
+    const storageUnit = plan?.storage_unit || "MB"
 
     // Calculate current storage usage
     const { data: mediaData, error: mediaError } = await supabase
@@ -60,7 +60,8 @@ export async function GET() {
       }, 0) || 0
 
     return NextResponse.json({
-      maxStorageGB,
+      maxStorage,
+      storageUnit,
       currentStorageBytes,
     })
   } catch (error) {

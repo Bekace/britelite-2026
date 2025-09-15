@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react"
 
 interface UploadLimits {
-  maxStorageGB: number
-  currentStorageGB: number
-  remainingStorageGB: number
+  maxStorage: number
+  storageUnit: string
+  currentStorageBytes: number
+  currentStorageFormatted: number
+  remainingStorageFormatted: number
   isAtLimit: boolean
   canUpload: (fileSizeBytes: number) => boolean
   storageUsagePercentage: number
@@ -14,9 +16,11 @@ interface UploadLimits {
 
 export function useUploadLimits(): UploadLimits & { loading: boolean; error: string | null } {
   const [limits, setLimits] = useState<UploadLimits>({
-    maxStorageGB: 1, // Default to Free plan
-    currentStorageGB: 0,
-    remainingStorageGB: 1,
+    maxStorage: 100,
+    storageUnit: "MB",
+    currentStorageBytes: 0,
+    currentStorageFormatted: 0,
+    remainingStorageFormatted: 100,
     isAtLimit: false,
     canUpload: () => false,
     storageUsagePercentage: 0,
@@ -35,19 +39,24 @@ export function useUploadLimits(): UploadLimits & { loading: boolean; error: str
       if (response.ok) {
         const data = await response.json()
 
-        const isUnlimited = data.maxStorageGB === -1
-        const maxStorageBytes = isUnlimited ? Number.MAX_SAFE_INTEGER : data.maxStorageGB * 1024 * 1024 * 1024
+        const isUnlimited = data.maxStorage === -1
+        const storageUnit = data.storageUnit || "MB"
         const currentStorageBytes = data.currentStorageBytes || 0
-        const currentStorageGB = currentStorageBytes / (1024 * 1024 * 1024)
-        const remainingStorageGB = isUnlimited
+
+        const bytesPerUnit = storageUnit === "GB" ? 1024 * 1024 * 1024 : 1024 * 1024
+        const currentStorageFormatted = currentStorageBytes / bytesPerUnit
+        const maxStorageBytes = isUnlimited ? Number.MAX_SAFE_INTEGER : data.maxStorage * bytesPerUnit
+        const remainingStorageFormatted = isUnlimited
           ? Number.MAX_SAFE_INTEGER
-          : Math.max(0, data.maxStorageGB - currentStorageGB)
-        const storageUsagePercentage = isUnlimited ? 0 : (currentStorageGB / data.maxStorageGB) * 100
+          : Math.max(0, data.maxStorage - currentStorageFormatted)
+        const storageUsagePercentage = isUnlimited ? 0 : (currentStorageFormatted / data.maxStorage) * 100
 
         setLimits({
-          maxStorageGB: data.maxStorageGB,
-          currentStorageGB,
-          remainingStorageGB,
+          maxStorage: data.maxStorage,
+          storageUnit,
+          currentStorageBytes,
+          currentStorageFormatted,
+          remainingStorageFormatted,
           isAtLimit: !isUnlimited && currentStorageBytes >= maxStorageBytes,
           canUpload: (fileSizeBytes: number) => {
             if (isUnlimited) return true
