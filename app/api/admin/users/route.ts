@@ -29,10 +29,17 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error
 
+    console.log("[v0] Raw users data from database:", JSON.stringify(users, null, 2))
+
     const formattedUsers = users.map((user: any) => {
       let subscriptionStatus = "inactive"
       let subscriptionPlan = null
       let subscriptionPlanId = null
+
+      console.log(`[v0] Processing user ${user.email}:`, {
+        id: user.id,
+        user_subscriptions: user.user_subscriptions,
+      })
 
       // Since each user has only one subscription, take the first (and only) one
       if (user.user_subscriptions && user.user_subscriptions.length > 0) {
@@ -40,6 +47,10 @@ export async function GET(request: NextRequest) {
         subscriptionStatus = subscription.status || "inactive"
         subscriptionPlan = subscription.subscription_plans?.name || null
         subscriptionPlanId = subscription.plan_id || null
+
+        console.log(`[v0] Found subscription for ${user.email}:`, subscription)
+      } else {
+        console.log(`[v0] No subscription found for ${user.email}`)
       }
 
       return {
