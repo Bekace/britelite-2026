@@ -9,49 +9,30 @@ export async function GET(request: NextRequest) {
 
     const adminSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-    const { data: users, error } = await adminSupabase
+    const { data: users, error: usersError } = await adminSupabase
       .from("profiles")
-      .select(`
-        id,
-        email,
-        role,
-        created_at,
-        full_name,
-        company_name,
-        user_subscriptions(
-          status,
-          plan_id,
-          created_at,
-          subscription_plans(name, id)
-        )
-      `)
+      .select("id, email, role, created_at, full_name, company_name")
       .order("created_at", { ascending: false })
 
-    if (error) throw error
+    if (usersError) throw usersError
 
-    console.log("[v0] Raw users data from database:", JSON.stringify(users, null, 2))
+    const { data: subscriptions, error: subscriptionsError } = await adminSupabase.from("user_subscriptions").select(`
+        user_id,
+        status,
+        plan_id,
+        created_at,
+        subscription_plans(name, id)
+      `)
+
+    if (subscriptionsError) throw subscriptionsError
+
+    const subscriptionMap = new Map()
+    subscriptions?.forEach((sub: any) => {
+      subscriptionMap.set(sub.user_id, sub)
+    })
 
     const formattedUsers = users.map((user: any) => {
-      let subscriptionStatus = "inactive"
-      let subscriptionPlan = null
-      let subscriptionPlanId = null
-
-      console.log(`[v0] Processing user ${user.email}:`, {
-        id: user.id,
-        user_subscriptions: user.user_subscriptions,
-      })
-
-      // Since each user has only one subscription, take the first (and only) one
-      if (user.user_subscriptions && user.user_subscriptions.length > 0) {
-        const subscription = user.user_subscriptions[0]
-        subscriptionStatus = subscription.status || "inactive"
-        subscriptionPlan = subscription.subscription_plans?.name || null
-        subscriptionPlanId = subscription.plan_id || null
-
-        console.log(`[v0] Found subscription for ${user.email}:`, subscription)
-      } else {
-        console.log(`[v0] No subscription found for ${user.email}`)
-      }
+      const subscription = subscriptionMap.get(user.id)
 
       return {
         id: user.id,
@@ -60,20 +41,11 @@ export async function GET(request: NextRequest) {
         created_at: user.created_at,
         full_name: user.full_name,
         company_name: user.company_name,
-        subscription_status: subscriptionStatus,
-        subscription_plan: subscriptionPlan,
-        subscription_plan_id: subscriptionPlanId,
+        subscription_status: subscription?.status || "inactive",
+        subscription_plan: subscription?.subscription_plans?.name || null,
+        subscription_plan_id: subscription?.plan_id || null,
       }
     })
-
-    console.log(
-      "[v0] Fetched users with subscription data:",
-      formattedUsers.map((u) => ({
-        email: u.email,
-        subscription_status: u.subscription_status,
-        subscription_plan: u.subscription_plan,
-      })),
-    )
 
     await logAdminAction({
       action: "view_users",
