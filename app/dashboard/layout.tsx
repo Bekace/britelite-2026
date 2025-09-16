@@ -32,10 +32,48 @@ export default async function DashboardLayout({
       error,
     } = await supabase.auth.getUser()
 
-    // Handle auth errors
+    // Handle auth errors more gracefully
     if (error) {
-      console.error("[v0] Auth error:", error.message)
-      redirect("/auth/login")
+      // Check if it's a session-related error that might be recoverable
+      if (error.message.includes("session") || error.message.includes("token") || error.message.includes("expired")) {
+        console.log("[v0] Session issue detected, attempting refresh...")
+
+        // Try to refresh the session
+        const {
+          data: { session },
+          error: refreshError,
+        } = await supabase.auth.refreshSession()
+
+        if (refreshError || !session?.user) {
+          console.error("[v0] Session refresh failed:", refreshError?.message || "No user after refresh")
+          redirect("/auth/login")
+        }
+
+        // Use the refreshed user
+        const refreshedUser = session.user
+
+        return (
+          <UserProvider>
+            <div className="flex h-screen bg-background">
+              {/* Sidebar */}
+              <DashboardSidebar />
+
+              {/* Main Content */}
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Header */}
+                <DashboardHeader user={refreshedUser} />
+
+                {/* Page Content */}
+                <main className="flex-1 overflow-y-auto p-6">{children}</main>
+              </div>
+            </div>
+          </UserProvider>
+        )
+      } else {
+        // For non-session errors, redirect to login
+        console.error("[v0] Auth error:", error.message)
+        redirect("/auth/login")
+      }
     }
 
     // If no user, redirect to login
