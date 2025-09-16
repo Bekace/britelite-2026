@@ -36,12 +36,15 @@ export function StorageUsageBar({
       maxStorageFormatted = maxStorage / (1024 * 1024 * 1024)
     } else if (storageUnit === "MB") {
       maxStorageFormatted = maxStorage / (1024 * 1024)
+    } else if (storageUnit === "KB") {
+      maxStorageFormatted = maxStorage / 1024
     } else {
-      // For KB or bytes
+      // For bytes
       maxStorageFormatted = maxStorage
     }
 
-    return `${currentFormatted.toFixed(2)} ${storageUnit} / ${maxStorageFormatted} ${storageUnit}`
+    const maxFormatted = storageUnit === "bytes" ? maxStorageFormatted.toString() : maxStorageFormatted.toFixed(0)
+    return `${currentFormatted.toFixed(2)} ${storageUnit} / ${maxFormatted} ${storageUnit}`
   }
 
   return (
