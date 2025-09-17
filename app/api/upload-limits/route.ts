@@ -43,7 +43,7 @@ export async function GET() {
       })
     }
 
-    const plan = userData.user_subscriptions?.[0]?.subscription_plans
+    const plan = userData.user_subscriptions?.subscription_plans
     console.log("[v0] Found subscription plan:", plan)
 
     const maxStorage = plan?.max_media_storage || 1048576 // Default to 1 MB in bytes
