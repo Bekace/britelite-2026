@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     const maxStorageBytes =
-      userData?.user_subscriptions?.[0]?.subscription_plans?.max_media_storage || 1 * 1024 * 1024 * 1024
+      userData?.user_subscriptions?.subscription_plans?.max_media_storage || 1 * 1024 * 1024 * 1024
     const isUnlimited = maxStorageBytes === -1
     const maxStorageGB = isUnlimited ? -1 : Math.round(maxStorageBytes / (1024 * 1024 * 1024))
 

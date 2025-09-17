@@ -42,17 +42,20 @@ export function useUploadLimits(): UploadLimits & { loading: boolean; error: str
         const isUnlimited = data.maxStorage === -1
         const storageUnit = data.storageUnit || "MB"
         const currentStorageBytes = data.currentStorageBytes || 0
+        const maxStorageBytes = data.maxStorage // API already returns bytes, don't multiply
 
-        const bytesPerUnit = storageUnit === "GB" ? 1024 * 1024 * 1024 : 1024 * 1024
+        const bytesPerUnit =
+          storageUnit === "GB" ? 1024 * 1024 * 1024 : storageUnit === "TB" ? 1024 * 1024 * 1024 * 1024 : 1024 * 1024 // MB default
+
         const currentStorageFormatted = currentStorageBytes / bytesPerUnit
-        const maxStorageBytes = isUnlimited ? Number.MAX_SAFE_INTEGER : data.maxStorage * bytesPerUnit
+        const maxStorageFormatted = isUnlimited ? Number.MAX_SAFE_INTEGER : maxStorageBytes / bytesPerUnit
         const remainingStorageFormatted = isUnlimited
           ? Number.MAX_SAFE_INTEGER
-          : Math.max(0, data.maxStorage - currentStorageFormatted)
-        const storageUsagePercentage = isUnlimited ? 0 : (currentStorageFormatted / data.maxStorage) * 100
+          : Math.max(0, maxStorageFormatted - currentStorageFormatted)
+        const storageUsagePercentage = isUnlimited ? 0 : (currentStorageFormatted / maxStorageFormatted) * 100
 
         setLimits({
-          maxStorage: data.maxStorage,
+          maxStorage: maxStorageBytes, // Keep as bytes for internal calculations
           storageUnit,
           currentStorageBytes,
           currentStorageFormatted,
