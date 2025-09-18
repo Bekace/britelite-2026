@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 
 interface UploadLimits {
   maxStorage: number
@@ -33,11 +33,7 @@ export function useUploadLimits(): UploadLimits & {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchUploadLimits()
-  }, [])
-
-  const fetchUploadLimits = async () => {
+  const fetchUploadLimits = useCallback(async () => {
     try {
       const response = await fetch("/api/upload-limits")
       if (response.ok) {
@@ -81,12 +77,16 @@ export function useUploadLimits(): UploadLimits & {
     } finally {
       setLoading(false)
     }
-  }
+  }, []) // Empty dependency array since this function doesn't depend on any props or state
 
-  const refresh = async () => {
+  useEffect(() => {
+    fetchUploadLimits()
+  }, [fetchUploadLimits]) // Include fetchUploadLimits in dependency array
+
+  const refresh = useCallback(async () => {
     setLoading(true)
     await fetchUploadLimits()
-  }
+  }, [fetchUploadLimits])
 
   return { ...limits, loading, error, refresh }
 }
