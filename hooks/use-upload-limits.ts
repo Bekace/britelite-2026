@@ -14,7 +14,11 @@ interface UploadLimits {
   isUnlimited: boolean
 }
 
-export function useUploadLimits(): UploadLimits & { loading: boolean; error: string | null } {
+export function useUploadLimits(): UploadLimits & {
+  loading: boolean
+  error: string | null
+  refresh: () => Promise<void>
+} {
   const [limits, setLimits] = useState<UploadLimits>({
     maxStorage: 100,
     storageUnit: "MB",
@@ -79,5 +83,10 @@ export function useUploadLimits(): UploadLimits & { loading: boolean; error: str
     }
   }
 
-  return { ...limits, loading, error }
+  const refresh = async () => {
+    setLoading(true)
+    await fetchUploadLimits()
+  }
+
+  return { ...limits, loading, error, refresh }
 }

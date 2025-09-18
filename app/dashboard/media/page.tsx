@@ -340,6 +340,7 @@ export default function MediaLibraryPage() {
 
       if (response.ok) {
         setMedia((prev) => prev.filter((item) => item.id !== itemId))
+        await uploadLimits.refresh()
         toast({
           title: "Success",
           description: "Media deleted successfully",
