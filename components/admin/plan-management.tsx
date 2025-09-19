@@ -30,6 +30,7 @@ interface SubscriptionPlan {
   billing_cycle: "monthly" | "yearly"
   max_screens: number
   max_media_storage: number
+  features?: { max_playlists?: number } // Added features type with max_playlists
   is_active: boolean
   subscriber_count?: number
   created_at: string
@@ -43,6 +44,7 @@ interface PlanFormData {
   max_screens: string
   max_media_storage: string
   storage_unit: StorageUnit
+  max_playlists: string
   is_active: boolean
 }
 
@@ -61,6 +63,7 @@ export function PlanManagement() {
     max_screens: "1",
     max_media_storage: "1",
     storage_unit: "GB",
+    max_playlists: "1",
     is_active: true,
   })
   const { toast } = useToast()
@@ -106,6 +109,9 @@ export function PlanManagement() {
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
         max_media_storage: storageBytes,
+        features: {
+          max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
+        },
       }
 
       const response = await fetch("/api/admin/plans", {
@@ -154,6 +160,9 @@ export function PlanManagement() {
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
         max_media_storage: storageBytes,
+        features: {
+          max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
+        },
       }
 
       const response = await fetch(`/api/admin/plans/${editingPlan.id}`, {
@@ -228,12 +237,14 @@ export function PlanManagement() {
       max_screens: "1",
       max_media_storage: "1",
       storage_unit: "GB",
+      max_playlists: "1",
       is_active: true,
     })
   }
 
   const openEditDialog = (plan: SubscriptionPlan) => {
     const storageValue = bytesToStorage(plan.max_media_storage)
+    const maxPlaylists = plan.features?.max_playlists || 1
 
     setFormData({
       name: plan.name,
@@ -243,6 +254,7 @@ export function PlanManagement() {
       max_screens: plan.max_screens.toString(),
       max_media_storage: storageValue.value.toString(),
       storage_unit: storageValue.unit,
+      max_playlists: maxPlaylists.toString(),
       is_active: plan.is_active,
     })
     setEditingPlan(plan)
@@ -306,6 +318,10 @@ export function PlanManagement() {
                     <span className="font-medium">{formatStorage(plan.max_media_storage)}</span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-muted-foreground">Max Playlists:</span>
+                    <span className="font-medium">{plan.features?.max_playlists || 1}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Subscribers:</span>
                     <span className="font-medium">{plan.subscriber_count || 0}</span>
                   </div>
@@ -345,6 +361,7 @@ export function PlanManagement() {
                   <TableHead>Billing</TableHead>
                   <TableHead>Max Screens</TableHead>
                   <TableHead>Storage</TableHead>
+                  <TableHead>Max Playlists</TableHead>
                   <TableHead>Subscribers</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
@@ -358,6 +375,7 @@ export function PlanManagement() {
                     <TableCell className="capitalize">{plan.billing_cycle}</TableCell>
                     <TableCell>{plan.max_screens}</TableCell>
                     <TableCell>{formatStorage(plan.max_media_storage)}</TableCell>
+                    <TableCell>{plan.features?.max_playlists || 1}</TableCell>
                     <TableCell>{plan.subscriber_count || 0}</TableCell>
                     <TableCell>
                       <Badge
@@ -468,6 +486,16 @@ export function PlanManagement() {
                 />
               </div>
               <div>
+                <Label>Max Playlists</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={formData.max_playlists}
+                  onChange={(e) => setFormData({ ...formData, max_playlists: e.target.value })}
+                  placeholder="e.g., 10"
+                />
+              </div>
+              <div>
                 <Label>Storage Amount</Label>
                 <Input
                   type="number"
@@ -478,30 +506,31 @@ export function PlanManagement() {
                   disabled={formData.storage_unit === "unlimited"}
                 />
               </div>
-              <div>
-                <Label>Storage Unit</Label>
-                <Select
-                  value={formData.storage_unit}
-                  onValueChange={(value: StorageUnit) => {
-                    setFormData({
-                      ...formData,
-                      storage_unit: value,
-                      max_media_storage: value === "unlimited" ? "0" : formData.max_media_storage,
-                    })
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STORAGE_UNITS.map((unit) => (
-                      <SelectItem key={unit.value} value={unit.value}>
-                        {unit.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            </div>
+
+            <div>
+              <Label>Storage Unit</Label>
+              <Select
+                value={formData.storage_unit}
+                onValueChange={(value: StorageUnit) => {
+                  setFormData({
+                    ...formData,
+                    storage_unit: value,
+                    max_media_storage: value === "unlimited" ? "0" : formData.max_media_storage,
+                  })
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STORAGE_UNITS.map((unit) => (
+                    <SelectItem key={unit.value} value={unit.value}>
+                      {unit.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
