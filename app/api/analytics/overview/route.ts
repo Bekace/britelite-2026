@@ -5,11 +5,6 @@ export async function GET() {
   try {
     const supabase = await createClient()
 
-    if (!supabase) {
-      console.error("Supabase client not configured")
-      return NextResponse.json({ error: "Database not configured" }, { status: 500 })
-    }
-
     // Check authentication
     const {
       data: { user },
