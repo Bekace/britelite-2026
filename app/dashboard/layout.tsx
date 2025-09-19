@@ -45,8 +45,9 @@ export default async function DashboardLayout({
         } = await supabase.auth.refreshSession()
 
         if (refreshError || !session?.user) {
-          console.error("[v0] Session refresh failed:", refreshError?.message || "No user after refresh")
+          console.error("[v0] Session refresh failed:", refreshError?.message || "Auth session missing!")
           redirect("/auth/login")
+          return // This return will never be reached due to redirect, but makes the code clearer
         }
 
         // Use the refreshed user
