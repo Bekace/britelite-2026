@@ -32,6 +32,8 @@ export default async function DashboardLayout({
       error,
     } = await supabase.auth.getUser()
 
+    let resolvedUser = user
+
     // Handle auth errors more gracefully
     if (error) {
       // Check if it's a session-related error that might be recoverable
@@ -47,29 +49,10 @@ export default async function DashboardLayout({
         if (refreshError || !session?.user) {
           console.error("[v0] Session refresh failed:", refreshError?.message || "Auth session missing!")
           redirect("/auth/login")
-          return // This return will never be reached due to redirect, but makes the code clearer
         }
 
         // Use the refreshed user
-        const refreshedUser = session.user
-
-        return (
-          <UserProvider>
-            <div className="flex h-screen bg-background">
-              {/* Sidebar */}
-              <DashboardSidebar />
-
-              {/* Main Content */}
-              <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Header */}
-                <DashboardHeader user={refreshedUser} />
-
-                {/* Page Content */}
-                <main className="flex-1 overflow-y-auto p-6">{children}</main>
-              </div>
-            </div>
-          </UserProvider>
-        )
+        resolvedUser = session.user
       } else {
         // For non-session errors, redirect to login
         console.error("[v0] Auth error:", error.message)
@@ -77,8 +60,8 @@ export default async function DashboardLayout({
       }
     }
 
-    // If no user, redirect to login
-    if (!user) {
+    // If no user after all attempts, redirect to login
+    if (!resolvedUser) {
       redirect("/auth/login")
     }
 
@@ -91,7 +74,7 @@ export default async function DashboardLayout({
           {/* Main Content */}
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Header */}
-            <DashboardHeader user={user} />
+            <DashboardHeader user={resolvedUser} />
 
             {/* Page Content */}
             <main className="flex-1 overflow-y-auto p-6">{children}</main>
