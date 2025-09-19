@@ -86,7 +86,7 @@ export function useUploadLimits(): UploadLimits & {
   const refresh = useCallback(async () => {
     setLoading(true)
     await fetchUploadLimits()
-  }, [fetchUploadLimits])
+  }, []) // Removed fetchUploadLimits from dependency array to prevent circular dependency
 
   return { ...limits, loading, error, refresh }
 }
