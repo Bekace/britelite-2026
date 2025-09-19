@@ -30,7 +30,7 @@ interface SubscriptionPlan {
   billing_cycle: "monthly" | "yearly"
   max_screens: number
   max_media_storage: number
-  features?: { max_playlists?: number } // Added features type with max_playlists
+  max_playlists: number // Changed from features?.max_playlists to dedicated column
   is_active: boolean
   subscriber_count?: number
   created_at: string
@@ -109,9 +109,7 @@ export function PlanManagement() {
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
         max_media_storage: storageBytes,
-        features: {
-          max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
-        },
+        max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists), // Store directly in max_playlists column
       }
 
       const response = await fetch("/api/admin/plans", {
@@ -160,9 +158,7 @@ export function PlanManagement() {
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
         max_media_storage: storageBytes,
-        features: {
-          max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
-        },
+        max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists), // Store directly in max_playlists column
       }
 
       const response = await fetch(`/api/admin/plans/${editingPlan.id}`, {
@@ -244,7 +240,6 @@ export function PlanManagement() {
 
   const openEditDialog = (plan: SubscriptionPlan) => {
     const storageValue = bytesToStorage(plan.max_media_storage)
-    const maxPlaylists = plan.features?.max_playlists || 1
 
     setFormData({
       name: plan.name,
@@ -254,7 +249,7 @@ export function PlanManagement() {
       max_screens: plan.max_screens.toString(),
       max_media_storage: storageValue.value.toString(),
       storage_unit: storageValue.unit,
-      max_playlists: maxPlaylists.toString(),
+      max_playlists: plan.max_playlists.toString(), // Use dedicated column instead of features
       is_active: plan.is_active,
     })
     setEditingPlan(plan)
@@ -319,7 +314,7 @@ export function PlanManagement() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Max Playlists:</span>
-                    <span className="font-medium">{plan.features?.max_playlists || 1}</span>
+                    <span className="font-medium">{plan.max_playlists}</span> {/* Use dedicated column */}
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Subscribers:</span>
@@ -375,7 +370,7 @@ export function PlanManagement() {
                     <TableCell className="capitalize">{plan.billing_cycle}</TableCell>
                     <TableCell>{plan.max_screens}</TableCell>
                     <TableCell>{formatStorage(plan.max_media_storage)}</TableCell>
-                    <TableCell>{plan.features?.max_playlists || 1}</TableCell>
+                    <TableCell>{plan.max_playlists}</TableCell> {/* Use dedicated column */}
                     <TableCell>{plan.subscriber_count || 0}</TableCell>
                     <TableCell>
                       <Badge
