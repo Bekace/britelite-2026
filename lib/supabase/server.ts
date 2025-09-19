@@ -1,10 +1,8 @@
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
-export function isSupabaseConfigured() {
-  const hasPublicVars = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  const hasServerVars = !!(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY)
-  return hasPublicVars || hasServerVars
+export function isSupabaseConfigured(): boolean {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
 }
 
 export async function createClient() {
