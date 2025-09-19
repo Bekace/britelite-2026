@@ -81,7 +81,7 @@ export function useUploadLimits(): UploadLimits & {
 
   useEffect(() => {
     fetchUploadLimits()
-  }, [fetchUploadLimits]) // Include fetchUploadLimits in dependency array
+  }, []) // Removed fetchUploadLimits from dependency array to prevent infinite loop
 
   const refresh = useCallback(async () => {
     setLoading(true)
