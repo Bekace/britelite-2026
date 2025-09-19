@@ -294,6 +294,7 @@ export default function MediaLibraryPage() {
         setMedia((prev) => [newMedia, ...prev])
         setSelectedFile(null)
         setTags("")
+        await uploadLimits.refresh()
         toast({
           title: "Success",
           description: "Media uploaded successfully",
