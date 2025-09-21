@@ -664,11 +664,14 @@ export default function PlaylistsPage() {
 
   const fetchPlaylistLimits = async () => {
     try {
+      console.log("[v0] Fetching playlist limits...")
       const response = await fetch("/api/playlist-limits")
       if (response.ok) {
         const data = await response.json()
+        console.log("[v0] Playlist limits response:", data)
         setPlaylistLimits(data)
       } else {
+        console.log("[v0] Playlist limits API failed, using defaults")
         // If no limits endpoint, allow unlimited creation
         setPlaylistLimits({
           maxPlaylists: -1,
@@ -991,7 +994,9 @@ export default function PlaylistsPage() {
   }
 
   const handleOpenCreateDialog = () => {
-    if (!playlistLimits.canCreate && playlistLimits.maxPlaylists !== -1) {
+    console.log("[v0] Create button clicked, limits:", playlistLimits)
+
+    if (!playlistLimits.canCreate) {
       toast({
         title: "Playlist Limit Reached",
         description: `You can only create ${playlistLimits.maxPlaylists} playlists with your current plan. Please upgrade to create more playlists.`,
@@ -1000,6 +1005,7 @@ export default function PlaylistsPage() {
       return
     }
 
+    console.log("[v0] Opening create dialog...")
     setPreviewPlaylist(null)
     setShowCreateDialog(true)
   }
@@ -1244,14 +1250,14 @@ export default function PlaylistsPage() {
           <Button
             className="bg-cyan-500 hover:bg-cyan-600"
             onClick={handleOpenCreateDialog}
-            disabled={!playlistLimits.canCreate && playlistLimits.maxPlaylists !== -1}
+            disabled={!playlistLimits.canCreate}
           >
             <Plus className="h-4 w-4 mr-2" />
             Create
           </Button>
         </div>
 
-        {playlistLimits.maxPlaylists !== -1 && (
+        {playlistLimits.maxPlaylists > 0 && (
           <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
             <div className="flex justify-between items-center">
               <span>Playlists:</span>
