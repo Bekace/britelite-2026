@@ -21,8 +21,9 @@ export async function GET() {
       .from("profiles")
       .select(`
         *,
-        user_subscriptions!left(
+        user_subscriptions(
           status,
+          plan_id,
           subscription_plans(
             max_media_storage,
             storage_unit
@@ -37,32 +38,45 @@ export async function GET() {
     let maxStorage = 1048576 // Default 1 MB in bytes
     let storageUnit = "MB"
 
-    if (userData && userData.user_subscriptions && userData.user_subscriptions.subscription_plans) {
-      // User has an active subscription with valid plan
-      const plan = userData.user_subscriptions.subscription_plans
-      maxStorage = plan.max_media_storage
-      storageUnit = plan.storage_unit || "MB"
-      console.log("[v0] Using subscription plan storage:", { maxStorage, storageUnit })
+    if (userData && userData.user_subscriptions && userData.user_subscriptions.length > 0) {
+      const activeSubscription = userData.user_subscriptions.find((sub) => sub.status === "active")
+      if (activeSubscription && activeSubscription.subscription_plans) {
+        // User has an active subscription with valid plan
+        const plan = activeSubscription.subscription_plans
+        maxStorage = plan.max_media_storage
+        storageUnit = plan.storage_unit || "MB"
+        console.log("[v0] Using subscription plan storage:", { maxStorage, storageUnit })
+      } else {
+        console.log("[v0] Active subscription found but no plan data, fetching Free plan")
+        // Fetch Free plan as fallback
+        const { data: freePlan, error: freePlanError } = await supabase
+          .from("subscription_plans")
+          .select("max_media_storage, storage_unit, name")
+          .eq("name", "Free")
+          .eq("is_active", true)
+          .single()
+
+        if (freePlan && !freePlanError) {
+          maxStorage = freePlan.max_media_storage
+          storageUnit = freePlan.storage_unit || "MB"
+          console.log("[v0] Using Free plan storage:", { maxStorage, storageUnit })
+        }
+      }
     } else {
-      // User has no subscription OR subscription has null plan - fetch Free plan
-      console.log("[v0] No valid subscription plan found, fetching default Free plan")
+      // User has no subscription - fetch Free plan
+      console.log("[v0] No subscription found, fetching Free plan")
 
       const { data: freePlan, error: freePlanError } = await supabase
         .from("subscription_plans")
         .select("max_media_storage, storage_unit, name")
+        .eq("name", "Free")
         .eq("is_active", true)
-        .order("price", { ascending: true })
-        .limit(1)
         .single()
-
-      console.log("[v0] Free plan query result:", { freePlan, freePlanError })
 
       if (freePlan && !freePlanError) {
         maxStorage = freePlan.max_media_storage
         storageUnit = freePlan.storage_unit || "MB"
-        console.log("[v0] Using Free plan storage:", { maxStorage, storageUnit, planName: freePlan.name })
-      } else {
-        console.log("[v0] Free plan not found, using hardcoded defaults")
+        console.log("[v0] Using Free plan storage:", { maxStorage, storageUnit })
       }
     }
 
