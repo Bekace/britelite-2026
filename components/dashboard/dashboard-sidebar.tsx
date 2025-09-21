@@ -82,12 +82,7 @@ export function DashboardSidebar() {
   const pathname = usePathname()
   const { profile } = useUser()
 
-  console.log("[v0] DashboardSidebar - profile:", profile)
-  console.log("[v0] DashboardSidebar - profile role:", profile?.role)
-
   const isAdmin = profile?.role === "admin" || profile?.role === "superadmin"
-
-  console.log("[v0] DashboardSidebar - isAdmin:", isAdmin)
 
   return (
     <div
