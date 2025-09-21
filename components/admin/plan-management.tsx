@@ -20,14 +20,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Plus, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import {
-  type StorageUnit,
-  STORAGE_UNITS,
-  storageToBytes,
-  bytesToStorage,
-  formatStorage,
-  formatStorageWithUnit,
-} from "@/lib/storage-utils"
+import type { StorageUnit } from "@/lib/storage-utils"
 
 interface SubscriptionPlan {
   id: string
@@ -50,8 +43,7 @@ interface PlanFormData {
   price: string
   billing_cycle: "monthly" | "yearly"
   max_screens: string
-  max_media_storage: string
-  storage_unit: StorageUnit
+  max_media_storage: string // Now stores simple integer value in GB
   max_playlists: string
   is_active: boolean
 }
@@ -69,8 +61,7 @@ export function PlanManagement() {
     price: "0",
     billing_cycle: "monthly",
     max_screens: "1",
-    max_media_storage: "1",
-    storage_unit: "GB",
+    max_media_storage: "1", // Default to 1 GB
     max_playlists: "1",
     is_active: true,
   })
@@ -107,17 +98,13 @@ export function PlanManagement() {
 
   const handleCreatePlan = async () => {
     try {
-      const storageBytes =
-        formData.storage_unit === "unlimited"
-          ? -1
-          : storageToBytes(Number.parseInt(formData.max_media_storage), formData.storage_unit)
-
       const planData = {
         ...formData,
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
-        max_media_storage: storageBytes,
-        max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists), // Store directly in max_playlists column
+        max_media_storage: Number.parseInt(formData.max_media_storage), // Store simple integer value
+        storage_unit: "GB", // Always use GB as the unit
+        max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
       }
 
       const response = await fetch("/api/admin/plans", {
@@ -156,17 +143,13 @@ export function PlanManagement() {
     if (!editingPlan) return
 
     try {
-      const storageBytes =
-        formData.storage_unit === "unlimited"
-          ? -1
-          : storageToBytes(Number.parseInt(formData.max_media_storage), formData.storage_unit)
-
       const planData = {
         ...formData,
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
-        max_media_storage: storageBytes,
-        max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists), // Store directly in max_playlists column
+        max_media_storage: Number.parseInt(formData.max_media_storage), // Store simple integer value
+        storage_unit: "GB", // Always use GB as the unit
+        max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
       }
 
       const response = await fetch(`/api/admin/plans/${editingPlan.id}`, {
@@ -192,7 +175,6 @@ export function PlanManagement() {
         })
       }
     } catch (error) {
-      console.error("[v0] Error updating plan:", error)
       toast({
         title: "Error",
         description: "Failed to update plan",
@@ -239,26 +221,20 @@ export function PlanManagement() {
       price: "0",
       billing_cycle: "monthly",
       max_screens: "1",
-      max_media_storage: "1",
-      storage_unit: "GB",
+      max_media_storage: "1", // Default to 1 GB
       max_playlists: "1",
       is_active: true,
     })
   }
 
   const openEditDialog = (plan: SubscriptionPlan) => {
-    const storageValue = plan.storage_unit
-      ? { value: plan.max_media_storage, unit: plan.storage_unit }
-      : bytesToStorage(plan.max_media_storage)
-
     setFormData({
       name: plan.name,
       description: plan.description,
       price: plan.price.toString(),
       billing_cycle: plan.billing_cycle,
       max_screens: plan.max_screens.toString(),
-      max_media_storage: storageValue.value.toString(),
-      storage_unit: storageValue.unit,
+      max_media_storage: plan.max_media_storage.toString(), // Use the integer value directly
       max_playlists: plan.max_playlists.toString(),
       is_active: plan.is_active,
     })
@@ -320,11 +296,8 @@ export function PlanManagement() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Storage:</span>
-                    <span className="font-medium">
-                      {plan.storage_unit
-                        ? formatStorageWithUnit(plan.max_media_storage, plan.storage_unit)
-                        : formatStorage(plan.max_media_storage)}
-                    </span>
+                    <span className="font-medium">{plan.max_media_storage} GB</span>{" "}
+                    {/* Display simple integer with GB */}
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Max Playlists:</span>
@@ -383,11 +356,7 @@ export function PlanManagement() {
                     <TableCell>{formatCurrency(plan.price)}</TableCell>
                     <TableCell className="capitalize">{plan.billing_cycle}</TableCell>
                     <TableCell>{plan.max_screens}</TableCell>
-                    <TableCell>
-                      {plan.storage_unit
-                        ? formatStorageWithUnit(plan.max_media_storage, plan.storage_unit)
-                        : formatStorage(plan.max_media_storage)}
-                    </TableCell>
+                    <TableCell>{plan.max_media_storage} GB</TableCell> {/* Display simple integer with GB */}
                     <TableCell>{plan.max_playlists}</TableCell> {/* Use dedicated column */}
                     <TableCell>{plan.subscriber_count || 0}</TableCell>
                     <TableCell>
@@ -509,41 +478,15 @@ export function PlanManagement() {
                 />
               </div>
               <div>
-                <Label>Storage Amount</Label>
+                <Label>Storage (GB)</Label> {/* Updated label to show GB unit */}
                 <Input
                   type="number"
                   min="1"
                   value={formData.max_media_storage}
                   onChange={(e) => setFormData({ ...formData, max_media_storage: e.target.value })}
                   placeholder="e.g., 10"
-                  disabled={formData.storage_unit === "unlimited"}
                 />
               </div>
-            </div>
-
-            <div>
-              <Label>Storage Unit</Label>
-              <Select
-                value={formData.storage_unit}
-                onValueChange={(value: StorageUnit) => {
-                  setFormData({
-                    ...formData,
-                    storage_unit: value,
-                    max_media_storage: value === "unlimited" ? "0" : formData.max_media_storage,
-                  })
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STORAGE_UNITS.map((unit) => (
-                    <SelectItem key={unit.value} value={unit.value}>
-                      {unit.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <DialogFooter>
