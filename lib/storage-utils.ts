@@ -55,7 +55,7 @@ export function formatStorage(bytes: number): string {
   if (bytes === -1) return "Unlimited"
 
   const { value, unit } = bytesToStorage(bytes)
-  return `${value}${unit}`
+  return `${value} ${unit}`
 }
 
 // Get the best unit for a given value in bytes
