@@ -49,15 +49,18 @@ export async function GET() {
 
       const { data: freePlan, error: freePlanError } = await supabase
         .from("subscription_plans")
-        .select("max_media_storage, storage_unit")
-        .eq("name", "Free")
+        .select("max_media_storage, storage_unit, name")
         .eq("is_active", true)
+        .order("price", { ascending: true })
+        .limit(1)
         .single()
+
+      console.log("[v0] Free plan query result:", { freePlan, freePlanError })
 
       if (freePlan && !freePlanError) {
         maxStorage = freePlan.max_media_storage
         storageUnit = freePlan.storage_unit || "MB"
-        console.log("[v0] Using Free plan storage:", { maxStorage, storageUnit })
+        console.log("[v0] Using Free plan storage:", { maxStorage, storageUnit, planName: freePlan.name })
       } else {
         console.log("[v0] Free plan not found, using hardcoded defaults")
       }
