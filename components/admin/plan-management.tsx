@@ -43,7 +43,8 @@ interface PlanFormData {
   price: string
   billing_cycle: "monthly" | "yearly"
   max_screens: string
-  max_media_storage: string // Now stores simple integer value in GB
+  max_media_storage: string // Now stores just the integer value
+  storage_unit: string // Added storage unit field
   max_playlists: string
   is_active: boolean
 }
@@ -61,7 +62,8 @@ export function PlanManagement() {
     price: "0",
     billing_cycle: "monthly",
     max_screens: "1",
-    max_media_storage: "1", // Default to 1 GB
+    max_media_storage: "1", // Just the integer value
+    storage_unit: "GB", // Default unit
     max_playlists: "1",
     is_active: true,
   })
@@ -102,8 +104,8 @@ export function PlanManagement() {
         ...formData,
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
-        max_media_storage: Number.parseInt(formData.max_media_storage), // Store simple integer value
-        storage_unit: "GB", // Always use GB as the unit
+        max_media_storage: Number.parseInt(formData.max_media_storage), // Store integer value
+        storage_unit: formData.storage_unit, // Store selected unit
         max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
       }
 
@@ -147,8 +149,8 @@ export function PlanManagement() {
         ...formData,
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
-        max_media_storage: Number.parseInt(formData.max_media_storage), // Store simple integer value
-        storage_unit: "GB", // Always use GB as the unit
+        max_media_storage: Number.parseInt(formData.max_media_storage), // Store integer value
+        storage_unit: formData.storage_unit, // Store selected unit
         max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
       }
 
@@ -221,7 +223,8 @@ export function PlanManagement() {
       price: "0",
       billing_cycle: "monthly",
       max_screens: "1",
-      max_media_storage: "1", // Default to 1 GB
+      max_media_storage: "1", // Just integer
+      storage_unit: "GB", // Default unit
       max_playlists: "1",
       is_active: true,
     })
@@ -234,7 +237,8 @@ export function PlanManagement() {
       price: plan.price.toString(),
       billing_cycle: plan.billing_cycle,
       max_screens: plan.max_screens.toString(),
-      max_media_storage: plan.max_media_storage.toString(), // Use the integer value directly
+      max_media_storage: plan.max_media_storage.toString(), // Use integer value
+      storage_unit: plan.storage_unit || "GB", // Use plan's unit or default to GB
       max_playlists: plan.max_playlists.toString(),
       is_active: plan.is_active,
     })
@@ -296,8 +300,10 @@ export function PlanManagement() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Storage:</span>
-                    <span className="font-medium">{plan.max_media_storage} GB</span>{" "}
-                    {/* Display simple integer with GB */}
+                    <span className="font-medium">
+                      {plan.max_media_storage} {plan.storage_unit || "GB"}
+                    </span>{" "}
+                    {/* Display integer + unit */}
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Max Playlists:</span>
@@ -356,7 +362,10 @@ export function PlanManagement() {
                     <TableCell>{formatCurrency(plan.price)}</TableCell>
                     <TableCell className="capitalize">{plan.billing_cycle}</TableCell>
                     <TableCell>{plan.max_screens}</TableCell>
-                    <TableCell>{plan.max_media_storage} GB</TableCell> {/* Display simple integer with GB */}
+                    <TableCell>
+                      {plan.max_media_storage} {plan.storage_unit || "GB"}
+                    </TableCell>{" "}
+                    {/* Display integer + unit */}
                     <TableCell>{plan.max_playlists}</TableCell> {/* Use dedicated column */}
                     <TableCell>{plan.subscriber_count || 0}</TableCell>
                     <TableCell>
@@ -478,14 +487,32 @@ export function PlanManagement() {
                 />
               </div>
               <div>
-                <Label>Storage (GB)</Label> {/* Updated label to show GB unit */}
-                <Input
-                  type="number"
-                  min="1"
-                  value={formData.max_media_storage}
-                  onChange={(e) => setFormData({ ...formData, max_media_storage: e.target.value })}
-                  placeholder="e.g., 10"
-                />
+                <Label>Storage</Label> {/* Removed hardcoded unit from label */}
+                <div className="flex gap-2">
+                  {" "}
+                  {/* Added flex container for input + dropdown */}
+                  <Input
+                    type="number"
+                    min="1"
+                    value={formData.max_media_storage}
+                    onChange={(e) => setFormData({ ...formData, max_media_storage: e.target.value })}
+                    placeholder="e.g., 10"
+                    className="flex-1"
+                  />
+                  <Select
+                    value={formData.storage_unit}
+                    onValueChange={(value) => setFormData({ ...formData, storage_unit: value })}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MB">MB</SelectItem>
+                      <SelectItem value="GB">GB</SelectItem>
+                      <SelectItem value="TB">TB</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>
