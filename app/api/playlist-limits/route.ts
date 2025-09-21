@@ -39,9 +39,10 @@ export async function GET() {
       .from("profiles")
       .select(`
         *,
-        user_subscriptions!left(
+        user_subscriptions(
           status,
-          subscription_plans!inner(
+          plan_id,
+          subscription_plans(
             name,
             max_playlists
           )
@@ -78,7 +79,9 @@ export async function GET() {
 
     let maxPlaylists: number
 
-    const activeSubscription = userData?.user_subscriptions?.find((sub: any) => sub.status === "active")
+    const activeSubscription = userData?.user_subscriptions?.find(
+      (sub: any) => sub.status === "active" && sub.subscription_plans?.max_playlists !== null,
+    )
     console.log("[v0] Active subscription search result:", activeSubscription) // Added active subscription logging
 
     if (activeSubscription?.subscription_plans?.max_playlists) {
