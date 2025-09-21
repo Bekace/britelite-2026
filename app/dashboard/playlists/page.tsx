@@ -537,6 +537,7 @@ export default function PlaylistsPage() {
     scale_document: "fit",
     shuffle: false,
     default_transition: "fade",
+    background_color: "#000000", // Added background_color to newPlaylist state
   })
   const [creating, setCreating] = useState(false)
   const [previewPlaylist, setPreviewPlaylist] = useState<Playlist | null>(null)
@@ -630,10 +631,14 @@ export default function PlaylistsPage() {
     }
   }
 
-  const fetchPlaylistItems = async (playlistId: string) => {
+  const fetchPlaylistItems = async (playlistId?: string) => {
+    // If playlistId is not provided, use the currently selected playlist
+    const idToFetch = playlistId || selectedPlaylist?.id
+    if (!idToFetch) return
+
     setLoadingItems(true)
     try {
-      const response = await fetch(`/api/playlists/${playlistId}`)
+      const response = await fetch(`/api/playlists/${idToFetch}`)
       if (response.ok) {
         const data = await response.json()
         const sortedItems =
@@ -701,15 +706,22 @@ export default function PlaylistsPage() {
         },
         body: JSON.stringify({
           media_id: mediaId,
-          duration: 10,
+          duration: 10, // Default duration
         }),
       })
 
       if (response.ok) {
-        fetchPlaylistItems(selectedPlaylist.id)
+        fetchPlaylistItems() // Re-fetch items for the selected playlist
         toast({
           title: "Success",
           description: "Media added to playlist",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to add media to playlist",
+          variant: "destructive",
         })
       }
     } catch (error) {
@@ -737,10 +749,17 @@ export default function PlaylistsPage() {
       })
 
       if (response.ok) {
-        fetchPlaylistItems(selectedPlaylist.id)
+        fetchPlaylistItems() // Re-fetch items for the selected playlist
         toast({
           title: "Success",
           description: "Item removed from playlist",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to remove item",
+          variant: "destructive",
         })
       }
     } catch (error) {
@@ -787,9 +806,10 @@ export default function PlaylistsPage() {
           scale_document: "fit",
           shuffle: false,
           default_transition: "fade",
+          background_color: "#000000", // Reset background color
         })
         setShowCreateDialog(false)
-        setSelectedPlaylist(newPlaylistData)
+        setSelectedPlaylist(newPlaylistData) // Select the newly created playlist
         setPlaylistLimits((prev) => ({
           ...prev,
           currentCount: prev.currentCount + 1,
@@ -842,9 +862,10 @@ export default function PlaylistsPage() {
           description: "Playlist deleted successfully",
         })
       } else {
+        const error = await response.json()
         toast({
           title: "Error",
-          description: "Failed to delete playlist",
+          description: error.error || "Failed to delete playlist",
           variant: "destructive",
         })
       }
@@ -855,8 +876,6 @@ export default function PlaylistsPage() {
         description: "Failed to delete playlist",
         variant: "destructive",
       })
-    } finally {
-      setCreating(false)
     }
   }
 
@@ -879,7 +898,10 @@ export default function PlaylistsPage() {
         }),
       })
 
-      if (!response.ok) throw new Error("Failed to update item")
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to update item")
+      }
 
       setPlaylistItems((prev) =>
         prev.map((item) =>
@@ -964,19 +986,21 @@ export default function PlaylistsPage() {
 
       if (!response.ok) {
         // Revert on error
-        fetchPlaylistItems(selectedPlaylist.id)
+        fetchPlaylistItems()
+        const error = await response.json()
         toast({
           title: "Error",
-          description: "Failed to reorder items",
+          description: error.error || "Failed to reorder items",
           variant: "destructive",
         })
       }
     } catch (error) {
       console.error("Error reordering items:", error)
-      fetchPlaylistItems(selectedPlaylist.id)
+      fetchPlaylistItems()
       toast({
         title: "Error",
         description: "Failed to reorder items",
+        variant: "destructive",
       })
     }
 
@@ -1013,7 +1037,7 @@ export default function PlaylistsPage() {
   const handleEditItem = (item: PlaylistItem) => {
     setEditingItem(item)
     setEditForm({
-      name: item.media.name,
+      name: item.media.name, // This should probably be editable, but for now it's just display
       duration_override: item.duration_override || 10,
       start_time: item.start_time || 0,
       end_time: item.end_time || 0,
@@ -1025,10 +1049,15 @@ export default function PlaylistsPage() {
     setShowEditDialog(true)
   }
 
-  const [items, setItems] = useState<PlaylistItem[]>([])
+  const [items, setItems] = useState<PlaylistItem[]>([]) // This seems to be a duplicate state, likely intended for PlaylistPreviewModal
 
   const goToNext = useCallback(() => {
     console.log("[v0] goToNext called, currentIndex:", currentIndex, "total items:", playlistItems.length)
+
+    if (playlistItems.length === 0) {
+      console.log("[v0] No items to advance to")
+      return
+    }
 
     if (currentIndex < playlistItems.length - 1) {
       const nextItem = playlistItems[currentIndex + 1]
@@ -1071,7 +1100,7 @@ export default function PlaylistsPage() {
     }
   }, [autoLoop, currentIndex, playlistItems, setIsPlaying, setIsTransitioning, setTimeRemaining])
 
-  const goToPrevious = () => {
+  const goToPrevious = useCallback(() => {
     if (currentIndex > 0) {
       const previousItem = playlistItems[currentIndex - 1]
       const transitionType = previousItem?.transition_type || "fade"
@@ -1085,8 +1114,21 @@ export default function PlaylistsPage() {
         setTimeRemaining(playlistItems[currentIndex - 1]?.duration_override || 10)
         setIsTransitioning(false)
       }, transitionDuration * 1000)
+    } else if (autoLoop && playlistItems.length > 0) {
+      // Added check for playlistItems.length > 0
+      const lastIndex = playlistItems.length - 1
+      const lastItem = playlistItems[lastIndex]
+      const transitionType = lastItem?.transition_type || "fade"
+      const transitionDuration = lastItem?.transition_duration || 0.8
+
+      setIsTransitioning(true)
+      setTimeout(() => {
+        setCurrentIndex(lastIndex)
+        setTimeRemaining(lastItem?.duration_override || 10)
+        setIsTransitioning(false)
+      }, transitionDuration * 1000)
     }
-  }
+  }, [autoLoop, currentIndex, playlistItems, setIsTransitioning, setTimeRemaining])
 
   const renderMedia = () => {
     if (!playlistItems.length || currentIndex >= playlistItems.length) return null
@@ -1103,6 +1145,7 @@ export default function PlaylistsPage() {
 
     const getTransitionStyle = () => {
       const baseStyle = {
+        transitionProperty: "opacity, transform", // Specify properties to transition
         transitionDuration: `${transitionDuration}s`,
         transitionTimingFunction: "ease-in-out",
       }
@@ -1112,9 +1155,9 @@ export default function PlaylistsPage() {
           case "fade":
             return { ...baseStyle, opacity: 0 }
           case "slide-left":
-            return { ...baseStyle, transform: "translateX(-100%)", opacity: 1 }
+            return { ...baseStyle, transform: "translateX(-100%)", opacity: 1 } // Keep opacity 1 for slide
           case "slide-right":
-            return { ...baseStyle, transform: "translateX(100%)", opacity: 1 }
+            return { ...baseStyle, transform: "translateX(100%)", opacity: 1 } // Keep opacity 1 for slide
           case "cross-fade":
             return { ...baseStyle, opacity: 0, transform: "scale(0.95)" }
           case "zoom":
@@ -1158,6 +1201,7 @@ export default function PlaylistsPage() {
           )}
         </div>
 
+        {/* This part seems to be for visual feedback during cross-fade, might need adjustment */}
         {transitionType === "cross-fade" && isTransitioning && (
           <div className="absolute inset-0 bg-black/20 transition-opacity duration-500" />
         )}
@@ -1189,7 +1233,10 @@ export default function PlaylistsPage() {
         body: JSON.stringify({ background_color: backgroundColor }),
       })
 
-      if (!response.ok) throw new Error("Failed to update background color")
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to update background color")
+      }
 
       const { playlist } = await response.json()
       console.log("[v0] Background color updated successfully:", playlist.background_color)
@@ -1204,6 +1251,7 @@ export default function PlaylistsPage() {
       }
     } catch (error) {
       console.error("Error updating background color:", error)
+      toast({ title: "Failed to update background color", variant: "destructive" })
     }
   }
 
@@ -1225,13 +1273,17 @@ export default function PlaylistsPage() {
         body: JSON.stringify(settings),
       })
 
-      if (!response.ok) throw new Error("Failed to update playlist settings")
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to update playlist settings")
+      }
 
       const { playlist } = await response.json()
 
       setPlaylists((prev) => prev.map((p) => (p.id === selectedPlaylist.id ? { ...p, ...settings } : p)))
 
       setSelectedPlaylist({ ...selectedPlaylist, ...settings })
+      toast({ title: "Playlist settings updated successfully" })
     } catch (error) {
       console.error("Error updating playlist settings:", error)
       toast({
@@ -1369,6 +1421,14 @@ export default function PlaylistsPage() {
                     <div className="flex items-center justify-center py-8">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-500"></div>
                     </div>
+                  ) : availableMedia.length === 0 ? (
+                    <Card>
+                      <CardContent className="flex flex-col items-center justify-center py-8">
+                        <PlayCircle className="h-8 w-8 text-gray-400 mb-2" />
+                        <p className="text-sm text-gray-600 text-center">No media found.</p>
+                        <p className="text-xs text-gray-500 mt-1">Upload some media to get started.</p>
+                      </CardContent>
+                    </Card>
                   ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-64 overflow-y-auto">
                       {availableMedia.map((media) => (
@@ -1683,6 +1743,64 @@ export default function PlaylistsPage() {
           </Card>
         )}
       </div>
+
+      {/* ADDED: Create Playlist Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Playlist</DialogTitle>
+            <DialogDescription>Create a new playlist to organize your media content</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="playlist-name">Playlist Name</Label>
+              <Input
+                id="playlist-name"
+                value={newPlaylist.name}
+                onChange={(e) => setNewPlaylist((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter playlist name"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="playlist-description">Description (Optional)</Label>
+              <Textarea
+                id="playlist-description"
+                value={newPlaylist.description}
+                onChange={(e) => setNewPlaylist((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder="Enter playlist description"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="background-color">Background Color</Label>
+              <Input
+                id="background-color"
+                type="color"
+                value={newPlaylist.background_color}
+                onChange={(e) => setNewPlaylist((prev) => ({ ...prev, background_color: e.target.value }))}
+                className="w-full h-10"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreatePlaylist}
+              disabled={creating || !newPlaylist.name.trim()}
+              className="bg-cyan-500 hover:bg-cyan-600"
+            >
+              {creating ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : null}
+              Create Playlist
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent className="max-w-md">
