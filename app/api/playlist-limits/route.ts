@@ -20,7 +20,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("[v0] User ID:", user.id)
+    console.log("[v0] User ID:", user.id) // Added user ID logging
 
     // Get user's current playlist count
     const { count: currentCount, error: countError } = await supabase
@@ -33,26 +33,7 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to count playlists" }, { status: 500 })
     }
 
-    console.log("[v0] Current playlist count:", currentCount)
-
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single()
-
-    console.log("[v0] User profile:", { profile, profileError })
-
-    if (profile?.role === "superadmin") {
-      console.log("[v0] Super admin detected - unlimited playlists")
-      return NextResponse.json({
-        maxPlaylists: -1, // -1 means unlimited
-        currentCount: currentCount || 0,
-        canCreate: true,
-        hasSubscription: true,
-        userRole: "superadmin",
-      })
-    }
+    console.log("[v0] Current playlist count:", currentCount) // Added playlist count logging
 
     const { data: userData, error: userError } = await supabase
       .from("profiles")
@@ -60,6 +41,7 @@ export async function GET() {
         *,
         user_subscriptions!left(
           status,
+          plan_id,
           subscription_plans!inner(
             name,
             max_playlists
@@ -74,7 +56,6 @@ export async function GET() {
     if (userError) {
       console.error("Error fetching user data:", userError)
       console.log("[v0] Falling back to Free plan due to user data error")
-
       const { data: freePlan, error: freePlanError } = await supabase
         .from("subscription_plans")
         .select("max_playlists")
@@ -93,23 +74,20 @@ export async function GET() {
         maxPlaylists: freePlan.max_playlists,
         currentCount: currentCount || 0,
         canCreate: (currentCount || 0) < freePlan.max_playlists,
-        hasSubscription: false,
-        userRole: profile?.role || "user",
       })
     }
 
     let maxPlaylists: number
 
-    const activeSubscription = userData?.user_subscriptions?.find((sub: any) => sub.status === "active")
-    console.log("[v0] Active subscription search result:", activeSubscription)
+    const userSubscription = userData?.user_subscriptions
+    console.log("[v0] User subscription data:", userSubscription)
 
-    if (activeSubscription?.subscription_plans?.max_playlists) {
+    if (userSubscription?.status === "active" && userSubscription?.subscription_plans?.max_playlists !== undefined) {
       // User has active subscription with valid plan
-      maxPlaylists = activeSubscription.subscription_plans.max_playlists
+      maxPlaylists = userSubscription.subscription_plans.max_playlists
       console.log("[v0] Using active subscription max_playlists:", maxPlaylists)
     } else {
       console.log("[v0] No active subscription found, falling back to Free plan")
-
       const { data: freePlan, error: freePlanError } = await supabase
         .from("subscription_plans")
         .select("max_playlists")
@@ -134,19 +112,39 @@ export async function GET() {
       maxPlaylists,
       currentCount: currentCount || 0,
       canCreate,
-      hasSubscription: !!activeSubscription,
-      userRole: profile?.role || "user",
+      hasSubscription: userSubscription?.status === "active",
     })
 
     return NextResponse.json({
       maxPlaylists,
       currentCount: currentCount || 0,
       canCreate,
-      hasSubscription: !!activeSubscription,
-      userRole: profile?.role || "user",
     })
   } catch (error) {
     console.error("Error checking playlist limits:", error)
+    console.log("[v0] Exception occurred, falling back to Free plan")
+    try {
+      const supabase = await createClient()
+      const { data: freePlan, error: freePlanError } = await supabase
+        .from("subscription_plans")
+        .select("max_playlists")
+        .ilike("name", "%free%")
+        .eq("is_active", true)
+        .single()
+
+      console.log("[v0] Exception fallback Free plan result:", { freePlan, freePlanError }) // Added exception fallback logging
+
+      if (freePlan && !freePlanError) {
+        return NextResponse.json({
+          maxPlaylists: freePlan.max_playlists,
+          currentCount: 0,
+          canCreate: true,
+        })
+      }
+    } catch (fallbackError) {
+      console.error("Error in fallback Free plan fetch:", fallbackError)
+    }
+
     return NextResponse.json({ error: "Failed to check playlist limits" }, { status: 500 })
   }
 }
