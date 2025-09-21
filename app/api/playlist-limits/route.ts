@@ -112,27 +112,43 @@ export async function GET() {
 
 async function getFreePlanLimit(supabase: any): Promise<number> {
   try {
-    const { data: freePlan, error: freePlanError } = await supabase
+    let { data: freePlan, error: freePlanError } = await supabase
       .from("subscription_plans")
-      .select("max_playlists")
+      .select("max_playlists, name")
       .eq("name", "Free")
+      .eq("is_active", true)
       .maybeSingle()
 
-    console.log("[v0] Free plan query result:", { freePlan, freePlanError })
+    console.log("[v0] Free plan exact match result:", { freePlan, freePlanError })
+
+    if (!freePlan && !freePlanError) {
+      const { data: allPlans, error: allPlansError } = await supabase
+        .from("subscription_plans")
+        .select("max_playlists, name")
+        .eq("is_active", true)
+
+      console.log("[v0] All active plans:", { allPlans, allPlansError })
+
+      if (allPlans && allPlans.length > 0) {
+        freePlan = allPlans.reduce((min, plan) => (plan.max_playlists < min.max_playlists ? plan : min))
+        console.log("[v0] Using plan with lowest max_playlists as Free plan:", freePlan)
+      }
+    }
 
     if (freePlanError) {
       console.error("Error fetching Free plan:", freePlanError)
-      return 3 // Fallback to default Free plan limit
+      throw new Error("Failed to fetch Free plan from database")
     }
 
     if (!freePlan) {
-      console.log("[v0] No Free plan found in database, using default limit")
-      return 3 // Default Free plan limit
+      console.error("[v0] No Free plan found in database")
+      throw new Error("No Free plan found in database")
     }
 
-    return freePlan.max_playlists || 3
+    console.log("[v0] Using Free plan max_playlists from database:", freePlan.max_playlists)
+    return freePlan.max_playlists
   } catch (error) {
     console.error("Exception in getFreePlanLimit:", error)
-    return 3 // Fallback to default
+    throw error // Don't use fallback, let the error bubble up
   }
 }
