@@ -38,13 +38,14 @@ export async function GET() {
     let storageUnit = "MB"
 
     if (userData && userData.user_subscriptions && userData.user_subscriptions.subscription_plans) {
-      // User has an active subscription
+      // User has an active subscription with valid plan
       const plan = userData.user_subscriptions.subscription_plans
       maxStorage = plan.max_media_storage
       storageUnit = plan.storage_unit || "MB"
       console.log("[v0] Using subscription plan storage:", { maxStorage, storageUnit })
     } else {
-      console.log("[v0] No subscription found, fetching default Free plan")
+      // User has no subscription OR subscription has null plan - fetch Free plan
+      console.log("[v0] No valid subscription plan found, fetching default Free plan")
 
       const { data: freePlan, error: freePlanError } = await supabase
         .from("subscription_plans")
