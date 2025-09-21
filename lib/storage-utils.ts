@@ -65,3 +65,8 @@ export function getBestStorageUnit(bytes: number): StorageUnit {
   const { unit } = bytesToStorage(bytes)
   return unit
 }
+
+export function formatStorageWithUnit(value: number, unit: StorageUnit): string {
+  if (value === -1 || unit === "unlimited") return "Unlimited"
+  return `${value} ${unit}`
+}

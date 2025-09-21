@@ -20,7 +20,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Plus, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { type StorageUnit, STORAGE_UNITS, storageToBytes, bytesToStorage, formatStorage } from "@/lib/storage-utils"
+import {
+  type StorageUnit,
+  STORAGE_UNITS,
+  storageToBytes,
+  bytesToStorage,
+  formatStorage,
+  formatStorageWithUnit,
+} from "@/lib/storage-utils"
 
 interface SubscriptionPlan {
   id: string
@@ -30,7 +37,8 @@ interface SubscriptionPlan {
   billing_cycle: "monthly" | "yearly"
   max_screens: number
   max_media_storage: number
-  max_playlists: number // Changed from features?.max_playlists to dedicated column
+  storage_unit?: StorageUnit // Add storage_unit field
+  max_playlists: number
   is_active: boolean
   subscriber_count?: number
   created_at: string
@@ -239,7 +247,9 @@ export function PlanManagement() {
   }
 
   const openEditDialog = (plan: SubscriptionPlan) => {
-    const storageValue = bytesToStorage(plan.max_media_storage)
+    const storageValue = plan.storage_unit
+      ? { value: plan.max_media_storage, unit: plan.storage_unit }
+      : bytesToStorage(plan.max_media_storage)
 
     setFormData({
       name: plan.name,
@@ -249,7 +259,7 @@ export function PlanManagement() {
       max_screens: plan.max_screens.toString(),
       max_media_storage: storageValue.value.toString(),
       storage_unit: storageValue.unit,
-      max_playlists: plan.max_playlists.toString(), // Use dedicated column instead of features
+      max_playlists: plan.max_playlists.toString(),
       is_active: plan.is_active,
     })
     setEditingPlan(plan)
@@ -310,7 +320,11 @@ export function PlanManagement() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Storage:</span>
-                    <span className="font-medium">{formatStorage(plan.max_media_storage)}</span>
+                    <span className="font-medium">
+                      {plan.storage_unit
+                        ? formatStorageWithUnit(plan.max_media_storage, plan.storage_unit)
+                        : formatStorage(plan.max_media_storage)}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Max Playlists:</span>
@@ -369,7 +383,11 @@ export function PlanManagement() {
                     <TableCell>{formatCurrency(plan.price)}</TableCell>
                     <TableCell className="capitalize">{plan.billing_cycle}</TableCell>
                     <TableCell>{plan.max_screens}</TableCell>
-                    <TableCell>{formatStorage(plan.max_media_storage)}</TableCell>
+                    <TableCell>
+                      {plan.storage_unit
+                        ? formatStorageWithUnit(plan.max_media_storage, plan.storage_unit)
+                        : formatStorage(plan.max_media_storage)}
+                    </TableCell>
                     <TableCell>{plan.max_playlists}</TableCell> {/* Use dedicated column */}
                     <TableCell>{plan.subscriber_count || 0}</TableCell>
                     <TableCell>
