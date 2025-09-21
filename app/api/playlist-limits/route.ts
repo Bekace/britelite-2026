@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 
 export async function GET() {
   try {
+    console.log("[v0] Fetching playlist limits...")
     const supabase = await createClient()
 
     if (!supabase) {
@@ -34,7 +35,7 @@ export async function GET() {
       .from("profiles")
       .select(`
         *,
-        user_subscriptions!inner(
+        user_subscriptions(
           status,
           subscription_plans(
             max_playlists
@@ -46,7 +47,7 @@ export async function GET() {
 
     if (userError) {
       console.error("Error fetching user data:", userError)
-      // Default to basic limits if we can't fetch user data (no subscription)
+      // Default to basic limits if we can't fetch user data
       return NextResponse.json({
         maxPlaylists: 5, // Default limit for users without subscription
         currentCount: currentCount || 0,
@@ -54,8 +55,25 @@ export async function GET() {
       })
     }
 
-    const maxPlaylists = userData?.user_subscriptions?.subscription_plans?.max_playlists ?? 5
+    let maxPlaylists = 5 // Default for users without subscription
+
+    if (userData?.user_subscriptions && userData.user_subscriptions.length > 0) {
+      // Find active subscription
+      const activeSubscription = userData.user_subscriptions.find((sub: any) => sub.status === "active")
+
+      if (activeSubscription?.subscription_plans?.max_playlists) {
+        maxPlaylists = activeSubscription.subscription_plans.max_playlists
+      }
+    }
+
     const canCreate = maxPlaylists === -1 || (currentCount || 0) < maxPlaylists
+
+    console.log("[v0] Playlist limits calculated:", {
+      maxPlaylists,
+      currentCount: currentCount || 0,
+      canCreate,
+      hasSubscription: !!userData?.user_subscriptions?.length,
+    })
 
     return NextResponse.json({
       maxPlaylists,
