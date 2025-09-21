@@ -47,15 +47,22 @@ export async function GET() {
 
     if (userError) {
       console.error("Error fetching user data:", userError)
-      // Default to basic limits if we can't fetch user data
+      const { data: freePlan } = await supabase
+        .from("subscription_plans")
+        .select("max_playlists")
+        .ilike("name", "%free%")
+        .eq("is_active", true)
+        .single()
+
+      const defaultLimit = freePlan?.max_playlists || 3
       return NextResponse.json({
-        maxPlaylists: 5, // Default limit for users without subscription
+        maxPlaylists: defaultLimit,
         currentCount: currentCount || 0,
-        canCreate: (currentCount || 0) < 5,
+        canCreate: (currentCount || 0) < defaultLimit,
       })
     }
 
-    let maxPlaylists = 5 // Default for users without subscription
+    let maxPlaylists = 3 // Fallback if Free plan not found
 
     if (userData?.user_subscriptions && userData.user_subscriptions.length > 0) {
       // Find active subscription
@@ -63,7 +70,27 @@ export async function GET() {
 
       if (activeSubscription?.subscription_plans?.max_playlists) {
         maxPlaylists = activeSubscription.subscription_plans.max_playlists
+      } else {
+        // User has subscription but no active plan - get Free plan limits
+        const { data: freePlan } = await supabase
+          .from("subscription_plans")
+          .select("max_playlists")
+          .ilike("name", "%free%")
+          .eq("is_active", true)
+          .single()
+
+        maxPlaylists = freePlan?.max_playlists || 3
       }
+    } else {
+      // User has no subscription - get Free plan limits
+      const { data: freePlan } = await supabase
+        .from("subscription_plans")
+        .select("max_playlists")
+        .ilike("name", "%free%")
+        .eq("is_active", true)
+        .single()
+
+      maxPlaylists = freePlan?.max_playlists || 3
     }
 
     const canCreate = maxPlaylists === -1 || (currentCount || 0) < maxPlaylists
@@ -82,9 +109,17 @@ export async function GET() {
     })
   } catch (error) {
     console.error("Error checking playlist limits:", error)
-    // Default to basic limits on error
+    const supabase = await createClient()
+    const { data: freePlan } = await supabase
+      .from("subscription_plans")
+      .select("max_playlists")
+      .ilike("name", "%free%")
+      .eq("is_active", true)
+      .single()
+
+    const defaultLimit = freePlan?.max_playlists || 3
     return NextResponse.json({
-      maxPlaylists: 5,
+      maxPlaylists: defaultLimit,
       currentCount: 0,
       canCreate: true,
     })
