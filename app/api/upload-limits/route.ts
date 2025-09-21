@@ -17,49 +17,51 @@ export async function GET() {
 
     console.log("[v0] Fetching user data for user ID:", user.id)
 
-    const { data: userData, error: userError } = await supabase
-      .from("profiles")
+    const { data: subscriptionData, error: subscriptionError } = await supabase
+      .from("user_subscriptions")
       .select(`
-        *,
-        user_subscriptions!inner(
-          status,
-          plan_id,
-          subscription_plans!inner(
-            max_media_storage,
-            storage_unit
-          )
+        status,
+        plan_id,
+        subscription_plans!inner(
+          max_media_storage,
+          storage_unit
         )
       `)
-      .eq("id", user.id)
-      .eq("user_subscriptions.status", "active")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .not("plan_id", "is", null)
       .single()
 
-    console.log("[v0] User data query result:", { userData, userError })
+    console.log("[v0] Subscription query result:", { subscriptionData, subscriptionError })
 
     let maxStorage = 1048576 // Default 1 MB in bytes
     let storageUnit = "MB"
 
-    if (userData && userData.user_subscriptions && userData.user_subscriptions.subscription_plans) {
+    if (subscriptionData && !subscriptionError && subscriptionData.subscription_plans) {
       // User has an active subscription with valid plan
-      const plan = userData.user_subscriptions.subscription_plans
+      const plan = subscriptionData.subscription_plans
       maxStorage = Number.parseInt(plan.max_media_storage)
       storageUnit = plan.storage_unit || "MB"
       console.log("[v0] Using subscription plan storage:", { maxStorage, storageUnit })
     } else {
-      // User has no active subscription - fetch Free plan
+      // User has no active subscription or broken plan reference - fetch Free plan
       console.log("[v0] No active subscription found, fetching Free plan")
 
       const { data: freePlan, error: freePlanError } = await supabase
         .from("subscription_plans")
         .select("max_media_storage, storage_unit, name")
-        .eq("name", "Free")
+        .eq("price", 0)
         .eq("is_active", true)
         .single()
+
+      console.log("[v0] Free plan query result:", { freePlan, freePlanError })
 
       if (freePlan && !freePlanError) {
         maxStorage = Number.parseInt(freePlan.max_media_storage)
         storageUnit = freePlan.storage_unit || "MB"
         console.log("[v0] Using Free plan storage:", { maxStorage, storageUnit })
+      } else {
+        console.log("[v0] Free plan not found, using hardcoded defaults")
       }
     }
 
