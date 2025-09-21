@@ -32,36 +32,17 @@ export default async function DashboardLayout({
       error,
     } = await supabase.auth.getUser()
 
-    let resolvedUser = user
+    const resolvedUser = user
 
     // Handle auth errors more gracefully
     if (error) {
-      // Check if it's a session-related error that might be recoverable
-      if (error.message.includes("session") || error.message.includes("token") || error.message.includes("expired")) {
-        console.log("[v0] Session issue detected, attempting refresh...")
-
-        // Try to refresh the session
-        const {
-          data: { session },
-          error: refreshError,
-        } = await supabase.auth.refreshSession()
-
-        if (refreshError || !session?.user) {
-          console.error("[v0] Session refresh failed:", refreshError?.message || "Auth session missing!")
-          redirect("/auth/login")
-        }
-
-        // Use the refreshed user
-        resolvedUser = session.user
-      } else {
-        // For non-session errors, redirect to login
-        console.error("[v0] Auth error:", error.message)
-        redirect("/auth/login")
-      }
+      console.log("[v0] Auth error detected:", error.message)
+      redirect("/auth/login")
     }
 
     // If no user after all attempts, redirect to login
     if (!resolvedUser) {
+      console.log("[v0] No user found, redirecting to login")
       redirect("/auth/login")
     }
 

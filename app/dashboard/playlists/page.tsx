@@ -996,7 +996,7 @@ export default function PlaylistsPage() {
   const handleOpenCreateDialog = () => {
     console.log("[v0] Create button clicked, limits:", playlistLimits)
 
-    if (!playlistLimits.canCreate) {
+    if (playlistLimits.maxPlaylists > 0 && playlistLimits.currentCount >= playlistLimits.maxPlaylists) {
       toast({
         title: "Playlist Limit Reached",
         description: `You can only create ${playlistLimits.maxPlaylists} playlists with your current plan. Please upgrade to create more playlists.`,
@@ -1247,11 +1247,7 @@ export default function PlaylistsPage() {
       <div className="w-80 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Playlists</h1>
-          <Button
-            className="bg-cyan-500 hover:bg-cyan-600"
-            onClick={handleOpenCreateDialog}
-            disabled={!playlistLimits.canCreate}
-          >
+          <Button className="bg-cyan-500 hover:bg-cyan-600" onClick={handleOpenCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
             Create
           </Button>
