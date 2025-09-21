@@ -69,6 +69,32 @@ export function PlanManagement() {
   })
   const { toast } = useToast()
 
+  const convertStorageToDisplayValue = (bytes: number, unit = "GB"): number => {
+    switch (unit.toUpperCase()) {
+      case "MB":
+        return Math.round(bytes / (1024 * 1024))
+      case "GB":
+        return Math.round(bytes / (1024 * 1024 * 1024))
+      case "TB":
+        return Math.round(bytes / (1024 * 1024 * 1024 * 1024))
+      default:
+        return bytes
+    }
+  }
+
+  const convertDisplayValueToBytes = (value: number, unit = "GB"): number => {
+    switch (unit.toUpperCase()) {
+      case "MB":
+        return value * 1024 * 1024
+      case "GB":
+        return value * 1024 * 1024 * 1024
+      case "TB":
+        return value * 1024 * 1024 * 1024 * 1024
+      default:
+        return value
+    }
+  }
+
   useEffect(() => {
     fetchPlans()
   }, [])
@@ -100,12 +126,17 @@ export function PlanManagement() {
 
   const handleCreatePlan = async () => {
     try {
+      const storageInBytes = convertDisplayValueToBytes(
+        Number.parseInt(formData.max_media_storage),
+        formData.storage_unit,
+      )
+
       const planData = {
         ...formData,
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
-        max_media_storage: Number.parseInt(formData.max_media_storage), // Store integer value
-        storage_unit: formData.storage_unit, // Store selected unit
+        max_media_storage: storageInBytes, // Store as bytes
+        storage_unit: formData.storage_unit,
         max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
       }
 
@@ -145,12 +176,17 @@ export function PlanManagement() {
     if (!editingPlan) return
 
     try {
+      const storageInBytes = convertDisplayValueToBytes(
+        Number.parseInt(formData.max_media_storage),
+        formData.storage_unit,
+      )
+
       const planData = {
         ...formData,
         price: Number.parseFloat(formData.price),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
-        max_media_storage: Number.parseInt(formData.max_media_storage), // Store integer value
-        storage_unit: formData.storage_unit, // Store selected unit
+        max_media_storage: storageInBytes, // Store as bytes
+        storage_unit: formData.storage_unit,
         max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
       }
 
@@ -231,14 +267,16 @@ export function PlanManagement() {
   }
 
   const openEditDialog = (plan: SubscriptionPlan) => {
+    const displayValue = convertStorageToDisplayValue(plan.max_media_storage, plan.storage_unit)
+
     setFormData({
       name: plan.name,
       description: plan.description,
       price: plan.price.toString(),
       billing_cycle: plan.billing_cycle,
       max_screens: plan.max_screens.toString(),
-      max_media_storage: plan.max_media_storage.toString(), // Use integer value
-      storage_unit: plan.storage_unit || "GB", // Use plan's unit or default to GB
+      max_media_storage: displayValue.toString(), // Use converted display value
+      storage_unit: plan.storage_unit || "GB",
       max_playlists: plan.max_playlists.toString(),
       is_active: plan.is_active,
     })
@@ -301,7 +339,8 @@ export function PlanManagement() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Storage:</span>
                     <span className="font-medium">
-                      {plan.max_media_storage} {plan.storage_unit || "GB"}
+                      {convertStorageToDisplayValue(plan.max_media_storage, plan.storage_unit)}{" "}
+                      {plan.storage_unit || "GB"}
                     </span>{" "}
                     {/* Display integer + unit */}
                   </div>
@@ -363,7 +402,8 @@ export function PlanManagement() {
                     <TableCell className="capitalize">{plan.billing_cycle}</TableCell>
                     <TableCell>{plan.max_screens}</TableCell>
                     <TableCell>
-                      {plan.max_media_storage} {plan.storage_unit || "GB"}
+                      {convertStorageToDisplayValue(plan.max_media_storage, plan.storage_unit)}{" "}
+                      {plan.storage_unit || "GB"}
                     </TableCell>{" "}
                     {/* Display integer + unit */}
                     <TableCell>{plan.max_playlists}</TableCell> {/* Use dedicated column */}
