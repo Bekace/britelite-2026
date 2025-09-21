@@ -30,13 +30,15 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to count playlists" }, { status: 500 })
     }
 
-    // Get user's subscription plan limits
     const { data: userData, error: userError } = await supabase
-      .from("users")
+      .from("profiles")
       .select(`
-        subscription_plan_id,
-        subscription_plans (
-          max_playlists
+        *,
+        user_subscriptions!inner(
+          status,
+          subscription_plans(
+            max_playlists
+          )
         )
       `)
       .eq("id", user.id)
@@ -44,15 +46,15 @@ export async function GET() {
 
     if (userError) {
       console.error("Error fetching user data:", userError)
-      // Default to unlimited if we can't fetch user data
+      // Default to basic limits if we can't fetch user data (no subscription)
       return NextResponse.json({
-        maxPlaylists: -1,
+        maxPlaylists: 5, // Default limit for users without subscription
         currentCount: currentCount || 0,
-        canCreate: true,
+        canCreate: (currentCount || 0) < 5,
       })
     }
 
-    const maxPlaylists = userData?.subscription_plans?.max_playlists ?? -1
+    const maxPlaylists = userData?.user_subscriptions?.subscription_plans?.max_playlists ?? 5
     const canCreate = maxPlaylists === -1 || (currentCount || 0) < maxPlaylists
 
     return NextResponse.json({
@@ -62,9 +64,9 @@ export async function GET() {
     })
   } catch (error) {
     console.error("Error checking playlist limits:", error)
-    // Default to unlimited on error
+    // Default to basic limits on error
     return NextResponse.json({
-      maxPlaylists: -1,
+      maxPlaylists: 5,
       currentCount: 0,
       canCreate: true,
     })
