@@ -520,6 +520,15 @@ export default function PlaylistsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [playlistLimits, setPlaylistLimits] = useState<{
+    maxPlaylists: number
+    currentCount: number
+    canCreate: boolean
+  }>({
+    maxPlaylists: -1,
+    currentCount: 0,
+    canCreate: true,
+  })
   const [newPlaylist, setNewPlaylist] = useState({
     name: "",
     description: "",
@@ -576,6 +585,7 @@ export default function PlaylistsPage() {
   useEffect(() => {
     fetchPlaylists()
     fetchAvailableMedia()
+    fetchPlaylistLimits()
   }, [])
 
   useEffect(() => {
@@ -652,6 +662,31 @@ export default function PlaylistsPage() {
     }
   }
 
+  const fetchPlaylistLimits = async () => {
+    try {
+      const response = await fetch("/api/playlist-limits")
+      if (response.ok) {
+        const data = await response.json()
+        setPlaylistLimits(data)
+      } else {
+        // If no limits endpoint, allow unlimited creation
+        setPlaylistLimits({
+          maxPlaylists: -1,
+          currentCount: playlists.length,
+          canCreate: true,
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching playlist limits:", error)
+      // Default to allowing creation if limits can't be fetched
+      setPlaylistLimits({
+        maxPlaylists: -1,
+        currentCount: playlists.length,
+        canCreate: true,
+      })
+    }
+  }
+
   const handleAddMediaToPlaylist = async (mediaId: string) => {
     if (!selectedPlaylist) return
 
@@ -718,6 +753,15 @@ export default function PlaylistsPage() {
   const handleCreatePlaylist = async () => {
     if (!newPlaylist.name.trim()) return
 
+    if (!playlistLimits.canCreate && playlistLimits.maxPlaylists !== -1) {
+      toast({
+        title: "Playlist Limit Reached",
+        description: `You can only create ${playlistLimits.maxPlaylists} playlists with your current plan.`,
+        variant: "destructive",
+      })
+      return
+    }
+
     setCreating(true)
     try {
       const response = await fetch("/api/playlists", {
@@ -743,6 +787,11 @@ export default function PlaylistsPage() {
         })
         setShowCreateDialog(false)
         setSelectedPlaylist(newPlaylistData)
+        setPlaylistLimits((prev) => ({
+          ...prev,
+          currentCount: prev.currentCount + 1,
+          canCreate: prev.maxPlaylists === -1 || prev.currentCount + 1 < prev.maxPlaylists,
+        }))
         toast({
           title: "Success",
           description: "Playlist created successfully",
@@ -779,6 +828,12 @@ export default function PlaylistsPage() {
           setSelectedPlaylist(null)
           setPlaylistItems([])
         }
+        // Update playlist limits after successful deletion
+        setPlaylistLimits((prev) => ({
+          ...prev,
+          currentCount: prev.currentCount - 1,
+          canCreate: true, // Always allow creation after deletion, as the limit is now lower
+        }))
         toast({
           title: "Success",
           description: "Playlist deleted successfully",
@@ -936,6 +991,15 @@ export default function PlaylistsPage() {
   }
 
   const handleOpenCreateDialog = () => {
+    if (!playlistLimits.canCreate && playlistLimits.maxPlaylists !== -1) {
+      toast({
+        title: "Playlist Limit Reached",
+        description: `You can only create ${playlistLimits.maxPlaylists} playlists with your current plan. Please upgrade to create more playlists.`,
+        variant: "destructive",
+      })
+      return
+    }
+
     setPreviewPlaylist(null)
     setShowCreateDialog(true)
   }
@@ -958,7 +1022,7 @@ export default function PlaylistsPage() {
   const [items, setItems] = useState<PlaylistItem[]>([])
 
   const goToNext = useCallback(() => {
-    console.log("[v0] goToNext called, currentIndex:", currentIndex, "total items:", items.length)
+    console.log("[v0] goToNext called, currentIndex:", currentIndex, "total items:", playlistItems.length)
 
     if (currentIndex < playlistItems.length - 1) {
       const nextItem = playlistItems[currentIndex + 1]
@@ -1174,17 +1238,32 @@ export default function PlaylistsPage() {
 
   return (
     <div className="flex h-full gap-6">
-      <div className="w-1/3 space-y-6">
+      <div className="w-80 space-y-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Playlists</h1>
-            <p className="text-gray-600 mt-1">Create and manage content playlists</p>
-          </div>
-          <Button className="bg-cyan-500 hover:bg-cyan-600" onClick={handleOpenCreateDialog}>
+          <h1 className="text-2xl font-bold text-gray-900">Playlists</h1>
+          <Button
+            className="bg-cyan-500 hover:bg-cyan-600"
+            onClick={handleOpenCreateDialog}
+            disabled={!playlistLimits.canCreate && playlistLimits.maxPlaylists !== -1}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Create
           </Button>
         </div>
+
+        {playlistLimits.maxPlaylists !== -1 && (
+          <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+            <div className="flex justify-between items-center">
+              <span>Playlists:</span>
+              <span className={playlistLimits.canCreate ? "text-green-600" : "text-red-600"}>
+                {playlistLimits.currentCount} / {playlistLimits.maxPlaylists}
+              </span>
+            </div>
+            {!playlistLimits.canCreate && (
+              <p className="text-xs text-red-600 mt-1">Upgrade your plan to create more playlists</p>
+            )}
+          </div>
+        )}
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
