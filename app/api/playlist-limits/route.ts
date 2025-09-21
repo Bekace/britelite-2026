@@ -54,24 +54,47 @@ export async function GET() {
     } else {
       const { data: subscriptionResult, error: subscriptionError } = await supabase
         .from("user_subscriptions")
-        .select(`
-          status,
-          plan_id,
-          subscription_plans (
-            name,
-            max_playlists
-          )
-        `)
+        .select("status, plan_id")
         .eq("user_id", user.id)
         .eq("status", "active")
         .maybeSingle()
 
       console.log("[v0] User subscription query result:", { subscriptionResult, subscriptionError })
 
-      if (subscriptionResult && subscriptionResult.subscription_plans) {
-        subscriptionData = subscriptionResult
-        maxPlaylists = subscriptionResult.subscription_plans.max_playlists
-        console.log("[v0] Using active subscription max_playlists:", maxPlaylists)
+      if (subscriptionResult && subscriptionResult.plan_id) {
+        const { data: planData, error: planError } = await supabase
+          .from("subscription_plans")
+          .select("name, max_playlists")
+          .eq("id", subscriptionResult.plan_id)
+          .eq("is_active", true)
+          .single()
+
+        console.log("[v0] Plan data query result:", { planData, planError })
+
+        if (planData && !planError) {
+          subscriptionData = { ...subscriptionResult, subscription_plans: planData }
+          maxPlaylists = planData.max_playlists
+          console.log("[v0] Using active subscription max_playlists:", maxPlaylists)
+        } else {
+          console.log("[v0] Plan not found or inactive, using Free plan")
+          const { data: freePlan, error: freePlanError } = await supabase
+            .from("subscription_plans")
+            .select("max_playlists, name")
+            .eq("is_active", true)
+            .order("max_playlists", { ascending: true })
+            .limit(1)
+            .maybeSingle()
+
+          console.log("[v0] Free plan query result:", { freePlan, freePlanError })
+
+          if (freePlanError) {
+            console.error("Error fetching Free plan:", freePlanError)
+            return NextResponse.json({ error: "Failed to fetch plan data" }, { status: 500 })
+          }
+
+          maxPlaylists = freePlan?.max_playlists || 2 // Fallback to 2 if no plan found
+          console.log("[v0] Using Free plan max_playlists from database:", maxPlaylists)
+        }
       } else {
         console.log("[v0] No active subscription found, using Free plan")
         const { data: freePlan, error: freePlanError } = await supabase
@@ -80,16 +103,16 @@ export async function GET() {
           .eq("is_active", true)
           .order("max_playlists", { ascending: true })
           .limit(1)
-          .single()
+          .maybeSingle()
 
         console.log("[v0] Free plan query result:", { freePlan, freePlanError })
 
-        if (freePlanError || !freePlan) {
+        if (freePlanError) {
           console.error("Error fetching Free plan:", freePlanError)
           return NextResponse.json({ error: "Failed to fetch plan data" }, { status: 500 })
         }
 
-        maxPlaylists = freePlan.max_playlists
+        maxPlaylists = freePlan?.max_playlists || 2 // Fallback to 2 if no plan found
         console.log("[v0] Using Free plan max_playlists from database:", maxPlaylists)
       }
     }
