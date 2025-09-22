@@ -1498,7 +1498,7 @@ export default function PlaylistsPage() {
                               <div className="cursor-move text-gray-400 hover:text-gray-600">
                                 <GripVertical className="h-4 w-4" />
                               </div>
-                              <span className="text-sm font-medium text-gray-500 w-6">{item.position}</span>
+                              <span className="text-sm font-medium w-6 text-primary">{item.position}</span>
                               <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
                                 {item.media.mime_type?.startsWith("image/") ? (
                                   <img
@@ -1513,8 +1513,8 @@ export default function PlaylistsPage() {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium truncate">{item.media.name}</p>
-                                <p className="text-sm text-gray-600">Duration: {item.duration_override}s</p>
+                                <p className="font-medium truncate text-primary">{item.media.name}</p>
+                                <p className="text-sm font-medium w-6 text-primary">Duration: {item.duration_override}s</p>
                               </div>
                               <div className="flex items-center gap-1">
                                 <Button
@@ -1523,7 +1523,7 @@ export default function PlaylistsPage() {
                                   onClick={() => handleEditItem(item)}
                                   className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <Edit className="text-sm font-medium w-6 text-primary" />
                                 </Button>
                                 <Button
                                   variant="ghost"
