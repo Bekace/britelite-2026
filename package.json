@@ -9,6 +9,9 @@
     "start": "next start"
   },
   "dependencies": {
+    "@dnd-kit/core": "latest",
+    "@dnd-kit/sortable": "latest",
+    "@dnd-kit/utilities": "latest",
     "@emotion/is-prop-valid": "latest",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "1.2.2",
@@ -32,8 +35,8 @@
     "@radix-ui/react-separator": "1.1.1",
     "@radix-ui/react-slider": "1.2.2",
     "@radix-ui/react-slot": "latest",
-    "@radix-ui/react-switch": "1.1.2",
-    "@radix-ui/react-tabs": "1.1.2",
+    "@radix-ui/react-switch": "latest",
+    "@radix-ui/react-tabs": "latest",
     "@radix-ui/react-toast": "latest",
     "@radix-ui/react-toggle": "1.1.1",
     "@radix-ui/react-toggle-group": "1.1.1",
