@@ -99,7 +99,7 @@ export function DashboardSidebar() {
               <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
                 <Monitor className="w-5 h-5 text-sidebar-primary-foreground" />
               </div>
-              <span className="text-lg font-semibold text-sidebar-foreground">XKREEN</span>
+              <img src="/xkreen-logo.svg" alt="XKREEN" className="h-6 w-auto" />
             </div>
           )}
           <Button
