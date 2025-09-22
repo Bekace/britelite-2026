@@ -34,7 +34,7 @@ export async function GET() {
 
     console.log("[v0] Subscription query result:", { subscriptionData, subscriptionError })
 
-    let maxStorage = 1048576 // Default 1 MB in bytes
+    let maxStorage = 3145728 // Default 3 MB in bytes
     let storageUnit = "MB"
 
     if (subscriptionData && !subscriptionError && subscriptionData.subscription_plans) {
