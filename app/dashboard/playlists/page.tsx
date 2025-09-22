@@ -1812,7 +1812,7 @@ export default function PlaylistsPage() {
           {editingItem && (
             <div className="space-y-4">
               {/* Media Preview */}
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-accent">
                 <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
                   {editingItem.media.mime_type?.startsWith("image/") ? (
                     <img
@@ -1856,7 +1856,7 @@ export default function PlaylistsPage() {
                     setEditForm((prev) => ({ ...prev, duration_override: Number.parseInt(e.target.value) || 10 }))
                   }
                 />
-                <p className="text-xs text-gray-500 mt-1">How long this item should display in the playlist</p>
+                <p className="text-xs mt-1 text-ring">How long this item should display in the playlist</p>
               </div>
 
               {/* Position */}
@@ -1869,7 +1869,7 @@ export default function PlaylistsPage() {
                   value={editForm.position}
                   onChange={(e) => setEditForm((prev) => ({ ...prev, position: Number.parseInt(e.target.value) || 1 }))}
                 />
-                <p className="text-xs text-gray-500 mt-1">Order position in the playlist</p>
+                <p className="text-xs mt-1 text-primary">Order position in the playlist</p>
               </div>
 
               {/* Video Clip Settings (for videos) */}
@@ -1906,7 +1906,7 @@ export default function PlaylistsPage() {
                       />
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500">Set start/end times to show only a portion of the video</p>
+                  <p className="text-xs text-primary">Set start/end times to show only a portion of the video</p>
                 </div>
               )}
 
@@ -1933,7 +1933,7 @@ export default function PlaylistsPage() {
                       id="transition-type"
                       value={editForm.transition_type}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, transition_type: e.target.value as any }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-accent"
                     >
                       <option value="fade">Fade</option>
                       <option value="slide-left">Slide Left</option>
@@ -1959,11 +1959,11 @@ export default function PlaylistsPage() {
                           transition_duration: Number.parseFloat(e.target.value) || 0.8,
                         }))
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-accent"
                     />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">Set how this item transitions when it appears in the playlist</p>
+                <p className="text-xs text-primary">Set how this item transitions when it appears in the playlist</p>
               </div>
             </div>
           )}
