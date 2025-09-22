@@ -22,7 +22,7 @@ export async function GET() {
       .select(`
         status,
         plan_id,
-        subscription_plans!inner(
+        subscription_plans (
           max_media_storage,
           storage_unit
         )
