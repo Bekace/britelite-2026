@@ -30,7 +30,7 @@ export async function GET() {
       .eq("user_id", user.id)
       .eq("status", "active")
       .not("plan_id", "is", null)
-      .single()
+      .maybeSingle()
 
     console.log("[v0] Subscription query result:", { subscriptionData, subscriptionError })
 
@@ -52,7 +52,7 @@ export async function GET() {
         .select("max_media_storage, storage_unit, name")
         .eq("price", 0)
         .eq("is_active", true)
-        .single()
+        .maybeSingle()
 
       console.log("[v0] Free plan query result:", { freePlan, freePlanError })
 
