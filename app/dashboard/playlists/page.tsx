@@ -1355,7 +1355,7 @@ export default function PlaylistsPage() {
                         {playlist.name}
                       </h3>
                       {playlist.description && (
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">{playlist.description}</p>
+                        <p className="text-sm mt-1 line-clamp-2 text-primary">{playlist.description}</p>
                       )}
                       <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
                         <span>{playlist.playlist_media?.[0]?.count || 0} items</span>
