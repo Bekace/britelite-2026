@@ -173,15 +173,19 @@ export default function ScreensPage() {
       const settings: { [key: string]: boolean } = {}
 
       for (const screen of screens) {
+        console.log("[v0] Fetching analytics settings for screen:", screen.id)
         const response = await fetch(`/api/analytics/settings?screenId=${screen.id}`)
         if (response.ok) {
           const data = await response.json()
+          console.log("[v0] Analytics settings response:", data)
           settings[screen.id] = data.enabled || false
         } else {
+          console.log("[v0] Failed to fetch analytics settings for screen:", screen.id, response.status)
           settings[screen.id] = false
         }
       }
 
+      console.log("[v0] Final analytics settings:", settings)
       setAnalyticsSettings(settings)
     } catch (error) {
       console.error("Error fetching analytics settings:", error)
@@ -1254,10 +1258,20 @@ export default function ScreensPage() {
                     <Label className="text-sm font-medium">Audience Analytics</Label>
                     <p className="text-xs text-primary">AI-powered audience insights using camera</p>
                   </div>
-                  <Switch
-                    checked={analyticsSettings[editingScreen.id] || false}
-                    onCheckedChange={(checked) => updateAnalyticsSettings(editingScreen.id, checked)}
-                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">{analyticsSettings[editingScreen.id] ? "ON" : "OFF"}</span>
+                    <Switch
+                      checked={analyticsSettings[editingScreen.id] || false}
+                      onCheckedChange={(checked) => {
+                        console.log("[v0] Analytics toggle clicked:", {
+                          screenId: editingScreen.id,
+                          checked,
+                          currentSettings: analyticsSettings,
+                        })
+                        updateAnalyticsSettings(editingScreen.id, checked)
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {analyticsSettings[editingScreen.id] && (
