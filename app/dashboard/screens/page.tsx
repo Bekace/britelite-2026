@@ -1248,11 +1248,11 @@ export default function ScreensPage() {
                 />
               </div>
 
-              <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+              <div className="space-y-3 p-4 border rounded-lg bg-accent border-primary">
                 <div className="flex items-center justify-between">
                   <div>
                     <Label className="text-sm font-medium">Audience Analytics</Label>
-                    <p className="text-xs text-gray-600">AI-powered audience insights using camera</p>
+                    <p className="text-xs text-primary">AI-powered audience insights using camera</p>
                   </div>
                   <Switch
                     checked={analyticsSettings[editingScreen.id] || false}
