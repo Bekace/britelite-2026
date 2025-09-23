@@ -1,22 +1,22 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@supabase/ssr"
+import { createClient } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const screenId = searchParams.get("screenId")
+
+  console.log("[v0] Fetching analytics settings for screen:", screenId)
 
   if (!screenId) {
     return NextResponse.json({ error: "Screen ID is required" }, { status: 400 })
   }
 
   try {
-    const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-      },
-    })
+    const supabase = await createClient()
+
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase not configured" }, { status: 500 })
+    }
 
     // Get current user
     const {
@@ -24,7 +24,21 @@ export async function GET(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser()
     if (authError || !user) {
+      console.log("[v0] Auth error:", authError)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Verify user owns the screen first
+    const { data: screen, error: screenError } = await supabase
+      .from("screens")
+      .select("id")
+      .eq("id", screenId)
+      .eq("user_id", user.id)
+      .single()
+
+    if (screenError || !screen) {
+      console.log("[v0] Screen access error:", screenError)
+      return NextResponse.json({ error: "Screen not found or access denied" }, { status: 404 })
     }
 
     // Fetch analytics settings for the screen
@@ -42,13 +56,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Return settings or defaults
-    return NextResponse.json({
+    const result = {
       enabled: settings?.enabled || false,
       retention_days: settings?.retention_days || 30,
       consent_required: settings?.consent_required || true,
       sampling_rate: settings?.sampling_rate || 5,
       privacy_mode: settings?.privacy_mode || true,
-    })
+    }
+
+    console.log("[v0] Returning analytics settings:", result)
+    return NextResponse.json(result)
   } catch (error) {
     console.error("Analytics settings fetch error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -60,17 +77,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { screenId, enabled, retention_days, consent_required, sampling_rate, privacy_mode } = body
 
+    console.log("[v0] Updating analytics settings:", { screenId, enabled })
+
     if (!screenId) {
       return NextResponse.json({ error: "Screen ID is required" }, { status: 400 })
     }
 
-    const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-      },
-    })
+    const supabase = await createClient()
+
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase not configured" }, { status: 500 })
+    }
 
     // Get current user
     const {
@@ -78,6 +95,7 @@ export async function POST(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser()
     if (authError || !user) {
+      console.log("[v0] Auth error:", authError)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -90,6 +108,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (screenError || !screen) {
+      console.log("[v0] Screen access error:", screenError)
       return NextResponse.json({ error: "Screen not found or access denied" }, { status: 404 })
     }
 
@@ -117,6 +136,8 @@ export async function POST(request: NextRequest) {
       console.error("Error updating analytics settings:", error)
       return NextResponse.json({ error: "Failed to update analytics settings" }, { status: 500 })
     }
+
+    console.log("[v0] Analytics settings updated successfully:", settings)
 
     return NextResponse.json({
       success: true,

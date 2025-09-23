@@ -193,7 +193,14 @@ export default function ScreensPage() {
   }
 
   const updateAnalyticsSettings = async (screenId: string, enabled: boolean) => {
+    setAnalyticsSettings((prev) => ({
+      ...prev,
+      [screenId]: enabled,
+    }))
+
     try {
+      console.log("[v0] Updating analytics settings:", { screenId, enabled })
+
       const response = await fetch("/api/analytics/settings", {
         method: "POST",
         headers: {
@@ -206,10 +213,8 @@ export default function ScreensPage() {
       })
 
       if (response.ok) {
-        setAnalyticsSettings((prev) => ({
-          ...prev,
-          [screenId]: enabled,
-        }))
+        const data = await response.json()
+        console.log("[v0] Analytics settings updated successfully:", data)
 
         toast({
           title: "Success",
@@ -217,6 +222,13 @@ export default function ScreensPage() {
         })
       } else {
         const error = await response.json()
+        console.error("[v0] Analytics settings update failed:", error)
+
+        setAnalyticsSettings((prev) => ({
+          ...prev,
+          [screenId]: !enabled,
+        }))
+
         toast({
           title: "Error",
           description: error.error || "Failed to update analytics settings",
@@ -225,6 +237,12 @@ export default function ScreensPage() {
       }
     } catch (error) {
       console.error("Analytics settings update error:", error)
+
+      setAnalyticsSettings((prev) => ({
+        ...prev,
+        [screenId]: !enabled,
+      }))
+
       toast({
         title: "Error",
         description: "Failed to update analytics settings",
