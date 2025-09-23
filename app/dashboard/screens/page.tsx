@@ -34,6 +34,8 @@ import {
   Calendar,
   WifiOff,
   Settings,
+  Eye,
+  TrendingUp,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -49,6 +51,7 @@ interface Screen {
   created_at: string
   playlists?: { id: string; name: string }
   media_id?: string
+  analytics_enabled?: boolean
 }
 
 interface Playlist {
@@ -102,6 +105,8 @@ export default function ScreensPage() {
   const [newPairingCode, setNewPairingCode] = useState("")
   const [isCreatingScreen, setIsCreatingScreen] = useState(false)
 
+  const [analyticsSettings, setAnalyticsSettings] = useState<{ [key: string]: boolean }>({})
+
   const [wizardState, setWizardState] = useState<WizardState>({
     step: 1,
     pairingCode: "",
@@ -142,6 +147,8 @@ export default function ScreensPage() {
         const data = await response.json()
         const transformedScreens = data.screens.map(transformScreenData)
         setScreens(transformedScreens)
+
+        await fetchAnalyticsSettings(transformedScreens)
       } else {
         toast({
           title: "Error",
@@ -158,6 +165,67 @@ export default function ScreensPage() {
       })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAnalyticsSettings = async (screens: Screen[]) => {
+    try {
+      const settings: { [key: string]: boolean } = {}
+
+      for (const screen of screens) {
+        const response = await fetch(`/api/analytics/settings?screenId=${screen.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          settings[screen.id] = data.enabled || false
+        } else {
+          settings[screen.id] = false
+        }
+      }
+
+      setAnalyticsSettings(settings)
+    } catch (error) {
+      console.error("Error fetching analytics settings:", error)
+    }
+  }
+
+  const updateAnalyticsSettings = async (screenId: string, enabled: boolean) => {
+    try {
+      const response = await fetch("/api/analytics/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          screenId,
+          enabled,
+        }),
+      })
+
+      if (response.ok) {
+        setAnalyticsSettings((prev) => ({
+          ...prev,
+          [screenId]: enabled,
+        }))
+
+        toast({
+          title: "Success",
+          description: `Analytics ${enabled ? "enabled" : "disabled"} for screen`,
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to update analytics settings",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Analytics settings update error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update analytics settings",
+        variant: "destructive",
+      })
     }
   }
 
@@ -1179,6 +1247,37 @@ export default function ScreensPage() {
                   onChange={(e) => setEditingScreen((prev) => prev && { ...prev, location: e.target.value })}
                 />
               </div>
+
+              <div className="space-y-3 p-4 border rounded-lg bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm font-medium">Audience Analytics</Label>
+                    <p className="text-xs text-gray-600">AI-powered audience insights using camera</p>
+                  </div>
+                  <Switch
+                    checked={analyticsSettings[editingScreen.id] || false}
+                    onCheckedChange={(checked) => updateAnalyticsSettings(editingScreen.id, checked)}
+                  />
+                </div>
+
+                {analyticsSettings[editingScreen.id] && (
+                  <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                    <Eye className="h-3 w-3 inline mr-1" />
+                    Analytics enabled - Camera will capture audience data for insights
+                  </div>
+                )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(`/dashboard/screens/${editingScreen.id}/analytics`, "_blank")}
+                  className="w-full"
+                >
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  View Analytics Dashboard
+                </Button>
+              </div>
+
               <div>
                 <Label htmlFor="edit-content">Assigned Content</Label>
                 <Select
