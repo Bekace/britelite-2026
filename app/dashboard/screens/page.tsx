@@ -38,6 +38,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 interface Screen {
   id: string
@@ -133,6 +134,7 @@ export default function ScreensPage() {
   })
 
   const { toast } = useToast()
+  const router = useRouter()
 
   useEffect(() => {
     fetchScreens()
@@ -1302,7 +1304,7 @@ export default function ScreensPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open(`/dashboard/screens/${editingScreen.id}/analytics`, "_blank")}
+                  onClick={() => router.push(`/dashboard/screens/${editingScreen.id}/analytics`)}
                   className="w-full"
                 >
                   <TrendingUp className="h-4 w-4 mr-2" />
