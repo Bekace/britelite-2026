@@ -31,7 +31,7 @@ interface AnalyticsData {
   summary: {
     avgPersonCount: number
     totalInteractions: number
-    peakHour: number | null
+    peakHour: number | null | undefined
     demographics: { male: number; female: number; unknown: number }
     emotions: { happy: number; neutral: number; sad: number; angry: number; surprised: number; unknown: number }
   }
@@ -66,7 +66,7 @@ export default function ScreenAnalyticsPage() {
   }, [screenId, timeRange])
 
   // Prepare chart data
-  const demographicsData = analyticsData?.summary.demographics
+  const demographicsData = analyticsData?.summary?.demographics
     ? [
         { name: "Male", value: analyticsData.summary.demographics.male, color: "#3b82f6" },
         { name: "Female", value: analyticsData.summary.demographics.female, color: "#ec4899" },
@@ -74,7 +74,7 @@ export default function ScreenAnalyticsPage() {
       ]
     : []
 
-  const emotionsData = analyticsData?.summary.emotions
+  const emotionsData = analyticsData?.summary?.emotions
     ? [
         { name: "Happy", value: analyticsData.summary.emotions.happy },
         { name: "Neutral", value: analyticsData.summary.emotions.neutral },
@@ -136,7 +136,7 @@ export default function ScreenAnalyticsPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{analyticsData?.summary.avgPersonCount || 0}</div>
+                <div className="text-2xl font-bold">{analyticsData?.summary?.avgPersonCount || 0}</div>
                 <p className="text-xs text-muted-foreground">per session</p>
               </CardContent>
             </Card>
@@ -147,7 +147,7 @@ export default function ScreenAnalyticsPage() {
                 <Eye className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{analyticsData?.summary.totalInteractions || 0}</div>
+                <div className="text-2xl font-bold">{analyticsData?.summary?.totalInteractions || 0}</div>
                 <p className="text-xs text-muted-foreground">looking at screen</p>
               </CardContent>
             </Card>
@@ -159,14 +159,16 @@ export default function ScreenAnalyticsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {analyticsData?.summary.peakHour !== null ? `${analyticsData.summary.peakHour}:00` : "N/A"}
+                  {analyticsData?.summary?.peakHour !== null && analyticsData?.summary?.peakHour !== undefined
+                    ? `${analyticsData.summary.peakHour}:00`
+                    : "N/A"}
                 </div>
                 <p className="text-xs text-muted-foreground">highest traffic</p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader>
                 <CardTitle className="text-sm font-medium">Data Points</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
