@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2, AlertCircle, RefreshCw, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { CameraAnalytics } from "@/components/camera-analytics"
 
 interface MediaItem {
   id: string
@@ -56,6 +57,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [maxRetries] = useState(3)
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const [shuffledContent, setShuffledContent] = useState<MediaItem[]>([])
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(false)
   const router = useRouter()
 
   const shuffleArray = (array: MediaItem[]) => {
@@ -99,6 +101,10 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         setShuffledContent(data.screen.content || [])
       }
 
+      if (data.screen.id) {
+        fetchAnalyticsSettings(data.screen.id)
+      }
+
       sendHeartbeat()
     } catch (err) {
       console.log("[v0] Config fetch error:", err)
@@ -114,6 +120,25 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       }
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAnalyticsSettings = async (screenId: string) => {
+    try {
+      console.log("[v0] Fetching analytics settings for screen:", screenId)
+      const response = await fetch(`/api/analytics/settings?screenId=${screenId}`)
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log("[v0] Analytics settings:", data)
+        setAnalyticsEnabled(data.enabled || false)
+      } else {
+        console.log("[v0] Analytics settings not found, defaulting to disabled")
+        setAnalyticsEnabled(false)
+      }
+    } catch (err) {
+      console.error("[v0] Error fetching analytics settings:", err)
+      setAnalyticsEnabled(false)
     }
   }
 
@@ -323,6 +348,16 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
   return (
     <div className="fixed inset-0 flex items-center justify-center overflow-hidden" style={getScreenStyles()}>
+      {config?.screen.id && analyticsEnabled && (
+        <div className="absolute top-4 right-4 z-50 w-80">
+          <CameraAnalytics
+            screenId={config.screen.id}
+            enabled={analyticsEnabled}
+            className="bg-black/80 backdrop-blur-sm border-white/20"
+          />
+        </div>
+      )}
+
       {contentToDisplay && contentToDisplay.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
           {currentMedia && (
