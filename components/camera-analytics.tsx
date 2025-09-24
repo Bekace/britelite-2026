@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Camera, CameraOff, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { Camera, CameraOff, Eye, EyeOff, AlertCircle, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface CameraAnalyticsProps {
@@ -38,28 +38,58 @@ interface AnalyticsData {
   timestamp: string
 }
 
+interface CameraConfig {
+  deviceId: string
+  settings: MediaTrackSettings
+}
+
 export function CameraAnalytics({ screenId, enabled = false, onToggle, className }: CameraAnalyticsProps) {
   const [isActive, setIsActive] = useState(enabled)
   const [hasPermission, setHasPermission] = useState<boolean | null>(null)
   const [error, setError] = useState<string>("")
   const [isProcessing, setIsProcessing] = useState(false)
   const [lastAnalytics, setLastAnalytics] = useState<AnalyticsData | null>(null)
+  const [cameraConfig, setCameraConfig] = useState<CameraConfig | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Request camera permission
+  // Load camera configuration on mount
+  useEffect(() => {
+    const savedConfig = localStorage.getItem("cameraConfig")
+    if (savedConfig) {
+      try {
+        const config = JSON.parse(savedConfig)
+        setCameraConfig(config)
+        console.log("[v0] Loaded camera configuration:", config)
+      } catch (err) {
+        console.error("[v0] Failed to parse camera config:", err)
+      }
+    }
+  }, [])
+
+  // Request camera permission with stored configuration
   const requestCameraPermission = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: "user",
-        },
-      })
+      const constraints: MediaStreamConstraints = {
+        video: cameraConfig
+          ? {
+              deviceId: { exact: cameraConfig.deviceId },
+              width: { ideal: cameraConfig.settings.width || 640 },
+              height: { ideal: cameraConfig.settings.height || 480 },
+              frameRate: { ideal: cameraConfig.settings.frameRate || 30 },
+            }
+          : {
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+              facingMode: "user",
+            },
+      }
+
+      console.log("[v0] Requesting camera with constraints:", constraints)
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream
@@ -69,14 +99,23 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
       setHasPermission(true)
       setError("")
 
+      // Log actual camera settings
+      const videoTrack = stream.getVideoTracks()[0]
+      const actualSettings = videoTrack.getSettings()
+      console.log("[v0] Camera started with settings:", actualSettings)
+
       return true
     } catch (err) {
       console.error("[v0] Camera permission error:", err)
-      setError("Camera access denied. Please allow camera permissions.")
+      if (cameraConfig) {
+        setError("Configured camera not available. Please check camera setup.")
+      } else {
+        setError("Camera access denied. Please configure camera in Camera Setup.")
+      }
       setHasPermission(false)
       return false
     }
-  }, [])
+  }, [cameraConfig])
 
   // Stop camera stream
   const stopCamera = useCallback(() => {
@@ -160,6 +199,12 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
   // Toggle analytics on/off
   const toggleAnalytics = useCallback(async () => {
     if (!isActive) {
+      // Check if camera is configured
+      if (!cameraConfig) {
+        setError("Camera not configured. Please set up camera first.")
+        return
+      }
+
       // Starting analytics
       const hasCamera = await requestCameraPermission()
       if (hasCamera) {
@@ -175,7 +220,7 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
       setIsActive(false)
       onToggle?.(false)
     }
-  }, [isActive, requestCameraPermission, stopCamera, captureAndAnalyze, onToggle])
+  }, [isActive, cameraConfig, requestCameraPermission, stopCamera, captureAndAnalyze, onToggle])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -191,19 +236,36 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
           <Eye className="h-4 w-4" />
           Audience Analytics
         </CardTitle>
-        <Button variant={isActive ? "default" : "outline"} size="sm" onClick={toggleAnalytics} disabled={isProcessing}>
-          {isActive ? (
-            <>
-              <CameraOff className="h-4 w-4 mr-2" />
-              Stop
-            </>
-          ) : (
-            <>
-              <Camera className="h-4 w-4 mr-2" />
-              Start
-            </>
+        <div className="flex items-center gap-2">
+          {!cameraConfig && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open("/dashboard/screens/camera-setup", "_blank")}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Setup
+            </Button>
           )}
-        </Button>
+          <Button
+            variant={isActive ? "default" : "outline"}
+            size="sm"
+            onClick={toggleAnalytics}
+            disabled={isProcessing}
+          >
+            {isActive ? (
+              <>
+                <CameraOff className="h-4 w-4 mr-2" />
+                Stop
+              </>
+            ) : (
+              <>
+                <Camera className="h-4 w-4 mr-2" />
+                Start
+              </>
+            )}
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -211,6 +273,13 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
           <div className="flex items-center gap-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4" />
             {error}
+          </div>
+        )}
+
+        {/* Camera configuration status */}
+        {cameraConfig && (
+          <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+            Camera: {cameraConfig.settings.width}×{cameraConfig.settings.height} @ {cameraConfig.settings.frameRate}fps
           </div>
         )}
 
@@ -277,7 +346,9 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
           <div className="text-center py-8 text-muted-foreground">
             <EyeOff className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p>Analytics disabled</p>
-            <p className="text-xs">Click Start to begin audience analysis</p>
+            <p className="text-xs">
+              {cameraConfig ? "Click Start to begin audience analysis" : "Configure camera first, then click Start"}
+            </p>
           </div>
         )}
       </CardContent>
