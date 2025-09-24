@@ -2,10 +2,11 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, AlertCircle, RefreshCw, ArrowLeft } from "lucide-react"
+import { Loader2, AlertCircle, RefreshCw, ArrowLeft, Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { CameraAnalytics } from "@/components/camera-analytics"
+import CameraSetup from "@/components/camera-setup"
 
 interface MediaItem {
   id: string
@@ -59,6 +60,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [shuffledContent, setShuffledContent] = useState<MediaItem[]>([])
   const [analyticsEnabled, setAnalyticsEnabled] = useState(false)
   const router = useRouter()
+  const [showCameraSetup, setShowCameraSetup] = useState(false)
 
   const shuffleArray = (array: MediaItem[]) => {
     const shuffled = [...array]
@@ -207,6 +209,20 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     router.push("/player")
   }
 
+  const handleCameraConfigured = (deviceId: string, settings: MediaTrackSettings) => {
+    const cameraConfig = {
+      deviceId,
+      settings,
+      timestamp: new Date().toISOString(),
+    }
+    localStorage.setItem("cameraConfig", JSON.stringify(cameraConfig))
+    console.log("[v0] Camera configured and saved:", cameraConfig)
+    setShowCameraSetup(false)
+    if (analyticsEnabled && config?.screen.id) {
+      fetchAnalyticsSettings(config.screen.id)
+    }
+  }
+
   const getMediaUrl = (filePath: string) => {
     if (!filePath) return "/placeholder.svg"
     if (filePath.startsWith("http")) return filePath
@@ -342,12 +358,42 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     )
   }
 
+  if (showCameraSetup) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-4xl mx-auto space-y-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Camera Setup</h1>
+            <Button onClick={() => setShowCameraSetup(false)} variant="outline">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Player
+            </Button>
+          </div>
+
+          <CameraSetup onCameraConfigured={handleCameraConfigured} />
+        </div>
+      </div>
+    )
+  }
+
   const { screen } = config
   const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : screen.content || []
   const currentMedia = contentToDisplay[currentMediaIndex]
 
   return (
     <div className="fixed inset-0 flex items-center justify-center overflow-hidden" style={getScreenStyles()}>
+      <div className="absolute top-4 left-4 z-50">
+        <Button
+          onClick={() => setShowCameraSetup(true)}
+          variant="secondary"
+          size="sm"
+          className="bg-black/80 backdrop-blur-sm border-white/20 text-white hover:bg-black/90"
+        >
+          <Settings className="w-4 h-4 mr-2" />
+          Camera Setup
+        </Button>
+      </div>
+
       {config?.screen.id && analyticsEnabled && (
         <div className="absolute top-4 right-4 z-50 w-80">
           <CameraAnalytics
