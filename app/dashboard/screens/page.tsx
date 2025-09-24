@@ -1200,7 +1200,7 @@ export default function ScreensPage() {
 
                   <div className="text-sm text-gray-600 space-y-1">
                     <div>
-                      Screen Code: <code className="bg-gray-100 px-1 rounded">{screen.screen_code}</code>
+                      Screen Code: <code className="px-1 rounded bg-primary font-medium">{screen.screen_code}</code>
                     </div>
                     <div>Connection: {screen.last_seen === "Never" ? "Device disconnected" : "Device connected"}</div>
                     <div>Last Seen: {screen.last_seen}</div>
@@ -1209,7 +1209,7 @@ export default function ScreensPage() {
                   <div className="mt-3">
                     <div className="text-sm font-medium mb-1">Content Assignment</div>
                     {screen.playlists ? (
-                      <div className="bg-green-50 border border-green-200 rounded p-2 text-sm">
+                      <div className="border border-green-200 rounded p-2 text-sm text-popover bg-muted-foreground font-medium">
                         Playlist: {screen.playlists.name}
                       </div>
                     ) : screen.media_id ? (
