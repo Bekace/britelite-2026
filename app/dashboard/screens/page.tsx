@@ -198,16 +198,22 @@ export default function ScreensPage() {
     }
 
     try {
-      // Validate the device code exists and is available for pairing
-      const response = await fetch(`/api/devices/available`)
+      const response = await fetch(`/api/devices/available`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          device_code: wizardState.pairingCode,
+        }),
+      })
+
       const data = await response.json()
 
-      const availableDevice = data.devices?.find((device: any) => device.device_code === wizardState.pairingCode)
-
-      if (!availableDevice) {
+      if (!response.ok) {
         toast({
           title: "Error",
-          description: "Invalid pairing code or device not found",
+          description: data.error || "Invalid pairing code or device not found",
           variant: "destructive",
         })
         return
@@ -216,7 +222,7 @@ export default function ScreensPage() {
       setWizardState((prev) => ({
         ...prev,
         isPaired: true,
-        pairedDevice: availableDevice,
+        pairedDevice: data.device,
       }))
 
       toast({
