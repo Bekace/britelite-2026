@@ -110,18 +110,31 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       sendHeartbeat()
     } catch (err) {
       console.log("[v0] Config fetch error:", err)
-      setError(err instanceof Error ? err.message : "Failed to load configuration")
+      const errorMessage = err instanceof Error ? err.message : "Failed to load configuration"
+      setError(errorMessage)
 
       if (retryCount < maxRetries) {
-        setRetryCount((prev) => prev + 1)
-        setTimeout(() => {
-          if (retryCount < maxRetries - 1) {
+        const nextRetryCount = retryCount + 1
+        setRetryCount(nextRetryCount)
+
+        // Only retry if we haven't exceeded max retries and it's not a "Device not found" error
+        if (nextRetryCount < maxRetries && !errorMessage.includes("Device not found")) {
+          console.log(`[v0] Scheduling retry ${nextRetryCount}/${maxRetries} in ${Math.pow(2, retryCount)} seconds`)
+          setTimeout(() => {
             fetchConfig()
-          }
-        }, Math.pow(2, retryCount) * 1000)
+          }, Math.pow(2, retryCount) * 1000)
+        } else {
+          console.log("[v0] Max retries reached or device not found - stopping retries")
+          setLoading(false)
+        }
+      } else {
+        console.log("[v0] Max retries exceeded")
+        setLoading(false)
       }
     } finally {
-      setLoading(false)
+      if (retryCount >= maxRetries || error.includes("Device not found")) {
+        setLoading(false)
+      }
     }
   }
 
@@ -195,11 +208,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   }, [currentMediaIndex, shuffledContent, config?.screen.content])
 
   const handleRetry = () => {
-    if (retryCount >= maxRetries) {
-      setError("Maximum retry attempts reached. Please check your connection and try again.")
-      return
-    }
-
+    setRetryCount(0)
     setLoading(true)
     setError("")
     fetchConfig()
