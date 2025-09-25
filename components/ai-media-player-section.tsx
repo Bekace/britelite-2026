@@ -15,7 +15,7 @@ export function AIMediaPlayerSection() {
             {/* Product images */}
             <div className="relative z-10">
               <Image
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/design-mode-images/67bf7352968940a8f367cd2b_ai.jpg%281%29%281%29%281%29%281%29%281%29-MzeD9JTpIUjsZytfC38pRRJpwz6J2L.jpeg"
+                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/design-mode-images/67bf7352968940a8f367cd2b_ai.jpg%281%29%281%29%281%29%281%29%281%29%281%29-U3YIOZRtTdFfgvGptSVQ7Khdxyyvp1.jpeg"
                 alt="AI Media Player Complete Setup"
                 width={550}
                 height={450}

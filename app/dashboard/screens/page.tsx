@@ -981,8 +981,8 @@ export default function ScreensPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Screens</h1>
-          <p className="text-gray-600 mt-1">Manage your digital signage displays</p>
+          <h1 className="text-3xl font-bold text-primary">Screens</h1>
+          <p className="mt-1 text-foreground">Manage your digital signage displays</p>
         </div>
         <Dialog
           open={isCreateDialogOpen}
