@@ -8,6 +8,7 @@ import { CheckCircle, Wifi } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { transformScreenData } from "@/utils/transformScreenData" // Declare the variable before using it
+import Link from "next/link"
 
 interface Screen {
   id: string
@@ -706,14 +707,16 @@ export default function ScreensPage() {
               </div>
 
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => router.push(`/player/${screen.screen_code}`)}
+                <Link
+                  href={`/player/${screen.screen_code}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex-1"
                 >
-                  View Player
-                </Button>
+                  <Button variant="outline" size="sm" className="w-full bg-transparent">
+                    View Player
+                  </Button>
+                </Link>
                 <Button variant="outline" size="sm" onClick={() => setEditingScreen(screen)} className="flex-1">
                   Edit
                 </Button>
