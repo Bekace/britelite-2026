@@ -441,6 +441,56 @@ export default function ScreensPage() {
     }
   }
 
+  const handleUpdateScreen = async () => {
+    if (!editingScreen || !editingScreen.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a screen name",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUpdating(true)
+
+    try {
+      const response = await fetch(`/api/screens/${editingScreen.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: editingScreen.name,
+          location: editingScreen.location,
+          resolution: editingScreen.resolution,
+          orientation: editingScreen.orientation,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update screen")
+      }
+
+      toast({
+        title: "Success",
+        description: "Screen updated successfully!",
+      })
+
+      setEditingScreen(null)
+      fetchScreens()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update screen",
+        variant: "destructive",
+      })
+    } finally {
+      setUpdating(false)
+    }
+  }
+
   const renderStep1 = () => (
     <div className="space-y-4">
       <div className="text-center">
@@ -763,6 +813,84 @@ export default function ScreensPage() {
                     {creating ? "Creating..." : "Create Screen"}
                   </Button>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Screen Dialog */}
+      {editingScreen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Edit Screen</h2>
+                <Button variant="ghost" size="sm" onClick={() => setEditingScreen(null)}>
+                  ×
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="edit-name">Screen Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={editingScreen.name}
+                    onChange={(e) => setEditingScreen({ ...editingScreen, name: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-location">Location</Label>
+                  <Input
+                    id="edit-location"
+                    value={editingScreen.location}
+                    onChange={(e) => setEditingScreen({ ...editingScreen, location: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-resolution">Resolution</Label>
+                    <select
+                      id="edit-resolution"
+                      className="w-full p-2 border rounded-md"
+                      value={editingScreen.resolution}
+                      onChange={(e) => setEditingScreen({ ...editingScreen, resolution: e.target.value })}
+                    >
+                      <option value="1920x1080">1920x1080 (Full HD)</option>
+                      <option value="3840x2160">3840x2160 (4K)</option>
+                      <option value="1366x768">1366x768 (HD)</option>
+                      <option value="1280x720">1280x720 (HD Ready)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-orientation">Orientation</Label>
+                    <select
+                      id="edit-orientation"
+                      className="w-full p-2 border rounded-md"
+                      value={editingScreen.orientation}
+                      onChange={(e) => setEditingScreen({ ...editingScreen, orientation: e.target.value })}
+                    >
+                      <option value="landscape">Landscape</option>
+                      <option value="portrait">Portrait</option>
+                      <option value="rotate-90">Rotate 90°</option>
+                      <option value="rotate-180">Rotate 180°</option>
+                      <option value="rotate-270">Rotate 270°</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-6">
+                <Button variant="outline" onClick={() => setEditingScreen(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdateScreen} disabled={updating}>
+                  {updating ? "Updating..." : "Update Screen"}
+                </Button>
               </div>
             </div>
           </div>
