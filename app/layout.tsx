@@ -1,6 +1,13 @@
 import type React from "react"
 import type { Metadata } from "next"
+import { Inter } from "next/font/google"
 import "./globals.css"
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   title: "Xkreen - AI-Powered Digital Signage",
@@ -15,13 +22,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="font-inter antialiased">{children}</body>
+      <body className={`${inter.variable} font-inter antialiased`}>{children}</body>
     </html>
   )
 }
