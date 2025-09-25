@@ -3,11 +3,40 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { CheckCircle, Wifi } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import {
+  Monitor,
+  Plus,
+  Search,
+  Trash2,
+  Smartphone,
+  Tv,
+  CheckCircle,
+  ArrowRight,
+  ArrowLeft,
+  Wifi,
+  RotateCw,
+  ImageIcon,
+  PlayCircle,
+  Calendar,
+  WifiOff,
+  Settings,
+  ExternalLink,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
-import { transformScreenData } from "@/utils/transformScreenData" // Declare the variable before using it
 import Link from "next/link"
 
 interface Screen {
@@ -22,7 +51,6 @@ interface Screen {
   created_at: string
   playlists?: { id: string; name: string }
   media_id?: string
-  analytics_enabled?: boolean
 }
 
 interface Playlist {
@@ -47,8 +75,8 @@ interface WizardState {
   name: string
   description: string
   location: string
-  resolution: "1920x1080" | "3840x2160" | "1366x768" | "1280x720"
-  orientation: "landscape" | "portrait" | "rotate-90" | "rotate-180" | "rotate-270"
+  resolution: string
+  orientation: "landscape" | "rotate-90" | "rotate-180" | "rotate-270"
   advancedOptions: {
     locationEnabled: boolean
     backgroundType: "color" | "image" | "transparent"
@@ -76,8 +104,6 @@ export default function ScreensPage() {
   const [newPairingCode, setNewPairingCode] = useState("")
   const [isCreatingScreen, setIsCreatingScreen] = useState(false)
 
-  const [analyticsSettings, setAnalyticsSettings] = useState<{ [key: string]: boolean }>({})
-
   const [wizardState, setWizardState] = useState<WizardState>({
     step: 1,
     pairingCode: "",
@@ -104,7 +130,6 @@ export default function ScreensPage() {
   })
 
   const { toast } = useToast()
-  const router = useRouter()
 
   useEffect(() => {
     fetchScreens()
@@ -119,8 +144,6 @@ export default function ScreensPage() {
         const data = await response.json()
         const transformedScreens = data.screens.map(transformScreenData)
         setScreens(transformedScreens)
-
-        await fetchAnalyticsSettings(transformedScreens)
       } else {
         toast({
           title: "Error",
@@ -137,89 +160,6 @@ export default function ScreensPage() {
       })
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchAnalyticsSettings = async (screens: Screen[]) => {
-    try {
-      const settings: { [key: string]: boolean } = {}
-
-      for (const screen of screens) {
-        console.log("[v0] Fetching analytics settings for screen:", screen.id)
-        const response = await fetch(`/api/analytics/settings?screenId=${screen.id}`)
-        if (response.ok) {
-          const data = await response.json()
-          console.log("[v0] Analytics settings response:", data)
-          settings[screen.id] = data.enabled || false
-        } else {
-          console.log("[v0] Failed to fetch analytics settings for screen:", screen.id, response.status)
-          settings[screen.id] = false
-        }
-      }
-
-      console.log("[v0] Final analytics settings:", settings)
-      setAnalyticsSettings(settings)
-    } catch (error) {
-      console.error("Error fetching analytics settings:", error)
-    }
-  }
-
-  const updateAnalyticsSettings = async (screenId: string, enabled: boolean) => {
-    setAnalyticsSettings((prev) => ({
-      ...prev,
-      [screenId]: enabled,
-    }))
-
-    try {
-      console.log("[v0] Updating analytics settings:", { screenId, enabled })
-
-      const response = await fetch("/api/analytics/settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          screenId,
-          enabled,
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log("[v0] Analytics settings updated successfully:", data)
-
-        toast({
-          title: "Success",
-          description: `Analytics ${enabled ? "enabled" : "disabled"} for screen`,
-        })
-      } else {
-        const error = await response.json()
-        console.error("[v0] Analytics settings update failed:", error)
-
-        setAnalyticsSettings((prev) => ({
-          ...prev,
-          [screenId]: !enabled,
-        }))
-
-        toast({
-          title: "Error",
-          description: error.error || "Failed to update analytics settings",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      console.error("Analytics settings update error:", error)
-
-      setAnalyticsSettings((prev) => ({
-        ...prev,
-        [screenId]: !enabled,
-      }))
-
-      toast({
-        title: "Error",
-        description: "Failed to update analytics settings",
-        variant: "destructive",
-      })
     }
   }
 
@@ -441,56 +381,6 @@ export default function ScreensPage() {
     }
   }
 
-  const handleUpdateScreen = async () => {
-    if (!editingScreen || !editingScreen.name.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a screen name",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setUpdating(true)
-
-    try {
-      const response = await fetch(`/api/screens/${editingScreen.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: editingScreen.name,
-          location: editingScreen.location,
-          resolution: editingScreen.resolution,
-          orientation: editingScreen.orientation,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to update screen")
-      }
-
-      toast({
-        title: "Success",
-        description: "Screen updated successfully!",
-      })
-
-      setEditingScreen(null)
-      fetchScreens()
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update screen",
-        variant: "destructive",
-      })
-    } finally {
-      setUpdating(false)
-    }
-  }
-
   const renderStep1 = () => (
     <div className="space-y-4">
       <div className="text-center">
@@ -518,8 +408,12 @@ export default function ScreensPage() {
           </div>
         )}
 
-        <Button onClick={handlePairDevice} disabled={!wizardState.pairingCode.trim()}>
-          Pair Device
+        <Button
+          onClick={handlePairDevice}
+          disabled={!wizardState.pairingCode.trim() || wizardState.isPaired}
+          className="w-full"
+        >
+          {wizardState.isPaired ? "Device Ready" : "Find Device"}
         </Button>
       </div>
     </div>
@@ -527,145 +421,477 @@ export default function ScreensPage() {
 
   const renderStep2 = () => (
     <div className="space-y-4">
-      <div className="text-center">
-        <h3 className="text-lg font-semibold mb-2">Screen Details</h3>
-        <p className="text-gray-600 mb-6">Configure your screen settings and display options.</p>
+      <div className="text-center mb-6">
+        <h3 className="text-lg font-semibold mb-2">Select Content Type</h3>
+        <p className="text-gray-600">Choose what type of content this screen will display.</p>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <Label htmlFor="screen-name">Screen Name *</Label>
-          <Input
-            id="screen-name"
-            placeholder="e.g., Lobby Display, Conference Room A"
-            value={wizardState.name}
-            onChange={(e) => setWizardState((prev) => ({ ...prev, name: e.target.value }))}
-          />
-        </div>
+      <div className="grid grid-cols-1 gap-3">
+        <Card
+          className={`cursor-pointer transition-colors ${wizardState.contentType === "playlist" ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+          onClick={() => setWizardState((prev) => ({ ...prev, contentType: "playlist", selectedContentId: "" }))}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <PlayCircle className="h-8 w-8 text-cyan-500" />
+              <div>
+                <h4 className="font-semibold">Playlist</h4>
+                <p className="text-sm text-gray-600">Display a sequence of media items</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div>
-          <Label htmlFor="screen-location">Location</Label>
-          <Input
-            id="screen-location"
-            placeholder="e.g., Main Lobby, Building A"
-            value={wizardState.location}
-            onChange={(e) => setWizardState((prev) => ({ ...prev, location: e.target.value }))}
-          />
-        </div>
+        <Card
+          className={`cursor-pointer transition-colors ${wizardState.contentType === "asset" ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+          onClick={() => setWizardState((prev) => ({ ...prev, contentType: "asset", selectedContentId: "" }))}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <ImageIcon className="h-8 w-8 text-cyan-500" />
+              <div>
+                <h4 className="font-semibold">Asset</h4>
+                <p className="text-sm text-gray-600">Display a single media item</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="resolution">Resolution</Label>
-            <select
-              id="resolution"
-              className="w-full p-2 border rounded-md"
-              value={wizardState.resolution}
-              onChange={(e) => setWizardState((prev) => ({ ...prev, resolution: e.target.value as any }))}
-            >
-              <option value="1920x1080">1920x1080 (Full HD)</option>
-              <option value="3840x2160">3840x2160 (4K)</option>
-              <option value="1366x768">1366x768 (HD)</option>
-              <option value="1280x720">1280x720 (HD Ready)</option>
-            </select>
-          </div>
-
-          <div>
-            <Label htmlFor="orientation">Orientation</Label>
-            <select
-              id="orientation"
-              className="w-full p-2 border rounded-md"
-              value={wizardState.orientation}
-              onChange={(e) => setWizardState((prev) => ({ ...prev, orientation: e.target.value as any }))}
-            >
-              <option value="landscape">Landscape</option>
-              <option value="portrait">Portrait</option>
-              <option value="rotate-90">Rotate 90°</option>
-              <option value="rotate-180">Rotate 180°</option>
-              <option value="rotate-270">Rotate 270°</option>
-            </select>
-          </div>
-        </div>
+        <Card
+          className={`cursor-pointer transition-colors opacity-50 ${wizardState.contentType === "schedule" ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+          onClick={() => setWizardState((prev) => ({ ...prev, contentType: "schedule", selectedContentId: "" }))}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Calendar className="h-8 w-8 text-gray-400" />
+              <div>
+                <h4 className="font-semibold text-gray-400">Schedule</h4>
+                <p className="text-sm text-gray-400">Time-based content scheduling (Coming Soon)</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
 
   const renderStep3 = () => (
     <div className="space-y-4">
-      <div className="text-center">
-        <h3 className="text-lg font-semibold mb-2">Assign Content (Optional)</h3>
-        <p className="text-gray-600 mb-6">
-          Choose what to display on your screen. You can skip this and assign content later.
-        </p>
+      <div className="text-center mb-6">
+        <h3 className="text-lg font-semibold mb-2">Select Content</h3>
+        <p className="text-gray-600">Choose the {wizardState.contentType} to display on this screen.</p>
       </div>
 
-      <div className="space-y-4">
-        <div>
-          <Label>Content Type</Label>
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <Button
-              variant={wizardState.contentType === "playlist" ? "default" : "outline"}
-              onClick={() => setWizardState((prev) => ({ ...prev, contentType: "playlist", selectedContentId: "" }))}
+      {wizardState.contentType === "playlist" && (
+        <div className="space-y-3 max-h-64 overflow-y-auto">
+          {playlists.map((playlist) => (
+            <Card
+              key={playlist.id}
+              className={`cursor-pointer transition-colors ${wizardState.selectedContentId === playlist.id ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+              onClick={() => setWizardState((prev) => ({ ...prev, selectedContentId: playlist.id }))}
             >
-              Playlist
-            </Button>
-            <Button
-              variant={wizardState.contentType === "asset" ? "default" : "outline"}
-              onClick={() => setWizardState((prev) => ({ ...prev, contentType: "asset", selectedContentId: "" }))}
-            >
-              Single Asset
-            </Button>
-          </div>
+              <CardContent className="p-3">
+                <div className="flex items-center gap-3">
+                  <PlayCircle className="h-6 w-6 text-cyan-500" />
+                  <div>
+                    <h4 className="font-medium">{playlist.name}</h4>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
+      )}
 
-        {wizardState.contentType === "playlist" && (
-          <div>
-            <Label>Select Playlist</Label>
-            <select
-              className="w-full p-2 border rounded-md mt-1"
-              value={wizardState.selectedContentId}
-              onChange={(e) => setWizardState((prev) => ({ ...prev, selectedContentId: e.target.value }))}
+      {wizardState.contentType === "asset" && (
+        <div className="space-y-3 max-h-64 overflow-y-auto">
+          {mediaItems.map((media) => (
+            <Card
+              key={media.id}
+              className={`cursor-pointer transition-colors ${wizardState.selectedContentId === media.id ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+              onClick={() => setWizardState((prev) => ({ ...prev, selectedContentId: media.id }))}
             >
-              <option value="">Choose a playlist...</option>
-              {playlists.map((playlist) => (
-                <option key={playlist.id} value={playlist.id}>
-                  {playlist.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+              <CardContent className="p-3">
+                <div className="flex items-center gap-3">
+                  <ImageIcon className="h-6 w-6 text-cyan-500" />
+                  <div>
+                    <h4 className="font-medium">{media.name}</h4>
+                    <p className="text-sm text-gray-600">{media.mime_type}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-        {wizardState.contentType === "asset" && (
-          <div>
-            <Label>Select Media Asset</Label>
-            <select
-              className="w-full p-2 border rounded-md mt-1"
-              value={wizardState.selectedContentId}
-              onChange={(e) => setWizardState((prev) => ({ ...prev, selectedContentId: e.target.value }))}
-            >
-              <option value="">Choose an asset...</option>
-              {mediaItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+      {wizardState.contentType === "schedule" && (
+        <div className="text-center py-8">
+          <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+          <p className="text-gray-500">Schedule functionality will be available soon.</p>
+        </div>
+      )}
+    </div>
+  )
+
+  const renderStep4 = () => (
+    <div className="space-y-4">
+      <div className="text-center mb-6">
+        <RotateCw className="h-12 w-12 mx-auto text-cyan-500 mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Screen Orientation</h3>
+        <p className="text-gray-600">Select how the content should be oriented on your screen.</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { value: "landscape", label: "Landscape", icon: Tv },
+          { value: "rotate-90", label: "Rotate 90°", icon: Smartphone },
+          { value: "rotate-180", label: "Rotate 180°", icon: Tv },
+          { value: "rotate-270", label: "Rotate 270°", icon: Smartphone },
+        ].map(({ value, label, icon: Icon }) => (
+          <Card
+            key={value}
+            className={`cursor-pointer transition-colors ${wizardState.orientation === value ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
+            onClick={() => setWizardState((prev) => ({ ...prev, orientation: value as any }))}
+          >
+            <CardContent className="p-4 text-center">
+              <Icon className="h-8 w-8 mx-auto text-cyan-500 mb-2" />
+              <h4 className="font-medium">{label}</h4>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="space-y-4 pt-4">
+        <div>
+          <Label htmlFor="screen-name">Screen Name</Label>
+          <Input
+            id="screen-name"
+            placeholder="Enter screen name"
+            value={wizardState.name}
+            onChange={(e) => setWizardState((prev) => ({ ...prev, name: e.target.value }))}
+          />
+        </div>
+        <div>
+          <Label htmlFor="screen-description">Description (Optional)</Label>
+          <Input
+            id="screen-description"
+            placeholder="Enter description"
+            value={wizardState.description}
+            onChange={(e) => setWizardState((prev) => ({ ...prev, description: e.target.value }))}
+          />
+        </div>
+        <div>
+          <Label htmlFor="screen-location">Location (Optional)</Label>
+          <Input
+            id="screen-location"
+            placeholder="Enter location"
+            value={wizardState.location}
+            onChange={(e) => setWizardState((prev) => ({ ...prev, location: e.target.value }))}
+          />
+        </div>
+        <div>
+          <Label htmlFor="screen-resolution">Resolution</Label>
+          <Select
+            value={wizardState.resolution}
+            onValueChange={(value) => setWizardState((prev) => ({ ...prev, resolution: value }))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1920x1080">1920x1080 (Full HD)</SelectItem>
+              <SelectItem value="3840x2160">3840x2160 (4K)</SelectItem>
+              <SelectItem value="1366x768">1366x768 (HD)</SelectItem>
+              <SelectItem value="1280x720">1280x720 (HD Ready)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   )
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "online":
-        return "text-green-600"
-      case "offline":
-        return "text-red-600"
-      case "paired":
-        return "text-blue-600"
-      default:
-        return "text-gray-600"
+  const renderStep5 = () => (
+    <div className="space-y-4">
+      <div className="text-center mb-6">
+        <h3 className="text-lg font-semibold mb-2">Advanced Options</h3>
+        <p className="text-gray-600">Configure additional settings for your screen.</p>
+      </div>
+
+      <div className="space-y-4 max-h-64 overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Location Services</Label>
+            <p className="text-sm text-gray-600">Enable location-based features</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.locationEnabled}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, locationEnabled: checked },
+              }))
+            }
+          />
+        </div>
+
+        <div>
+          <Label>Background Type</Label>
+          <Select
+            value={wizardState.advancedOptions.backgroundType}
+            onValueChange={(value: "color" | "image" | "transparent") =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, backgroundType: value },
+              }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="color">Solid Color</SelectItem>
+              <SelectItem value="image">Background Image</SelectItem>
+              <SelectItem value="transparent">Transparent</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {wizardState.advancedOptions.backgroundType === "color" && (
+          <div>
+            <Label>Default Color</Label>
+            <Input
+              type="color"
+              value={wizardState.advancedOptions.defaultColor}
+              onChange={(e) =>
+                setWizardState((prev) => ({
+                  ...prev,
+                  advancedOptions: { ...prev.advancedOptions, defaultColor: e.target.value },
+                }))
+              }
+            />
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Sync Play</Label>
+            <p className="text-sm text-gray-600">Synchronize playback across screens</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.syncPlay}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, syncPlay: checked },
+              }))
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Show Downloading Status</Label>
+            <p className="text-sm text-gray-600">Display download progress</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.showDownloadingStatus}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, showDownloadingStatus: checked },
+              }))
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Preload Assets in Playlist</Label>
+            <p className="text-sm text-gray-600">Cache content for smoother playback</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.preloadAssets}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, preloadAssets: checked },
+              }))
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Show Offline Indicator</Label>
+            <p className="text-sm text-gray-600">Display connection status</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.showOfflineIndicator}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, showOfflineIndicator: checked },
+              }))
+            }
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Mute</Label>
+            <p className="text-sm text-gray-600">Disable audio playback</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.mute}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, mute: checked },
+              }))
+            }
+          />
+        </div>
+      </div>
+    </div>
+  )
+
+  const handleUpdateScreen = async () => {
+    if (!editingScreen) return
+
+    setUpdating(true)
+    try {
+      console.log("[v0] Updating screen with data:", editingScreen)
+
+      const response = await fetch(`/api/screens/${editingScreen.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(editingScreen),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log("[v0] Screen update response:", data)
+        const transformedScreen = transformScreenData(data.screen)
+        setScreens((prev) => prev.map((screen) => (screen.id === editingScreen.id ? transformedScreen : screen)))
+        setEditingScreen(null)
+        toast({
+          title: "Success",
+          description: "Screen updated successfully",
+        })
+      } else {
+        const error = await response.json()
+        console.log("[v0] Screen update error:", error)
+        toast({
+          title: "Error",
+          description: error.error || "Failed to update screen",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Update error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update screen",
+        variant: "destructive",
+      })
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const handleDeleteScreen = async (id: string) => {
+    try {
+      const response = await fetch(`/api/screens/${id}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        setScreens((prev) => prev.filter((screen) => screen.id !== id))
+        toast({
+          title: "Success",
+          description: "Screen deleted successfully",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete screen",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Delete error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete screen",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast({
+        title: "Copied!",
+        description: "Text copied to clipboard",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy text",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRepairScreen = async (screen: Screen) => {
+    if (!newPairingCode.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a pairing code",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/devices/pair`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deviceCode: newPairingCode,
+          screenId: screen.id,
+        }),
+      })
+
+      if (response.ok) {
+        // Refresh screens to show updated connection status
+        await fetchScreens()
+        setRepairingScreen(null)
+        setNewPairingCode("")
+        toast({
+          title: "Success",
+          description: "Device re-paired successfully",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to pair device",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to pair device",
+        variant: "destructive",
+      })
     }
   }
 
@@ -675,13 +901,78 @@ export default function ScreensPage() {
       screen.location.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "online":
+        return "bg-green-100 text-green-800 border-green-200"
+      case "paired":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      case "offline":
+        return "bg-red-100 text-red-800 border-red-200"
+      case "unpaired":
+        return "bg-gray-100 text-gray-800 border-gray-200"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200"
+    }
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "online":
+        return <Wifi className="h-3 w-3 mr-1 text-green-600" />
+      case "paired":
+        return <CheckCircle className="h-3 w-3 mr-1 text-blue-600" />
+      case "offline":
+        return <WifiOff className="h-3 w-3 mr-1 text-red-600" />
+      case "unpaired":
+        return <Monitor className="h-3 w-3 mr-1 text-gray-600" />
+      default:
+        return <Monitor className="h-3 w-3 mr-1 text-gray-600" />
+    }
+  }
+
+  const formatLastSeen = (lastSeen: string | null) => {
+    if (!lastSeen) return "Never"
+
+    const now = new Date()
+    const lastSeenDate = new Date(lastSeen)
+    const diffInMinutes = Math.floor((now.getTime() - lastSeenDate.getTime()) / (1000 * 60))
+
+    if (diffInMinutes < 1) return "Just now"
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`
+    return `${Math.floor(diffInMinutes / 1440)}d ago`
+  }
+
+  const getConnectionStatus = (screen: Screen) => {
+    if (screen.status === "online") {
+      return "Device connected and active"
+    } else if (screen.status === "paired") {
+      return "Device paired but not active"
+    } else if (screen.status === "offline") {
+      return "Device disconnected"
+    } else {
+      return "Waiting for device pairing"
+    }
+  }
+
+  // Helper function to transform screen data structure
+  const transformScreenData = (screen: any): Screen => {
+    // Extract active playlist from screen_playlists array
+    const activePlaylist = screen.screen_playlists?.find((sp: any) => sp.is_active)?.playlists
+
+    return {
+      ...screen,
+      playlists: activePlaylist || null,
+      playlist_id: activePlaylist?.id || null,
+      media_id: screen.media_id || null,
+    }
+  }
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading screens...</p>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
       </div>
     )
   }
@@ -690,212 +981,380 @@ export default function ScreensPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Screens</h1>
-          <p className="text-gray-600">Manage your digital signage displays</p>
+          <h1 className="text-3xl font-bold text-gray-900">Screens</h1>
+          <p className="text-gray-600 mt-1">Manage your digital signage displays</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => router.push("/dashboard/screens/camera-setup")} variant="outline">
-            Camera Setup
-          </Button>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>Add Screen</Button>
-        </div>
-      </div>
+        <Dialog
+          open={isCreateDialogOpen}
+          onOpenChange={(open) => {
+            setIsCreateDialogOpen(open)
+            if (!open) resetWizard()
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button className="bg-cyan-500 hover:bg-cyan-600">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Screen
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create New Screen - Step {wizardState.step} of 5</DialogTitle>
+              <DialogDescription>
+                {wizardState.step === 1 && "Connect your device to the platform"}
+                {wizardState.step === 2 && "Choose the type of content to display"}
+                {wizardState.step === 3 && "Select specific content for your screen"}
+                {wizardState.step === 4 && "Configure screen orientation and details"}
+                {wizardState.step === 5 && "Set up advanced display options"}
+              </DialogDescription>
+            </DialogHeader>
 
-      <div className="flex items-center gap-4">
-        <Input
-          placeholder="Search screens..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
-      </div>
+            {wizardState.step === 1 && renderStep1()}
+            {wizardState.step === 2 && renderStep2()}
+            {wizardState.step === 3 && renderStep3()}
+            {wizardState.step === 4 && renderStep4()}
+            {wizardState.step === 5 && renderStep5()}
 
-      {filteredScreens.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-gray-400 mb-4">
-            <Wifi className="h-12 w-12 mx-auto" />
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No screens found</h3>
-          <p className="text-gray-600 mb-4">
-            {searchTerm ? "No screens match your search criteria." : "Get started by adding your first screen."}
-          </p>
-          {!searchTerm && <Button onClick={() => setIsCreateDialogOpen(true)}>Add Your First Screen</Button>}
-        </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredScreens.map((screen) => (
-            <div
-              key={screen.id}
-              className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold text-gray-900">{screen.name}</h3>
-                  <p className="text-sm text-gray-600">{screen.location}</p>
-                </div>
-                <span className={`text-sm font-medium ${getStatusColor(screen.status)}`}>{screen.status}</span>
-              </div>
-
-              <div className="space-y-2 text-sm text-gray-600 mb-4">
-                <div>Resolution: {screen.resolution}</div>
-                <div>Orientation: {screen.orientation}</div>
-                <div>Code: {screen.screen_code}</div>
-                {screen.playlists && <div>Content: {screen.playlists.name}</div>}
-              </div>
-
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm text-gray-600">Analytics</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="sr-only peer"
-                    checked={analyticsSettings[screen.id] || false}
-                    onChange={(e) => updateAnalyticsSettings(screen.id, e.target.checked)}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-cyan-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
-                </label>
-              </div>
-
-              <div className="flex gap-2">
-                <Link
-                  href={`/player/${screen.screen_code}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1"
+            <DialogFooter>
+              <div className="flex justify-between w-full">
+                <Button
+                  variant="outline"
+                  onClick={wizardState.step === 1 ? () => setIsCreateDialogOpen(false) : prevStep}
                 >
-                  <Button variant="outline" size="sm" className="w-full bg-transparent">
-                    View Player
-                  </Button>
-                </Link>
-                <Button variant="outline" size="sm" onClick={() => setEditingScreen(screen)} className="flex-1">
-                  Edit
+                  {wizardState.step === 1 ? (
+                    "Cancel"
+                  ) : (
+                    <>
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back
+                    </>
+                  )}
                 </Button>
+
+                {wizardState.step < 5 ? (
+                  <Button
+                    onClick={nextStep}
+                    disabled={
+                      (wizardState.step === 1 && !wizardState.isPaired) ||
+                      (wizardState.step === 2 && !wizardState.contentType) ||
+                      (wizardState.step === 3 &&
+                        !wizardState.selectedContentId &&
+                        wizardState.contentType !== "schedule") ||
+                      (wizardState.step === 4 && !wizardState.name.trim())
+                    }
+                  >
+                    Next <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                ) : (
+                  <Button onClick={handleCreateScreen} disabled={creating || !wizardState.name.trim()}>
+                    {creating ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    ) : null}
+                    Create Screen
+                  </Button>
+                )}
               </div>
-            </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Search */}
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search screens..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="text-sm text-gray-600">
+          {filteredScreens.length} of {screens.length} screens
+        </div>
+      </div>
+
+      {/* Screens Grid */}
+      {filteredScreens.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Monitor className="h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No screens found</h3>
+            <p className="text-gray-600 text-center mb-4">
+              {screens.length === 0
+                ? "Add your first screen to start managing your digital signage displays"
+                : "No screens match your search criteria"}
+            </p>
+            {screens.length === 0 && (
+              <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-cyan-500 hover:bg-cyan-600">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Screen
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredScreens.map((screen) => (
+            <Card key={screen.id} className="p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Monitor className="h-4 w-4" />
+                    <h3 className="font-semibold">{screen.name}</h3>
+                    <Badge variant={screen.status === "online" ? "default" : "secondary"}>
+                      {screen.status === "online" ? "Online" : "Offline"}
+                    </Badge>
+                  </div>
+
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <div>
+                      Screen Code: <code className="bg-gray-100 px-1 rounded">{screen.screen_code}</code>
+                    </div>
+                    <div>Connection: {screen.last_seen === "Never" ? "Device disconnected" : "Device connected"}</div>
+                    <div>Last Seen: {screen.last_seen}</div>
+                  </div>
+
+                  <div className="mt-3">
+                    <div className="text-sm font-medium mb-1">Content Assignment</div>
+                    {screen.playlists ? (
+                      <div className="bg-green-50 border border-green-200 rounded p-2 text-sm">
+                        Playlist: {screen.playlists.name}
+                      </div>
+                    ) : screen.media_id ? (
+                      <div className="bg-green-50 border border-green-200 rounded p-2 text-sm">
+                        Asset: {mediaItems.find((media) => media.id === screen.media_id)?.name}
+                      </div>
+                    ) : (
+                      <div className="bg-amber-50 border border-amber-200 rounded p-2 text-sm text-amber-800">
+                        No content assigned
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 mt-4">
+                    <Link
+                      href={`/player/${screen.screen_code}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1"
+                    >
+                      <Button variant="outline" size="sm" className="w-full bg-transparent">
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        View Player
+                      </Button>
+                    </Link>
+                    <Button variant="outline" size="sm" onClick={() => setEditingScreen(screen)} className="flex-1">
+                      <Settings className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  {screen.last_seen === "Never" && (
+                    <Button variant="outline" size="sm" onClick={() => setRepairingScreen(screen)}>
+                      <Wifi className="h-4 w-4 mr-1" />
+                      Re-pair
+                    </Button>
+                  )}
+
+                  <Button variant="outline" size="sm" onClick={() => handleDeleteScreen(screen.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </Card>
           ))}
         </div>
       )}
 
-      {/* Create Screen Dialog */}
-      {isCreateDialogOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">Add New Screen</h2>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setIsCreateDialogOpen(false)
-                    resetWizard()
+      {/* Edit Screen Dialog */}
+      <Dialog open={!!editingScreen} onOpenChange={() => setEditingScreen(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Screen</DialogTitle>
+            <DialogDescription>Update screen settings and assign content.</DialogDescription>
+          </DialogHeader>
+          {editingScreen && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-name">Screen Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editingScreen.name}
+                  onChange={(e) => setEditingScreen((prev) => prev && { ...prev, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-location">Location</Label>
+                <Input
+                  id="edit-location"
+                  value={editingScreen.location}
+                  onChange={(e) => setEditingScreen((prev) => prev && { ...prev, location: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-content">Assigned Content</Label>
+                <Select
+                  value={editingScreen.playlists?.id || editingScreen.media_id || "none"}
+                  onValueChange={(value) => {
+                    if (value === "none") {
+                      setEditingScreen(
+                        (prev) =>
+                          prev && {
+                            ...prev,
+                            playlists: null,
+                            media_id: null,
+                            playlist_id: null,
+                          },
+                      )
+                    } else {
+                      // Check if it's a playlist or media item
+                      const selectedPlaylist = playlists.find((p) => p.id === value)
+                      const selectedMedia = mediaItems.find((m) => m.id === value)
+
+                      if (selectedPlaylist) {
+                        setEditingScreen(
+                          (prev) =>
+                            prev && {
+                              ...prev,
+                              playlists: selectedPlaylist,
+                              playlist_id: value,
+                              media_id: null,
+                            },
+                        )
+                      } else if (selectedMedia) {
+                        setEditingScreen(
+                          (prev) =>
+                            prev && {
+                              ...prev,
+                              playlists: null,
+                              playlist_id: null,
+                              media_id: value,
+                            },
+                        )
+                      }
+                    }
                   }}
                 >
-                  ×
-                </Button>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select content" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No content</SelectItem>
+
+                    {playlists.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-sm font-semibold text-gray-500">Playlists</div>
+                        {playlists.map((playlist) => (
+                          <SelectItem key={`playlist-${playlist.id}`} value={playlist.id}>
+                            <div className="flex items-center gap-2">
+                              <PlayCircle className="h-4 w-4" />
+                              {playlist.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+
+                    {mediaItems.length > 0 && (
+                      <>
+                        <div className="px-2 py-1.5 text-sm font-semibold text-gray-500">Media Assets</div>
+                        {mediaItems.map((media) => (
+                          <SelectItem key={`media-${media.id}`} value={media.id}>
+                            <div className="flex items-center gap-2">
+                              <ImageIcon className="h-4 w-4" />
+                              {media.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
 
-              {wizardState.step === 1 && renderStep1()}
-              {wizardState.step === 2 && renderStep2()}
-              {wizardState.step === 3 && renderStep3()}
-
-              <div className="flex justify-between mt-6">
-                <Button variant="outline" onClick={prevStep} disabled={wizardState.step === 1}>
-                  Previous
-                </Button>
-
-                {wizardState.step < 3 ? (
-                  <Button onClick={nextStep} disabled={wizardState.step === 1 && !wizardState.isPaired}>
-                    Next
-                  </Button>
-                ) : (
-                  <Button onClick={handleCreateScreen} disabled={creating || !wizardState.name.trim()}>
-                    {creating ? "Creating..." : "Create Screen"}
-                  </Button>
-                )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-resolution">Resolution</Label>
+                  <Select
+                    value={editingScreen.resolution}
+                    onValueChange={(value) => setEditingScreen((prev) => prev && { ...prev, resolution: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1920x1080">1920x1080 (Full HD)</SelectItem>
+                      <SelectItem value="3840x2160">3840x2160 (4K)</SelectItem>
+                      <SelectItem value="1366x768">1366x768 (HD)</SelectItem>
+                      <SelectItem value="1280x720">1280x720 (HD Ready)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-orientation">Orientation</Label>
+                  <Select
+                    value={editingScreen.orientation}
+                    onValueChange={(value) => setEditingScreen((prev) => prev && { ...prev, orientation: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="landscape">Landscape</SelectItem>
+                      <SelectItem value="portrait">Portrait</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingScreen(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateScreen} disabled={updating}>
+              {updating ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : null}
+              Update Screen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Edit Screen Dialog */}
-      {editingScreen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">Edit Screen</h2>
-                <Button variant="ghost" size="sm" onClick={() => setEditingScreen(null)}>
-                  ×
-                </Button>
-              </div>
+      {/* Re-pairing Dialog */}
+      <Dialog open={!!repairingScreen} onOpenChange={() => setRepairingScreen(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Re-pair Device</DialogTitle>
+            <DialogDescription>
+              Enter the pairing code from your new device to connect it to "{repairingScreen?.name}".
+            </DialogDescription>
+          </DialogHeader>
 
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="edit-name">Screen Name</Label>
-                  <Input
-                    id="edit-name"
-                    value={editingScreen.name}
-                    onChange={(e) => setEditingScreen({ ...editingScreen, name: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="edit-location">Location</Label>
-                  <Input
-                    id="edit-location"
-                    value={editingScreen.location}
-                    onChange={(e) => setEditingScreen({ ...editingScreen, location: e.target.value })}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="edit-resolution">Resolution</Label>
-                    <select
-                      id="edit-resolution"
-                      className="w-full p-2 border rounded-md"
-                      value={editingScreen.resolution}
-                      onChange={(e) => setEditingScreen({ ...editingScreen, resolution: e.target.value })}
-                    >
-                      <option value="1920x1080">1920x1080 (Full HD)</option>
-                      <option value="3840x2160">3840x2160 (4K)</option>
-                      <option value="1366x768">1366x768 (HD)</option>
-                      <option value="1280x720">1280x720 (HD Ready)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="edit-orientation">Orientation</Label>
-                    <select
-                      id="edit-orientation"
-                      className="w-full p-2 border rounded-md"
-                      value={editingScreen.orientation}
-                      onChange={(e) => setEditingScreen({ ...editingScreen, orientation: e.target.value })}
-                    >
-                      <option value="landscape">Landscape</option>
-                      <option value="portrait">Portrait</option>
-                      <option value="rotate-90">Rotate 90°</option>
-                      <option value="rotate-180">Rotate 180°</option>
-                      <option value="rotate-270">Rotate 270°</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 mt-6">
-                <Button variant="outline" onClick={() => setEditingScreen(null)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleUpdateScreen} disabled={updating}>
-                  {updating ? "Updating..." : "Update Screen"}
-                </Button>
-              </div>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="new-pairing-code">Device Pairing Code</Label>
+              <Input
+                id="new-pairing-code"
+                placeholder="Enter code from device (e.g., DEV-ABC123)"
+                value={newPairingCode}
+                onChange={(e) => setNewPairingCode(e.target.value.toUpperCase())}
+                className="font-mono"
+              />
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRepairingScreen(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => handleRepairScreen(repairingScreen!)}>Pair Device</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
