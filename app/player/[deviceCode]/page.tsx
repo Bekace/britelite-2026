@@ -73,14 +73,10 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
   const fetchConfig = async () => {
     try {
-      console.log("[v0] Fetching config for:", params.deviceCode)
-
       const isScreenCode = params.deviceCode.startsWith("SCR-")
       const apiEndpoint = isScreenCode
         ? `/api/screens/config/${params.deviceCode}`
         : `/api/devices/config/${params.deviceCode}`
-
-      console.log("[v0] Using API endpoint:", apiEndpoint)
 
       const response = await fetch(apiEndpoint, {
         cache: "no-store",
@@ -89,20 +85,16 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
           Pragma: "no-cache",
         },
       })
-      console.log("[v0] Config response status:", response.status)
 
       if (!response.ok) {
         const errorData = await response.json()
-        console.log("[v0] Config error:", errorData)
         throw new Error(errorData.error || "Failed to fetch configuration")
       }
 
       const data = await response.json()
-      console.log("[v0] Config data:", data)
 
       let configData
       if (isScreenCode) {
-        // Screen API response format
         configData = {
           device: {
             id: `screen-${data.screen.id}`,
@@ -113,9 +105,9 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
           screen: {
             id: data.screen.id,
             name: data.screen.name,
-            orientation: data.screen.orientation,
-            status: data.screen.status,
-            playlist: data.screen.playlist || {
+            orientation: data.screen.orientation || "landscape",
+            status: data.screen.status || "active",
+            playlist: {
               id: `default-${data.screen.id}`,
               name: "Default Playlist",
               background_color: data.screen.background_color || "#000000",
@@ -129,7 +121,6 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
           },
         }
       } else {
-        // Device API response format (existing)
         configData = data
       }
 
@@ -151,7 +142,6 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         sendHeartbeat()
       }
     } catch (err) {
-      console.log("[v0] Config fetch error:", err)
       const errorMessage = err instanceof Error ? err.message : "Failed to load configuration"
       setError(errorMessage)
 
@@ -159,18 +149,14 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         const nextRetryCount = retryCount + 1
         setRetryCount(nextRetryCount)
 
-        // Only retry if we haven't exceeded max retries and it's not a "Device not found" error
         if (nextRetryCount < maxRetries && !errorMessage.includes("not found")) {
-          console.log(`[v0] Scheduling retry ${nextRetryCount}/${maxRetries} in ${Math.pow(2, retryCount)} seconds`)
           setTimeout(() => {
             fetchConfig()
           }, Math.pow(2, retryCount) * 1000)
         } else {
-          console.log("[v0] Max retries reached or not found - stopping retries")
           setLoading(false)
         }
       } else {
-        console.log("[v0] Max retries exceeded")
         setLoading(false)
       }
     } finally {
@@ -182,19 +168,16 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
   const fetchAnalyticsSettings = async (screenId: string) => {
     try {
-      console.log("[v0] Fetching analytics settings for screen:", screenId)
       const response = await fetch(`/api/analytics/settings?screenId=${screenId}`)
 
       if (response.ok) {
         const data = await response.json()
-        console.log("[v0] Analytics settings:", data)
         setAnalyticsEnabled(data.enabled || false)
       } else {
-        console.log("[v0] Analytics settings not found, defaulting to disabled")
         setAnalyticsEnabled(false)
       }
     } catch (err) {
-      console.error("[v0] Error fetching analytics settings:", err)
+      console.error("Error fetching analytics settings:", err)
       setAnalyticsEnabled(false)
     }
   }
