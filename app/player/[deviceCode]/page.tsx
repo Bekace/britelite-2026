@@ -73,9 +73,16 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
   const fetchConfig = async () => {
     try {
-      console.log("[v0] Fetching device config for:", params.deviceCode)
+      console.log("[v0] Fetching config for:", params.deviceCode)
 
-      const response = await fetch(`/api/devices/config/${params.deviceCode}`, {
+      const isScreenCode = params.deviceCode.startsWith("SCR-")
+      const apiEndpoint = isScreenCode
+        ? `/api/screens/config/${params.deviceCode}`
+        : `/api/devices/config/${params.deviceCode}`
+
+      console.log("[v0] Using API endpoint:", apiEndpoint)
+
+      const response = await fetch(apiEndpoint, {
         cache: "no-store",
         headers: {
           "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -93,21 +100,56 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       const data = await response.json()
       console.log("[v0] Config data:", data)
 
-      setConfig(data)
+      let configData
+      if (isScreenCode) {
+        // Screen API response format
+        configData = {
+          device: {
+            id: `screen-${data.screen.id}`,
+            device_code: params.deviceCode,
+            is_paired: true,
+            screen_id: data.screen.id,
+          },
+          screen: {
+            id: data.screen.id,
+            name: data.screen.name,
+            orientation: data.screen.orientation,
+            status: data.screen.status,
+            playlist: data.screen.playlist || {
+              id: `default-${data.screen.id}`,
+              name: "Default Playlist",
+              background_color: data.screen.background_color || "#000000",
+              scale_image: data.screen.scale_image || "fit",
+              scale_video: data.screen.scale_video || "fit",
+              scale_document: "fit",
+              shuffle: data.screen.shuffle || false,
+              default_transition: "fade",
+            },
+            content: data.screen.content || [],
+          },
+        }
+      } else {
+        // Device API response format (existing)
+        configData = data
+      }
+
+      setConfig(configData)
       setError("")
       setRetryCount(0)
 
-      if (data.screen.content && data.screen.playlist?.shuffle) {
-        setShuffledContent(shuffleArray(data.screen.content))
+      if (configData.screen.content && configData.screen.playlist?.shuffle) {
+        setShuffledContent(shuffleArray(configData.screen.content))
       } else {
-        setShuffledContent(data.screen.content || [])
+        setShuffledContent(configData.screen.content || [])
       }
 
-      if (data.screen.id) {
-        fetchAnalyticsSettings(data.screen.id)
+      if (configData.screen.id) {
+        fetchAnalyticsSettings(configData.screen.id)
       }
 
-      sendHeartbeat()
+      if (!isScreenCode) {
+        sendHeartbeat()
+      }
     } catch (err) {
       console.log("[v0] Config fetch error:", err)
       const errorMessage = err instanceof Error ? err.message : "Failed to load configuration"
@@ -118,13 +160,13 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         setRetryCount(nextRetryCount)
 
         // Only retry if we haven't exceeded max retries and it's not a "Device not found" error
-        if (nextRetryCount < maxRetries && !errorMessage.includes("Device not found")) {
+        if (nextRetryCount < maxRetries && !errorMessage.includes("not found")) {
           console.log(`[v0] Scheduling retry ${nextRetryCount}/${maxRetries} in ${Math.pow(2, retryCount)} seconds`)
           setTimeout(() => {
             fetchConfig()
           }, Math.pow(2, retryCount) * 1000)
         } else {
-          console.log("[v0] Max retries reached or device not found - stopping retries")
+          console.log("[v0] Max retries reached or not found - stopping retries")
           setLoading(false)
         }
       } else {
@@ -132,7 +174,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         setLoading(false)
       }
     } finally {
-      if (retryCount >= maxRetries || error.includes("Device not found")) {
+      if (retryCount >= maxRetries || error.includes("not found")) {
         setLoading(false)
       }
     }
@@ -172,9 +214,18 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   useEffect(() => {
     fetchConfig()
 
-    const heartbeatInterval = setInterval(sendHeartbeat, 30000)
+    const isScreenCode = params.deviceCode.startsWith("SCR-")
+    let heartbeatInterval: NodeJS.Timeout | null = null
 
-    return () => clearInterval(heartbeatInterval)
+    if (!isScreenCode) {
+      heartbeatInterval = setInterval(sendHeartbeat, 30000)
+    }
+
+    return () => {
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval)
+      }
+    }
   }, [params.deviceCode])
 
   useEffect(() => {
