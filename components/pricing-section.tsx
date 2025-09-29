@@ -64,7 +64,7 @@ features: [
       <div className="self-stretch relative flex flex-col justify-center items-center gap-2 py-0">
         <div className="flex flex-col justify-start items-center gap-4">
           <h2 className="text-center text-foreground text-4xl md:text-5xl font-semibold leading-tight md:leading-[40px]">
-            Affordable, scalable pricing for growing brands”
+            Affordable, scalable pricing for growing brands
           </h2>
           <p className="self-stretch text-center text-muted-foreground text-sm font-medium leading-tight">
             Choose a plan that fits your signage needs, from small businesses just getting started to growing brands and large enterprises leveraging AI-powered displays.
