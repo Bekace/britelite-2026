@@ -104,6 +104,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
       let configData
       if (isScreenCode) {
+        console.log("[v0] Processing screen data:", data.screen)
         configData = {
           device: {
             id: `screen-${data.screen.id}`,
@@ -129,6 +130,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
             content: data.screen.content || [],
           },
         }
+        console.log("[v0] Mapped config data:", configData)
       } else {
         configData = data
       }
@@ -136,6 +138,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       setConfig(configData)
       setError("")
       setRetryCount(0)
+      setLoading(false)
 
       if (configData.screen.content && configData.screen.playlist?.shuffle) {
         setShuffledContent(shuffleArray(configData.screen.content))
@@ -166,10 +169,6 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
           setLoading(false)
         }
       } else {
-        setLoading(false)
-      }
-    } finally {
-      if (retryCount >= maxRetries || error.includes("not found")) {
         setLoading(false)
       }
     }
