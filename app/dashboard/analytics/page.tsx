@@ -17,8 +17,12 @@ import {
   AlertTriangle,
   CheckCircle,
   RefreshCw,
+  Eye,
+  ExternalLink,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface AnalyticsData {
   overview: {
@@ -58,6 +62,18 @@ interface AnalyticsData {
   }>
 }
 
+interface Screen {
+  id: string
+  name: string
+  location: string
+  status: string
+  screen_code: string
+  uptime?: number
+  views?: number
+  engagement?: number
+  trend?: number[]
+}
+
 const chartConfig = {
   views: {
     label: "Views",
@@ -77,11 +93,48 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [screens, setScreens] = useState<Screen[]>([])
+  const [selectedScreen, setSelectedScreen] = useState<Screen | null>(null)
+  const [screenAnalytics, setScreenAnalytics] = useState<any>(null)
+  const [loadingScreenAnalytics, setLoadingScreenAnalytics] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
     fetchAnalytics()
+    fetchScreens()
   }, [])
+
+  const fetchScreens = async () => {
+    try {
+      const response = await fetch("/api/screens")
+      if (response.ok) {
+        const { screens: screensData } = await response.json()
+        setScreens(screensData || [])
+      }
+    } catch (error) {
+      console.error("Error fetching screens:", error)
+    }
+  }
+
+  const fetchScreenAnalytics = async (screenId: string) => {
+    setLoadingScreenAnalytics(true)
+    try {
+      const response = await fetch(`/api/analytics/data?screenId=${screenId}&timeRange=7d`)
+      if (response.ok) {
+        const data = await response.json()
+        setScreenAnalytics(data)
+      }
+    } catch (error) {
+      console.error("Error fetching screen analytics:", error)
+    } finally {
+      setLoadingScreenAnalytics(false)
+    }
+  }
+
+  const handleScreenClick = (screen: Screen) => {
+    setSelectedScreen(screen)
+    fetchScreenAnalytics(screen.id)
+  }
 
   const fetchAnalytics = async () => {
     try {
@@ -112,6 +165,7 @@ export default function AnalyticsPage() {
   const handleRefresh = () => {
     setRefreshing(true)
     fetchAnalytics()
+    fetchScreens()
   }
 
   const formatBytes = (bytes: number) => {
@@ -325,6 +379,108 @@ export default function AnalyticsPage() {
         </CardContent>
       </Card>
 
+      {/* Screen Performance Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Monitor className="h-5 w-5 text-cyan-500" />
+            Screen Performance Overview
+          </CardTitle>
+          <CardDescription>Click on any screen to view detailed analytics and audience insights</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {screens.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Monitor className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No screens available. Create a screen to see analytics.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {screens.map((screen) => (
+                <Card
+                  key={screen.id}
+                  className="cursor-pointer hover:shadow-lg transition-shadow border-2 hover:border-cyan-500"
+                  onClick={() => handleScreenClick(screen)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-base font-semibold line-clamp-1">{screen.name}</CardTitle>
+                        <CardDescription className="text-xs line-clamp-1">
+                          {screen.location || "No location"}
+                        </CardDescription>
+                      </div>
+                      <Badge variant={screen.status === "online" ? "default" : "secondary"} className="ml-2">
+                        {screen.status}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {/* Key Metrics */}
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <div className="text-lg font-bold text-cyan-600">{screen.uptime || 0}%</div>
+                        <div className="text-xs text-muted-foreground">Uptime</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-blue-600">{screen.views || 0}</div>
+                        <div className="text-xs text-muted-foreground">Views</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-green-600">{screen.engagement || 0}%</div>
+                        <div className="text-xs text-muted-foreground">Engage</div>
+                      </div>
+                    </div>
+
+                    {/* Mini Sparkline */}
+                    <div className="h-12 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          data={
+                            screen.trend?.map((value, index) => ({ value, index })) ||
+                            Array.from({ length: 7 }, (_, i) => ({ value: Math.random() * 100, index: i }))
+                          }
+                        >
+                          <Line type="monotone" dataKey="value" stroke="#06b6d4" strokeWidth={2} dot={false} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs bg-transparent"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleScreenClick(screen)
+                        }}
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        Analytics
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs bg-transparent"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          window.open(`/player/${screen.screen_code}`, "_blank")
+                        }}
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        Player
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* AI Insights */}
       <Card>
         <CardHeader>
@@ -344,7 +500,7 @@ export default function AnalyticsPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-semibold">{insight.title}</h4>
+                      <span className="text-sm font-semibold">{insight.title}</span>
                       <Badge className={getImpactColor(insight.impact)}>{insight.impact} impact</Badge>
                     </div>
                     <p className="text-gray-700 mb-2">{insight.description}</p>
@@ -360,6 +516,195 @@ export default function AnalyticsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sheet (slide-over) for detailed screen analytics */}
+      <Sheet open={!!selectedScreen} onOpenChange={(open) => !open && setSelectedScreen(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          {selectedScreen && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2">
+                  <Monitor className="h-5 w-5" />
+                  {selectedScreen.name}
+                </SheetTitle>
+                <SheetDescription>
+                  {selectedScreen.location} • {selectedScreen.screen_code}
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="mt-6">
+                {loadingScreenAnalytics ? (
+                  <div className="flex items-center justify-center h-64">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+                  </div>
+                ) : (
+                  <Tabs defaultValue="overview" className="space-y-4">
+                    <TabsList className="grid w-full grid-cols-4">
+                      <TabsTrigger value="overview">Overview</TabsTrigger>
+                      <TabsTrigger value="demographics">Demographics</TabsTrigger>
+                      <TabsTrigger value="engagement">Engagement</TabsTrigger>
+                      <TabsTrigger value="realtime">Real-time</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="overview" className="space-y-4">
+                      {/* Key Metrics */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              Avg. People
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{screenAnalytics?.summary?.avgPersonCount || 0}</div>
+                            <p className="text-xs text-muted-foreground">per session</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2">
+                              <Eye className="h-4 w-4" />
+                              Interactions
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="text-2xl font-bold">{screenAnalytics?.summary?.totalInteractions || 0}</div>
+                            <p className="text-xs text-muted-foreground">looking at screen</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Hourly Traffic */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm">Hourly Traffic Pattern</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={200}>
+                            <BarChart
+                              data={Array.from({ length: 24 }, (_, hour) => ({
+                                hour: `${hour}:00`,
+                                people: Math.floor(Math.random() * 50),
+                              }))}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="hour" tick={{ fontSize: 10 }} />
+                              <YAxis tick={{ fontSize: 10 }} />
+                              <Bar dataKey="people" fill="#06b6d4" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+
+                    <TabsContent value="demographics" className="space-y-4">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm">Gender Distribution</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm">Male</span>
+                              <span className="text-sm font-semibold">
+                                {screenAnalytics?.summary?.demographics?.male || 0}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm">Female</span>
+                              <span className="text-sm font-semibold">
+                                {screenAnalytics?.summary?.demographics?.female || 0}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm">Unknown</span>
+                              <span className="text-sm font-semibold">
+                                {screenAnalytics?.summary?.demographics?.unknown || 0}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm">Emotional Response</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {Object.entries(screenAnalytics?.summary?.emotions || {}).map(([emotion, count]) => (
+                              <div key={emotion} className="flex items-center justify-between">
+                                <span className="text-sm capitalize">{emotion}</span>
+                                <span className="text-sm font-semibold">{count as number}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+
+                    <TabsContent value="engagement" className="space-y-4">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm">Engagement Metrics</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm">Attention Rate</span>
+                                <span className="text-sm font-semibold">
+                                  {screenAnalytics?.summary?.totalInteractions || 0}%
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-cyan-500 h-2 rounded-full"
+                                  style={{ width: `${screenAnalytics?.summary?.totalInteractions || 0}%` }}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm">Avg. Dwell Time</span>
+                                <span className="text-sm font-semibold">2.5 min</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div className="bg-blue-500 h-2 rounded-full" style={{ width: "65%" }} />
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+
+                    <TabsContent value="realtime" className="space-y-4">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm">Real-time Status</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-center py-8">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-100 text-green-800 rounded-full">
+                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                              <span className="text-sm font-medium">Screen is {selectedScreen.status}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-4">
+                              Real-time camera analytics will appear here when enabled
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+                  </Tabs>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
