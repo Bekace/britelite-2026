@@ -20,9 +20,25 @@ import {
   PieChart,
   Pie,
   Cell,
+  RadialBarChart,
+  RadialBar,
 } from "recharts"
-import { Eye, Users, Clock, TrendingUp, Settings, Shield } from "lucide-react"
+import {
+  Eye,
+  Users,
+  Clock,
+  TrendingUp,
+  Settings,
+  Shield,
+  Smile,
+  Meh,
+  Frown,
+  Angry,
+  Sunrise as Surprise,
+  HelpCircle,
+} from "lucide-react"
 import { useParams } from "next/navigation"
+import { Progress } from "@/components/ui/progress"
 
 interface AnalyticsData {
   totalRecords: number
@@ -84,7 +100,61 @@ export default function ScreenAnalyticsPage() {
       ].filter((item) => item.value > 0)
     : []
 
-  // Hourly traffic data
+  const emotionsDataEnhanced = analyticsData?.summary?.emotions
+    ? [
+        {
+          name: "Happy",
+          value: analyticsData.summary.emotions.happy,
+          color: "#10b981",
+          emoji: "😊",
+          icon: Smile,
+        },
+        {
+          name: "Neutral",
+          value: analyticsData.summary.emotions.neutral,
+          color: "#6b7280",
+          emoji: "😐",
+          icon: Meh,
+        },
+        {
+          name: "Sad",
+          value: analyticsData.summary.emotions.sad,
+          color: "#3b82f6",
+          emoji: "😢",
+          icon: Frown,
+        },
+        {
+          name: "Angry",
+          value: analyticsData.summary.emotions.angry,
+          color: "#ef4444",
+          emoji: "😠",
+          icon: Angry,
+        },
+        {
+          name: "Surprised",
+          value: analyticsData.summary.emotions.surprised,
+          color: "#f59e0b",
+          emoji: "😲",
+          icon: Surprise,
+        },
+        {
+          name: "Unknown",
+          value: analyticsData.summary.emotions.unknown,
+          color: "#9ca3af",
+          emoji: "❓",
+          icon: HelpCircle,
+        },
+      ]
+    : []
+
+  const totalEmotions = emotionsDataEnhanced.reduce((sum, item) => sum + item.value, 0)
+  const totalGender = demographicsData.reduce((sum, item) => sum + item.value, 0)
+
+  const demographicsDataEnhanced = demographicsData.map((item) => ({
+    ...item,
+    percentage: totalGender > 0 ? ((item.value / totalGender) * 100).toFixed(1) : 0,
+  }))
+
   const hourlyData = Array.from({ length: 24 }, (_, hour) => {
     const hourData = analyticsData?.data.filter((record) => new Date(record.created_at).getHours() === hour) || []
 
@@ -153,7 +223,7 @@ export default function ScreenAnalyticsPage() {
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardHeader>
                 <CardTitle className="text-sm font-medium">Peak Hour</CardTitle>
                 <Clock className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
@@ -204,46 +274,200 @@ export default function ScreenAnalyticsPage() {
         </TabsContent>
 
         <TabsContent value="demographics" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Gender Distribution</CardTitle>
+                <CardTitle className="text-emerald-400">Gender Distribution</CardTitle>
+                <p className="text-sm text-muted-foreground">Audience composition by gender</p>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={demographicsData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      dataKey="value"
-                      label={({ name, value }) => `${name}: ${value}`}
-                    >
-                      {demographicsData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="flex flex-col items-center space-y-6">
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={demographicsDataEnhanced}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        dataKey="value"
+                        label={({ percentage }) => `${percentage}%`}
+                        labelLine={false}
+                      >
+                        {demographicsDataEnhanced.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => [`${value} people`, ""]}
+                        contentStyle={{
+                          backgroundColor: "hsl(var(--background))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+
+                  <div className="w-full space-y-3">
+                    {demographicsDataEnhanced.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                          <span className="text-sm font-medium">{item.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-muted-foreground">{item.value}</span>
+                          <span className="text-sm font-semibold min-w-[45px] text-right">{item.percentage}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Emotional Response</CardTitle>
+                <CardTitle className="text-emerald-400">Emotional Response</CardTitle>
+                <p className="text-sm text-muted-foreground">Audience sentiment analysis</p>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={emotionsData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#f59e0b" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="space-y-6">
+                  {emotionsDataEnhanced.map((emotion, index) => {
+                    const percentage = totalEmotions > 0 ? (emotion.value / totalEmotions) * 100 : 0
+                    const Icon = emotion.icon
+
+                    return (
+                      <div key={index} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-2xl">{emotion.emoji}</span>
+                            <div className="flex items-center gap-2">
+                              <Icon className="h-4 w-4" style={{ color: emotion.color }} />
+                              <span className="text-sm font-medium">{emotion.name}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-muted-foreground">{emotion.value}</span>
+                            <span className="text-sm font-semibold min-w-[45px] text-right">
+                              {percentage.toFixed(1)}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
+                          <div
+                            className="absolute top-0 left-0 h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${percentage}%`,
+                              backgroundColor: emotion.color,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-emerald-400">Age Group Distribution</CardTitle>
+              <p className="text-sm text-muted-foreground">Audience breakdown by age demographics</p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "Child", emoji: "👶", value: 0, color: "#f59e0b" },
+                  { label: "Teen", emoji: "🧒", value: 0, color: "#3b82f6" },
+                  { label: "Adult", emoji: "🧑", value: 0, color: "#10b981" },
+                  { label: "Senior", emoji: "👴", value: 0, color: "#8b5cf6" },
+                ].map((age, index) => (
+                  <div
+                    key={index}
+                    className="flex flex-col items-center p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                  >
+                    <span className="text-4xl mb-2">{age.emoji}</span>
+                    <span className="text-sm font-medium mb-1">{age.label}</span>
+                    <span className="text-2xl font-bold" style={{ color: age.color }}>
+                      {age.value}
+                    </span>
+                    <span className="text-xs text-muted-foreground">people</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-emerald-400">Attention Rate</CardTitle>
+                <p className="text-sm text-muted-foreground">Percentage of viewers looking at screen</p>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center justify-center space-y-6 py-6">
+                  <div className="relative w-48 h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadialBarChart
+                        cx="50%"
+                        cy="50%"
+                        innerRadius="70%"
+                        outerRadius="100%"
+                        data={[{ value: 0, fill: "#10b981" }]}
+                        startAngle={90}
+                        endAngle={-270}
+                      >
+                        <RadialBar background dataKey="value" cornerRadius={10} />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <Eye className="h-8 w-8 text-emerald-400 mb-2" />
+                      <span className="text-4xl font-bold">0%</span>
+                      <span className="text-sm text-muted-foreground">attention</span>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm text-muted-foreground">Average engagement across all sessions</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-emerald-400">Engagement Insights</CardTitle>
+                <p className="text-sm text-muted-foreground">Key performance indicators</p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Avg. Dwell Time</span>
+                    <span className="text-sm font-bold">0s</span>
+                  </div>
+                  <Progress value={0} className="h-2" />
+                  <p className="text-xs text-muted-foreground">Time spent viewing content</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Peak Engagement</span>
+                    <span className="text-sm font-bold">N/A</span>
+                  </div>
+                  <Progress value={0} className="h-2" />
+                  <p className="text-xs text-muted-foreground">Highest attention period</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Interaction Rate</span>
+                    <span className="text-sm font-bold">0%</span>
+                  </div>
+                  <Progress value={0} className="h-2" />
+                  <p className="text-xs text-muted-foreground">Viewers who engaged</p>
+                </div>
               </CardContent>
             </Card>
           </div>
