@@ -5,7 +5,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts"
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  RadialBarChart,
+  RadialBar,
+} from "recharts"
 import {
   BarChart3,
   TrendingUp,
@@ -23,6 +37,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Progress } from "@/components/ui/progress"
 
 interface AnalyticsData {
   overview: {
@@ -519,7 +534,7 @@ export default function AnalyticsPage() {
 
       {/* Sheet (slide-over) for detailed screen analytics */}
       <Sheet open={!!selectedScreen} onOpenChange={(open) => !open && setSelectedScreen(null)}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto">
           {selectedScreen && (
             <>
               <SheetHeader>
@@ -600,80 +615,247 @@ export default function AnalyticsPage() {
                     </TabsContent>
 
                     <TabsContent value="demographics" className="space-y-4">
+                      {/* Gender Distribution with Donut Chart */}
                       <Card>
                         <CardHeader>
-                          <CardTitle className="text-sm">Gender Distribution</CardTitle>
+                          <CardTitle className="text-sm text-cyan-400">Gender Distribution</CardTitle>
+                          <CardDescription className="text-xs">Audience breakdown by gender</CardDescription>
                         </CardHeader>
                         <CardContent>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm">Male</span>
-                              <span className="text-sm font-semibold">
-                                {screenAnalytics?.summary?.demographics?.male || 0}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm">Female</span>
-                              <span className="text-sm font-semibold">
-                                {screenAnalytics?.summary?.demographics?.female || 0}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm">Unknown</span>
-                              <span className="text-sm font-semibold">
-                                {screenAnalytics?.summary?.demographics?.unknown || 0}
-                              </span>
-                            </div>
-                          </div>
+                          {(() => {
+                            const male = screenAnalytics?.summary?.demographics?.male || 0
+                            const female = screenAnalytics?.summary?.demographics?.female || 0
+                            const unknown = screenAnalytics?.summary?.demographics?.unknown || 0
+                            const total = male + female + unknown
+
+                            const genderData = [
+                              { name: "Male", value: male, color: "#3b82f6" },
+                              { name: "Female", value: female, color: "#ec4899" },
+                              { name: "Unknown", value: unknown, color: "#6b7280" },
+                            ].filter((item) => item.value > 0)
+
+                            return total > 0 ? (
+                              <div className="flex flex-col items-center gap-4">
+                                <ResponsiveContainer width="100%" height={200}>
+                                  <PieChart>
+                                    <Pie
+                                      data={genderData}
+                                      cx="50%"
+                                      cy="50%"
+                                      innerRadius={60}
+                                      outerRadius={80}
+                                      paddingAngle={2}
+                                      dataKey="value"
+                                    >
+                                      {genderData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                      ))}
+                                    </Pie>
+                                  </PieChart>
+                                </ResponsiveContainer>
+                                <div className="grid grid-cols-3 gap-4 w-full">
+                                  {genderData.map((item) => (
+                                    <div key={item.name} className="text-center">
+                                      <div className="flex items-center justify-center gap-2 mb-1">
+                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                                        <span className="text-xs font-medium">{item.name}</span>
+                                      </div>
+                                      <div className="text-lg font-bold">
+                                        {((item.value / total) * 100).toFixed(1)}%
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">{item.value} people</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 text-muted-foreground">
+                                <Users className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                                <p className="text-sm">No gender data available yet</p>
+                              </div>
+                            )
+                          })()}
                         </CardContent>
                       </Card>
 
+                      {/* Emotional Response with Progress Bars */}
                       <Card>
                         <CardHeader>
-                          <CardTitle className="text-sm">Emotional Response</CardTitle>
+                          <CardTitle className="text-sm text-cyan-400">Emotional Response</CardTitle>
+                          <CardDescription className="text-xs">
+                            How people feel when viewing your content
+                          </CardDescription>
                         </CardHeader>
                         <CardContent>
-                          <div className="space-y-2">
-                            {Object.entries(screenAnalytics?.summary?.emotions || {}).map(([emotion, count]) => (
-                              <div key={emotion} className="flex items-center justify-between">
-                                <span className="text-sm capitalize">{emotion}</span>
-                                <span className="text-sm font-semibold">{count as number}</span>
+                          {(() => {
+                            const emotions = screenAnalytics?.summary?.emotions || {}
+                            const emotionData = [
+                              { name: "Happy", value: emotions.happy || 0, emoji: "😊", color: "bg-green-500" },
+                              { name: "Neutral", value: emotions.neutral || 0, emoji: "😐", color: "bg-gray-500" },
+                              { name: "Sad", value: emotions.sad || 0, emoji: "😢", color: "bg-blue-500" },
+                              { name: "Angry", value: emotions.angry || 0, emoji: "😠", color: "bg-red-500" },
+                              {
+                                name: "Surprised",
+                                value: emotions.surprised || 0,
+                                emoji: "😲",
+                                color: "bg-yellow-500",
+                              },
+                              { name: "Unknown", value: emotions.unknown || 0, emoji: "❓", color: "bg-gray-400" },
+                            ]
+                            const totalEmotions = emotionData.reduce((sum, item) => sum + item.value, 0)
+
+                            return totalEmotions > 0 ? (
+                              <div className="space-y-3">
+                                {emotionData.map((emotion) => {
+                                  const percentage = totalEmotions > 0 ? (emotion.value / totalEmotions) * 100 : 0
+                                  return (
+                                    <div key={emotion.name} className="space-y-1">
+                                      <div className="flex items-center justify-between text-sm">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-lg">{emotion.emoji}</span>
+                                          <span className="font-medium">{emotion.name}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground">{emotion.value}</span>
+                                          <span className="font-semibold min-w-[45px] text-right">
+                                            {percentage.toFixed(1)}%
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
+                                        <div
+                                          className={`absolute top-0 left-0 h-full ${emotion.color} transition-all duration-500`}
+                                          style={{ width: `${percentage}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )
+                                })}
                               </div>
-                            ))}
-                          </div>
+                            ) : (
+                              <div className="text-center py-8 text-muted-foreground">
+                                <span className="text-4xl mb-2 block opacity-30">😊</span>
+                                <p className="text-sm">No emotional data available yet</p>
+                              </div>
+                            )
+                          })()}
+                        </CardContent>
+                      </Card>
+
+                      {/* Age Group Distribution */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm text-cyan-400">Age Group Distribution</CardTitle>
+                          <CardDescription className="text-xs">Audience breakdown by age</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {(() => {
+                            const ageGroups = screenAnalytics?.summary?.ageGroups || {}
+                            const ageData = [
+                              { name: "Child", value: ageGroups.child || 0, emoji: "👶", color: "bg-purple-500" },
+                              { name: "Teen", value: ageGroups.teen || 0, emoji: "🧒", color: "bg-blue-500" },
+                              { name: "Adult", value: ageGroups.adult || 0, emoji: "🧑", color: "bg-green-500" },
+                              { name: "Senior", value: ageGroups.senior || 0, emoji: "👴", color: "bg-orange-500" },
+                            ]
+                            const totalAge = ageData.reduce((sum, item) => sum + item.value, 0)
+
+                            return totalAge > 0 ? (
+                              <div className="grid grid-cols-2 gap-3">
+                                {ageData.map((age) => {
+                                  const percentage = totalAge > 0 ? (age.value / totalAge) * 100 : 0
+                                  return (
+                                    <div key={age.name} className="border rounded-lg p-3 text-center">
+                                      <div className="text-3xl mb-2">{age.emoji}</div>
+                                      <div className="text-sm font-medium mb-1">{age.name}</div>
+                                      <div className="text-2xl font-bold text-cyan-500">{percentage.toFixed(0)}%</div>
+                                      <div className="text-xs text-muted-foreground">{age.value} people</div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 text-muted-foreground">
+                                <Users className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                                <p className="text-sm">No age data available yet</p>
+                              </div>
+                            )
+                          })()}
                         </CardContent>
                       </Card>
                     </TabsContent>
 
                     <TabsContent value="engagement" className="space-y-4">
+                      {/* Attention Rate Gauge */}
                       <Card>
                         <CardHeader>
-                          <CardTitle className="text-sm">Engagement Metrics</CardTitle>
+                          <CardTitle className="text-sm text-cyan-400">Attention Rate</CardTitle>
+                          <CardDescription className="text-xs">
+                            Percentage of people looking at the screen
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          {(() => {
+                            const attentionRate = screenAnalytics?.summary?.attentionRate || 0
+                            const gaugeData = [{ name: "Attention", value: attentionRate, fill: "#06b6d4" }]
+
+                            return (
+                              <div className="flex flex-col items-center">
+                                <ResponsiveContainer width="100%" height={200}>
+                                  <RadialBarChart
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius="60%"
+                                    outerRadius="90%"
+                                    barSize={20}
+                                    data={gaugeData}
+                                    startAngle={180}
+                                    endAngle={0}
+                                  >
+                                    <RadialBar background dataKey="value" cornerRadius={10} fill="#06b6d4" />
+                                    <text
+                                      x="50%"
+                                      y="50%"
+                                      textAnchor="middle"
+                                      dominantBaseline="middle"
+                                      className="text-3xl font-bold fill-cyan-500"
+                                    >
+                                      {attentionRate}%
+                                    </text>
+                                  </RadialBarChart>
+                                </ResponsiveContainer>
+                                <p className="text-sm text-muted-foreground mt-2">
+                                  {attentionRate >= 70
+                                    ? "Excellent engagement!"
+                                    : attentionRate >= 40
+                                      ? "Good engagement"
+                                      : "Room for improvement"}
+                                </p>
+                              </div>
+                            )
+                          })()}
+                        </CardContent>
+                      </Card>
+
+                      {/* Other Engagement Metrics */}
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-sm text-cyan-400">Engagement Metrics</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-4">
                             <div>
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-sm">Attention Rate</span>
-                                <span className="text-sm font-semibold">
-                                  {screenAnalytics?.summary?.totalInteractions || 0}%
-                                </span>
-                              </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-cyan-500 h-2 rounded-full"
-                                  style={{ width: `${screenAnalytics?.summary?.totalInteractions || 0}%` }}
-                                />
-                              </div>
-                            </div>
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
                                 <span className="text-sm">Avg. Dwell Time</span>
                                 <span className="text-sm font-semibold">2.5 min</span>
                               </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div className="bg-blue-500 h-2 rounded-full" style={{ width: "65%" }} />
+                              <Progress value={65} className="h-2" />
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm">Repeat Visitors</span>
+                                <span className="text-sm font-semibold">Coming soon</span>
                               </div>
+                              <Progress value={0} className="h-2" />
                             </div>
                           </div>
                         </CardContent>
