@@ -623,10 +623,24 @@ export default function AnalyticsPage() {
                         </CardHeader>
                         <CardContent>
                           {(() => {
+                            console.log("[v0] Screen Analytics Data:", screenAnalytics)
+                            console.log("[v0] Demographics:", screenAnalytics?.summary?.demographics)
+
                             const male = screenAnalytics?.summary?.demographics?.male || 0
                             const female = screenAnalytics?.summary?.demographics?.female || 0
                             const unknown = screenAnalytics?.summary?.demographics?.unknown || 0
                             const total = male + female + unknown
+
+                            console.log(
+                              "[v0] Gender totals - Male:",
+                              male,
+                              "Female:",
+                              female,
+                              "Unknown:",
+                              unknown,
+                              "Total:",
+                              total,
+                            )
 
                             const genderData = [
                               { name: "Male", value: male, color: "#3b82f6" },
