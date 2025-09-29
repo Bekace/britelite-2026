@@ -1,65 +1,29 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
-
-// Mock AI vision analysis - replace with actual AI service
-async function analyzeFrame(frameData: string) {
-  // Simulate AI processing delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
-
-  // Mock analytics data - replace with actual AI vision results
-  const mockAnalytics = {
-    personCount: Math.floor(Math.random() * 5) + 1,
-    demographics: {
-      male: Math.floor(Math.random() * 3),
-      female: Math.floor(Math.random() * 3),
-      unknown: Math.floor(Math.random() * 2),
-    },
-    ageGroups: {
-      child: Math.floor(Math.random() * 2),
-      teen: Math.floor(Math.random() * 2),
-      adult: Math.floor(Math.random() * 4),
-      senior: Math.floor(Math.random() * 2),
-    },
-    emotions: {
-      happy: Math.floor(Math.random() * 3),
-      neutral: Math.floor(Math.random() * 4),
-      sad: Math.floor(Math.random() * 1),
-      angry: Math.floor(Math.random() * 1),
-      surprised: Math.floor(Math.random() * 1),
-      unknown: Math.floor(Math.random() * 2),
-    },
-    lookingAtScreen: Math.floor(Math.random() * 3) + 1,
-    timestamp: new Date().toISOString(),
-  }
-
-  return mockAnalytics
-}
+import { cookies } from "next/headers"
 
 export async function POST(request: NextRequest) {
   try {
     console.log("[v0] Analytics frame processing request received")
 
-    const { screenId, frameData, timestamp } = await request.json()
+    const { screenId, analytics, timestamp } = await request.json()
 
-    if (!screenId || !frameData) {
-      return NextResponse.json({ error: "Screen ID and frame data are required" }, { status: 400 })
+    if (!screenId || !analytics) {
+      return NextResponse.json({ error: "Screen ID and analytics data are required" }, { status: 400 })
     }
 
-    console.log("[v0] Processing frame for screen:", screenId)
+    console.log("[v0] Storing analytics for screen:", screenId)
+    console.log("[v0] Analytics data:", analytics)
 
     // Create Supabase client
+    const cookieStore = await cookies()
     const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
       cookies: {
-        get: () => null,
+        get: (name: string) => cookieStore.get(name)?.value,
         set: () => {},
         remove: () => {},
       },
     })
-
-    // Analyze frame with AI (mock for now)
-    const analytics = await analyzeFrame(frameData)
-
-    console.log("[v0] Analytics result:", analytics)
 
     // Store analytics data in database
     const { error: insertError } = await supabase.from("analytics").insert({
@@ -79,10 +43,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       analytics,
-      message: "Frame processed successfully",
+      message: "Analytics processed successfully",
     })
   } catch (error) {
     console.error("[v0] Analytics processing error:", error)
-    return NextResponse.json({ error: "Failed to process frame" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to process analytics" }, { status: 500 })
   }
 }

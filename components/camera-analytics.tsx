@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Camera, CameraOff, Eye, EyeOff, AlertCircle, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { analyzeFrame, initializeModels, cleanup } from "@/lib/ai/vision-analytics"
 
 interface CameraAnalyticsProps {
   screenId: string
@@ -67,6 +68,18 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
       } catch (err) {
         console.error("[v0] Failed to parse camera config:", err)
       }
+    }
+  }, [])
+
+  // Initialize AI models on mount
+  useEffect(() => {
+    initializeModels().catch((err) => {
+      console.error("[v0] Failed to initialize AI models:", err)
+      setError("Failed to initialize AI models. Please refresh the page.")
+    })
+
+    return () => {
+      cleanup()
     }
   }, [])
 
@@ -160,12 +173,14 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
       // Draw current video frame to canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
-      // Convert to base64
-      const frameData = canvas.toDataURL("image/jpeg", 0.8)
+      console.log("[v0] Analyzing frame with AI vision...")
 
-      console.log("[v0] Sending frame for analysis...")
+      // Analyze frame using AI (client-side processing for privacy)
+      const analytics = await analyzeFrame(canvas)
 
-      // Send frame to analytics API
+      console.log("[v0] AI analysis complete:", analytics)
+
+      // Send anonymized analytics to backend (no image data)
       const response = await fetch("/api/analytics/process-frame", {
         method: "POST",
         headers: {
@@ -173,7 +188,14 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
         },
         body: JSON.stringify({
           screenId,
-          frameData,
+          analytics: {
+            personCount: analytics.personCount,
+            demographics: analytics.demographics,
+            ageGroups: analytics.ageGroups,
+            emotions: analytics.emotions,
+            lookingAtScreen: analytics.lookingAtScreen,
+            timestamp: analytics.timestamp,
+          },
           timestamp: new Date().toISOString(),
         }),
       })
@@ -183,11 +205,9 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
       }
 
       const result = await response.json()
-      console.log("[v0] Analytics result:", result)
+      console.log("[v0] Analytics stored:", result)
 
-      if (result.analytics) {
-        setLastAnalytics(result.analytics)
-      }
+      setLastAnalytics(analytics)
     } catch (err) {
       console.error("[v0] Frame analysis error:", err)
       setError(`Analysis failed: ${err instanceof Error ? err.message : "Unknown error"}`)
