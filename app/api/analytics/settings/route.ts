@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("[v0] Creating service role client...")
-    const supabase = await createServiceRoleClient()
+    const supabase = createServiceRoleClient() // Removed await since createServiceRoleClient is now synchronous
     console.log("[v0] Service role client created successfully")
 
     console.log("[v0] Querying analytics_settings table...")
