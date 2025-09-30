@@ -51,6 +51,7 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
   const [isProcessing, setIsProcessing] = useState(false)
   const [lastAnalytics, setLastAnalytics] = useState<AnalyticsData | null>(null)
   const [cameraConfig, setCameraConfig] = useState<CameraConfig | null>(null)
+  const [modelsReady, setModelsReady] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -68,20 +69,38 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
       } catch (err) {
         console.error("[v0] Failed to parse camera config:", err)
       }
+    } else {
+      console.log("[v0] No camera configuration found in localStorage")
     }
   }, [])
 
   // Initialize AI models on mount
   useEffect(() => {
-    initializeModels().catch((err) => {
-      console.error("[v0] Failed to initialize AI models:", err)
-      setError("Failed to initialize AI models. Please refresh the page.")
-    })
+    console.log("[v0] Initializing AI models...")
+    initializeModels()
+      .then(() => {
+        console.log("[v0] AI models initialized successfully")
+        setModelsReady(true)
+      })
+      .catch((err) => {
+        console.error("[v0] Failed to initialize AI models:", err)
+        setError("Failed to initialize AI models. Please refresh the page.")
+      })
 
     return () => {
       cleanup()
     }
   }, [])
+
+  useEffect(() => {
+    if (enabled && !isActive && modelsReady && cameraConfig) {
+      console.log("[v0] Analytics enabled, auto-starting camera...")
+      startAnalytics()
+    } else if (!enabled && isActive) {
+      console.log("[v0] Analytics disabled, stopping camera...")
+      stopAnalytics()
+    }
+  }, [enabled, modelsReady, cameraConfig])
 
   // Request camera permission with stored configuration
   const requestCameraPermission = useCallback(async () => {
@@ -216,31 +235,59 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
     }
   }, [screenId, isProcessing])
 
+  const startAnalytics = useCallback(async () => {
+    console.log("[v0] Starting analytics...")
+
+    // Check if camera is configured
+    if (!cameraConfig) {
+      const errorMsg = "Camera not configured. Please set up camera first."
+      console.error("[v0]", errorMsg)
+      setError(errorMsg)
+      return
+    }
+
+    // Check if models are ready
+    if (!modelsReady) {
+      const errorMsg = "AI models not ready. Please wait..."
+      console.error("[v0]", errorMsg)
+      setError(errorMsg)
+      return
+    }
+
+    // Starting analytics
+    const hasCamera = await requestCameraPermission()
+    if (hasCamera) {
+      setIsActive(true)
+      console.log("[v0] Camera started, beginning frame capture every 5 seconds")
+
+      // Start periodic frame capture (every 5 seconds)
+      intervalRef.current = setInterval(() => {
+        console.log("[v0] Triggering frame capture...")
+        captureAndAnalyze()
+      }, 5000)
+
+      // Capture first frame immediately
+      setTimeout(() => captureAndAnalyze(), 1000)
+    }
+  }, [cameraConfig, modelsReady, requestCameraPermission, captureAndAnalyze])
+
+  const stopAnalytics = useCallback(() => {
+    console.log("[v0] Stopping analytics...")
+    stopCamera()
+    setIsActive(false)
+    setLastAnalytics(null)
+  }, [stopCamera])
+
   // Toggle analytics on/off
   const toggleAnalytics = useCallback(async () => {
     if (!isActive) {
-      // Check if camera is configured
-      if (!cameraConfig) {
-        setError("Camera not configured. Please set up camera first.")
-        return
-      }
-
-      // Starting analytics
-      const hasCamera = await requestCameraPermission()
-      if (hasCamera) {
-        setIsActive(true)
-        onToggle?.(true)
-
-        // Start periodic frame capture (every 5 seconds)
-        intervalRef.current = setInterval(captureAndAnalyze, 5000)
-      }
+      await startAnalytics()
+      onToggle?.(true)
     } else {
-      // Stopping analytics
-      stopCamera()
-      setIsActive(false)
+      stopAnalytics()
       onToggle?.(false)
     }
-  }, [isActive, cameraConfig, requestCameraPermission, stopCamera, captureAndAnalyze, onToggle])
+  }, [isActive, startAnalytics, stopAnalytics, onToggle])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -271,7 +318,7 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
             variant={isActive ? "default" : "outline"}
             size="sm"
             onClick={toggleAnalytics}
-            disabled={isProcessing}
+            disabled={isProcessing || !modelsReady}
           >
             {isActive ? (
               <>
@@ -281,7 +328,7 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
             ) : (
               <>
                 <Camera className="h-4 w-4 mr-2" />
-                Start
+                {modelsReady ? "Start" : "Loading..."}
               </>
             )}
           </Button>
@@ -295,6 +342,8 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
             {error}
           </div>
         )}
+
+        {!modelsReady && <div className="text-xs text-muted-foreground bg-muted p-2 rounded">Loading AI models...</div>}
 
         {/* Camera configuration status */}
         {cameraConfig && (
@@ -365,9 +414,15 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
         {!isActive && (
           <div className="text-center py-8 text-muted-foreground">
             <EyeOff className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Analytics disabled</p>
+            <p>Analytics {enabled ? "starting..." : "disabled"}</p>
             <p className="text-xs">
-              {cameraConfig ? "Click Start to begin audience analysis" : "Configure camera first, then click Start"}
+              {!cameraConfig
+                ? "Configure camera first"
+                : !modelsReady
+                  ? "Loading AI models..."
+                  : enabled
+                    ? "Initializing camera..."
+                    : "Enable analytics to begin"}
             </p>
           </div>
         )}
