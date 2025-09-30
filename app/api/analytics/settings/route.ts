@@ -3,17 +3,35 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
   try {
+    console.log("[v0] Analytics settings GET request started")
+
     const { searchParams } = new URL(request.url)
     const screenId = searchParams.get("screenId")
 
     console.log("[v0] Fetching analytics settings for screen:", screenId)
 
     if (!screenId) {
+      console.log("[v0] No screenId provided")
       return NextResponse.json({ error: "Screen ID is required" }, { status: 400 })
     }
 
-    const supabase = await createServiceRoleClient()
+    console.log("[v0] Checking for service role key...")
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("[v0] SUPABASE_SERVICE_ROLE_KEY not found in environment")
+      return NextResponse.json(
+        {
+          error: "Service configuration error",
+          details: "Service role key not configured",
+        },
+        { status: 500 },
+      )
+    }
 
+    console.log("[v0] Creating service role client...")
+    const supabase = await createServiceRoleClient()
+    console.log("[v0] Service role client created successfully")
+
+    console.log("[v0] Querying analytics_settings table...")
     const { data: settings, error } = await supabase
       .from("analytics_settings")
       .select("*")
@@ -22,8 +40,16 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("[v0] Error fetching analytics settings:", error)
-      return NextResponse.json({ error: "Failed to fetch analytics settings" }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: "Failed to fetch analytics settings",
+          details: error.message,
+        },
+        { status: 500 },
+      )
     }
+
+    console.log("[v0] Query successful, settings:", settings)
 
     // Return settings or defaults
     const result = {
@@ -38,10 +64,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result)
   } catch (error) {
     console.error("[v0] Analytics settings fetch error:", error)
+    console.error("[v0] Error stack:", error instanceof Error ? error.stack : "No stack trace")
+
     return NextResponse.json(
       {
         error: "Internal server error",
         details: error instanceof Error ? error.message : "Unknown error",
+        type: error instanceof Error ? error.constructor.name : typeof error,
       },
       { status: 500 },
     )
