@@ -41,16 +41,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Screen not found or access denied" }, { status: 404 })
     }
 
-    // Fetch analytics settings for the screen
     const { data: settings, error } = await supabase
       .from("analytics_settings")
       .select("*")
       .eq("screen_id", screenId)
       .eq("user_id", user.id)
-      .single()
+      .maybeSingle()
 
-    if (error && error.code !== "PGRST116") {
-      // PGRST116 = no rows returned
+    if (error) {
       console.error("Error fetching analytics settings:", error)
       return NextResponse.json({ error: "Failed to fetch analytics settings" }, { status: 500 })
     }
