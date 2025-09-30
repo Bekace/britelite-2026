@@ -450,6 +450,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
           <CameraAnalytics
             screenId={config.screen.id}
             enabled={analyticsEnabled}
+            onToggle={setAnalyticsEnabled}
             className="bg-black/80 backdrop-blur-sm border-white/20"
           />
         </div>

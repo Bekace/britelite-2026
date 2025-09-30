@@ -8,9 +8,13 @@ export async function POST(request: NextRequest) {
 
     const { screenId, analytics, timestamp } = await request.json()
 
-    console.log("[v0] Received data:", {
+    console.log("[v0] Received analytics data:", {
       screenId,
-      analytics,
+      personCount: analytics.personCount,
+      demographics: analytics.demographics,
+      ageGroups: analytics.ageGroups,
+      emotions: analytics.emotions,
+      lookingAtScreen: analytics.lookingAtScreen,
       timestamp,
     })
 
@@ -37,23 +41,22 @@ export async function POST(request: NextRequest) {
       created_at: timestamp || new Date().toISOString(),
     }
 
-    console.log("[v0] Attempting to insert data:", JSON.stringify(insertData, null, 2))
+    console.log("[v0] Attempting to insert into analytics table...")
+    console.log("[v0] Insert data structure:", JSON.stringify(insertData, null, 2))
 
     const { data: insertedData, error: insertError } = await supabase.from("analytics").insert(insertData).select()
 
     if (insertError) {
-      console.error("[v0] ❌ Database insert error:", insertError)
-      console.error("[v0] Error details:", {
-        message: insertError.message,
-        details: insertError.details,
-        hint: insertError.hint,
-        code: insertError.code,
-      })
+      console.error("[v0] ❌ Database insert FAILED!")
+      console.error("[v0] Error message:", insertError.message)
+      console.error("[v0] Error details:", insertError.details)
+      console.error("[v0] Error hint:", insertError.hint)
+      console.error("[v0] Error code:", insertError.code)
       return NextResponse.json({ error: "Failed to store analytics data", details: insertError }, { status: 500 })
     }
 
     console.log("[v0] ✅ Analytics data stored successfully!")
-    console.log("[v0] Inserted data:", insertedData)
+    console.log("[v0] Inserted record ID:", insertedData?.[0]?.id)
     console.log("[v0] ===== Analytics Frame Processing Complete =====")
 
     return NextResponse.json({
@@ -63,7 +66,9 @@ export async function POST(request: NextRequest) {
       message: "Analytics processed successfully",
     })
   } catch (error) {
-    console.error("[v0] ❌ Analytics processing error:", error)
+    console.error("[v0] ❌ CRITICAL ERROR in analytics processing!")
+    console.error("[v0] Error type:", error instanceof Error ? error.constructor.name : typeof error)
+    console.error("[v0] Error message:", error instanceof Error ? error.message : String(error))
     console.error("[v0] Error stack:", error instanceof Error ? error.stack : "No stack trace")
     return NextResponse.json(
       {
