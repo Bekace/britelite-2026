@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -60,9 +60,9 @@ export default function ScreenAnalyticsPage() {
   const [timeRange, setTimeRange] = useState("24h")
   const [loading, setLoading] = useState(true)
 
-  // Fetch analytics data
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = useCallback(async () => {
     try {
+      console.log("[v0] Fetching analytics data...")
       const response = await fetch(`/api/analytics/data?screenId=${screenId}&timeRange=${timeRange}`)
       if (response.ok) {
         const data = await response.json()
@@ -73,11 +73,11 @@ export default function ScreenAnalyticsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [screenId, timeRange])
 
   useEffect(() => {
     fetchAnalyticsData()
-  }, [screenId, timeRange])
+  }, [fetchAnalyticsData])
 
   // Prepare chart data
   const demographicsData = analyticsData?.summary?.demographics

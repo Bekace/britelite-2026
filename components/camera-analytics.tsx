@@ -57,8 +57,8 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const isMountedRef = useRef(true)
 
-  // Load camera configuration on mount
   useEffect(() => {
     const savedConfig = localStorage.getItem("cameraConfig")
     if (savedConfig) {
@@ -72,7 +72,6 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
     }
   }, [])
 
-  // Initialize AI models on mount
   useEffect(() => {
     console.log("[v0] Initializing AI models...")
     initializeModels()
@@ -92,15 +91,11 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
 
   useEffect(() => {
     if (enabled && !isActive && modelsReady && cameraConfig) {
-      console.log("[v0] Analytics enabled, auto-starting camera...")
+      console.log("[v0] Analytics enabled externally, auto-starting...")
       startAnalytics()
-    } else if (!enabled && isActive) {
-      console.log("[v0] Analytics disabled, stopping camera...")
-      stopAnalytics()
     }
   }, [enabled, modelsReady, cameraConfig])
 
-  // Request camera permission with stored configuration
   const requestCameraPermission = useCallback(async () => {
     try {
       const constraints: MediaStreamConstraints = {
@@ -129,7 +124,6 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
       setHasPermission(true)
       setError("")
 
-      // Log actual camera settings
       const videoTrack = stream.getVideoTracks()[0]
       const actualSettings = videoTrack.getSettings()
       console.log("[v0] Camera started with settings:", actualSettings)
@@ -147,7 +141,6 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
     }
   }, [cameraConfig])
 
-  // Stop camera stream
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop())
@@ -166,7 +159,6 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
     setHasPermission(null)
   }, [])
 
-  // Capture frame and send for analysis
   const captureAndAnalyze = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isProcessing) {
       return
@@ -183,21 +175,17 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
     try {
       setIsProcessing(true)
 
-      // Set canvas dimensions to match video
       canvas.width = video.videoWidth
       canvas.height = video.videoHeight
 
-      // Draw current video frame to canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
 
       console.log("[v0] Analyzing frame with AI vision...")
 
-      // Analyze frame using AI (client-side processing for privacy)
       const analytics = await analyzeFrame(canvas)
 
       console.log("[v0] AI analysis complete:", analytics)
 
-      // Send anonymized analytics to backend (no image data)
       const response = await fetch("/api/analytics/process-frame", {
         method: "POST",
         headers: {
@@ -234,43 +222,50 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
   }, [screenId, isProcessing])
 
   const startAnalytics = useCallback(async () => {
-    // Check if camera is configured
+    if (isActive) {
+      console.log("[v0] Analytics already active, skipping start")
+      return
+    }
+
     if (!cameraConfig) {
       setError("Camera not configured. Click 'Setup' to configure your camera.")
       return
     }
 
-    // Check if models are ready
     if (!modelsReady) {
       setError("AI models loading. Please wait...")
       return
     }
 
-    // Starting analytics
     const hasCamera = await requestCameraPermission()
-    if (hasCamera) {
+    if (hasCamera && isMountedRef.current) {
       setIsActive(true)
       console.log("[v0] Camera started, beginning frame capture every 5 seconds")
 
-      // Start periodic frame capture (every 5 seconds)
       intervalRef.current = setInterval(() => {
-        console.log("[v0] Triggering frame capture...")
-        captureAndAnalyze()
+        if (isMountedRef.current) {
+          console.log("[v0] Triggering frame capture...")
+          captureAndAnalyze()
+        }
       }, 5000)
 
-      // Capture first frame immediately
-      setTimeout(() => captureAndAnalyze(), 1000)
+      setTimeout(() => {
+        if (isMountedRef.current) {
+          captureAndAnalyze()
+        }
+      }, 1000)
     }
-  }, [cameraConfig, modelsReady, requestCameraPermission, captureAndAnalyze])
+  }, [cameraConfig, modelsReady, requestCameraPermission, captureAndAnalyze, isActive])
 
   const stopAnalytics = useCallback(() => {
     console.log("[v0] Stopping analytics...")
     stopCamera()
-    setIsActive(false)
-    setLastAnalytics(null)
+    if (isMountedRef.current) {
+      setIsActive(false)
+      setLastAnalytics(null)
+    }
   }, [stopCamera])
 
-  // Toggle analytics on/off
   const toggleAnalytics = useCallback(async () => {
     if (!isActive) {
       await startAnalytics()
@@ -281,12 +276,31 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
     }
   }, [isActive, startAnalytics, stopAnalytics, onToggle])
 
-  // Cleanup on unmount
   useEffect(() => {
+    isMountedRef.current = true
+
     return () => {
-      stopCamera()
+      console.log("[v0] Component unmounting, cleaning up...")
+      isMountedRef.current = false
+
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => {
+          track.stop()
+          console.log("[v0] Stopped camera track")
+        })
+        streamRef.current = null
+      }
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = null
+      }
     }
-  }, [stopCamera])
+  }, [])
 
   return (
     <Card className={cn("w-full", className)}>
@@ -347,7 +361,6 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
           </div>
         )}
 
-        {/* Camera configuration status */}
         {cameraConfig && (
           <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
             Camera: {cameraConfig.settings.width}×{cameraConfig.settings.height} @ {cameraConfig.settings.frameRate}fps
@@ -356,11 +369,9 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
 
         {isActive && hasPermission && (
           <div className="space-y-4">
-            {/* Camera Preview (hidden) */}
             <video ref={videoRef} autoPlay muted playsInline className="hidden" />
             <canvas ref={canvasRef} className="hidden" />
 
-            {/* Analytics Display */}
             {lastAnalytics ? (
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
