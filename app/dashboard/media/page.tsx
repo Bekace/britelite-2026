@@ -154,6 +154,7 @@ export default function MediaLibraryPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [tags, setTags] = useState("")
   const [authError, setAuthError] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     itemId: string
@@ -168,19 +169,41 @@ export default function MediaLibraryPage() {
   const uploadLimits = useUploadLimits()
 
   useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.error("[v0] Media library loading timeout - forcing stop")
+        setLoading(false)
+        setFetchError("Loading timeout - please refresh the page")
+      }
+    }, 10000) // 10 second timeout
+
     checkAuthAndFetchMedia()
+
+    return () => clearTimeout(timeoutId)
   }, [])
 
   const checkAuthAndFetchMedia = async () => {
+    console.log("[v0] Starting media library load...")
     try {
+      console.log("[v0] Creating Supabase client...")
       const supabase = createClient()
+
+      if (!supabase) {
+        console.error("[v0] Failed to create Supabase client")
+        setAuthError(true)
+        setFetchError("Failed to initialize - please check your connection")
+        setLoading(false)
+        return
+      }
+
+      console.log("[v0] Checking authentication...")
       const {
         data: { user },
         error,
       } = await supabase.auth.getUser()
 
       if (error || !user) {
-        console.error("Authentication error:", error)
+        console.error("[v0] Authentication error:", error)
         setAuthError(true)
         setLoading(false)
         toast({
@@ -191,35 +214,58 @@ export default function MediaLibraryPage() {
         return
       }
 
+      console.log("[v0] Authentication successful, fetching media...")
       await fetchMedia()
     } catch (error) {
-      console.error("Auth check error:", error)
+      console.error("[v0] Auth check error:", error)
       setAuthError(true)
+      setFetchError("Authentication failed - please try logging in again")
       setLoading(false)
     }
   }
 
   const fetchMedia = async () => {
     try {
+      console.log("[v0] Calling /api/media/list...")
       const response = await fetch("/api/media/list")
+
+      console.log("[v0] API response status:", response.status)
+
       if (response.ok) {
         const data = await response.json()
+        console.log("[v0] Media fetched successfully:", data.media?.length || 0, "items")
         setMedia(Array.isArray(data.media) ? data.media : [])
+        setFetchError(null)
       } else {
+        const errorText = await response.text()
+        console.error("[v0] API error:", response.status, errorText)
+
+        let errorMessage = "Failed to fetch media"
+        if (response.status === 401) {
+          errorMessage = "Authentication expired - please log in again"
+          setAuthError(true)
+        } else if (response.status === 503) {
+          errorMessage = "Service temporarily unavailable - please try again"
+        }
+
+        setFetchError(errorMessage)
         toast({
           title: "Error",
-          description: "Failed to fetch media",
+          description: errorMessage,
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Error fetching media:", error)
+      console.error("[v0] Error fetching media:", error)
+      const errorMessage = error instanceof Error ? error.message : "Network error - please check your connection"
+      setFetchError(errorMessage)
       toast({
         title: "Error",
-        description: "Failed to fetch media",
+        description: "Failed to fetch media - please try again",
         variant: "destructive",
       })
     } finally {
+      console.log("[v0] Fetch complete, setting loading to false")
       setLoading(false)
     }
   }
@@ -385,6 +431,7 @@ export default function MediaLibraryPage() {
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
           <p className="text-gray-600">Please log in to access the media library</p>
+          {fetchError && <p className="text-sm text-red-600 mt-2">{fetchError}</p>}
         </div>
         <Button onClick={() => (window.location.href = "/auth/login")} className="bg-cyan-500 hover:bg-cyan-600">
           Go to Login
@@ -395,8 +442,23 @@ export default function MediaLibraryPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+        <p className="text-sm text-gray-600">Loading media library...</p>
+      </div>
+    )
+  }
+
+  if (fetchError && !authError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Media</h2>
+          <p className="text-gray-600">{fetchError}</p>
+        </div>
+        <Button onClick={() => window.location.reload()} className="bg-cyan-500 hover:bg-cyan-600">
+          Retry
+        </Button>
       </div>
     )
   }
