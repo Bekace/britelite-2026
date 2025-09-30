@@ -1,40 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server"
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const screenId = searchParams.get("screenId")
-
-  console.log("[v0] Fetching analytics settings for screen:", screenId)
-
-  if (!screenId) {
-    return NextResponse.json({ error: "Screen ID is required" }, { status: 400 })
-  }
-
   try {
-    const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
+    const screenId = searchParams.get("screenId")
 
-    if (!supabase) {
-      return NextResponse.json({ error: "Supabase not configured" }, { status: 500 })
+    console.log("[v0] Fetching analytics settings for screen:", screenId)
+
+    if (!screenId) {
+      return NextResponse.json({ error: "Screen ID is required" }, { status: 400 })
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (user) {
-      const { data: screen, error: screenError } = await supabase
-        .from("screens")
-        .select("id")
-        .eq("id", screenId)
-        .eq("user_id", user.id)
-        .single()
-
-      if (screenError || !screen) {
-        console.log("[v0] Screen access error:", screenError)
-        return NextResponse.json({ error: "Screen not found or access denied" }, { status: 404 })
-      }
-    }
+    const supabase = await createServiceRoleClient()
 
     const { data: settings, error } = await supabase
       .from("analytics_settings")
@@ -43,7 +21,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     if (error) {
-      console.error("Error fetching analytics settings:", error)
+      console.error("[v0] Error fetching analytics settings:", error)
       return NextResponse.json({ error: "Failed to fetch analytics settings" }, { status: 500 })
     }
 
@@ -59,8 +37,14 @@ export async function GET(request: NextRequest) {
     console.log("[v0] Returning analytics settings:", result)
     return NextResponse.json(result)
   } catch (error) {
-    console.error("Analytics settings fetch error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[v0] Analytics settings fetch error:", error)
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
 
