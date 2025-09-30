@@ -69,8 +69,6 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
       } catch (err) {
         console.error("[v0] Failed to parse camera config:", err)
       }
-    } else {
-      console.log("[v0] No camera configuration found in localStorage")
     }
   }, [])
 
@@ -236,21 +234,15 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
   }, [screenId, isProcessing])
 
   const startAnalytics = useCallback(async () => {
-    console.log("[v0] Starting analytics...")
-
     // Check if camera is configured
     if (!cameraConfig) {
-      const errorMsg = "Camera not configured. Please set up camera first."
-      console.error("[v0]", errorMsg)
-      setError(errorMsg)
+      setError("Camera not configured. Click 'Setup' to configure your camera.")
       return
     }
 
     // Check if models are ready
     if (!modelsReady) {
-      const errorMsg = "AI models not ready. Please wait..."
-      console.error("[v0]", errorMsg)
-      setError(errorMsg)
+      setError("AI models loading. Please wait...")
       return
     }
 
@@ -337,17 +329,27 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
 
       <CardContent className="space-y-4">
         {error && (
-          <div className="flex items-center gap-2 text-sm text-destructive">
-            <AlertCircle className="h-4 w-4" />
-            {error}
+          <div className="flex items-start gap-2 p-3 text-sm bg-destructive/10 text-destructive rounded-md border border-destructive/20">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-medium">{error}</p>
+              {!cameraConfig && (
+                <p className="text-xs mt-1 opacity-90">Go to Camera Setup to configure your camera for analytics.</p>
+              )}
+            </div>
           </div>
         )}
 
-        {!modelsReady && <div className="text-xs text-muted-foreground bg-muted p-2 rounded">Loading AI models...</div>}
+        {!modelsReady && !error && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted p-3 rounded-md">
+            <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <span>Loading AI models for face detection and emotion analysis...</span>
+          </div>
+        )}
 
         {/* Camera configuration status */}
         {cameraConfig && (
-          <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+          <div className="text-xs text-muted-foreground bg-muted p-3 rounded-md">
             Camera: {cameraConfig.settings.width}×{cameraConfig.settings.height} @ {cameraConfig.settings.frameRate}fps
           </div>
         )}
@@ -414,16 +416,27 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
         {!isActive && (
           <div className="text-center py-8 text-muted-foreground">
             <EyeOff className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Analytics {enabled ? "starting..." : "disabled"}</p>
-            <p className="text-xs">
-              {!cameraConfig
-                ? "Configure camera first"
-                : !modelsReady
-                  ? "Loading AI models..."
-                  : enabled
-                    ? "Initializing camera..."
-                    : "Enable analytics to begin"}
-            </p>
+            {!cameraConfig ? (
+              <>
+                <p className="font-medium">Camera Not Configured</p>
+                <p className="text-xs mt-1">Click the "Setup" button above to configure your camera</p>
+              </>
+            ) : !modelsReady ? (
+              <>
+                <p className="font-medium">Loading AI Models</p>
+                <p className="text-xs mt-1">Preparing face detection and emotion analysis...</p>
+              </>
+            ) : enabled ? (
+              <>
+                <p className="font-medium">Starting Analytics</p>
+                <p className="text-xs mt-1">Initializing camera...</p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium">Analytics Disabled</p>
+                <p className="text-xs mt-1">Click "Start" to begin audience analytics</p>
+              </>
+            )}
           </div>
         )}
       </CardContent>
