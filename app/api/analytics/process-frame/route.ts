@@ -4,18 +4,22 @@ import { cookies } from "next/headers"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("[v0] Analytics frame processing request received")
+    console.log("[v0] ===== Analytics Frame Processing Started =====")
 
     const { screenId, analytics, timestamp } = await request.json()
 
+    console.log("[v0] Received data:", {
+      screenId,
+      analytics,
+      timestamp,
+    })
+
     if (!screenId || !analytics) {
+      console.log("[v0] ERROR: Missing required fields")
       return NextResponse.json({ error: "Screen ID and analytics data are required" }, { status: 400 })
     }
 
-    console.log("[v0] Storing analytics for screen:", screenId)
-    console.log("[v0] Analytics data:", analytics)
-
-    // Create Supabase client
+    console.log("[v0] Creating Supabase client with service role key...")
     const cookieStore = await cookies()
     const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
       cookies: {
@@ -24,29 +28,49 @@ export async function POST(request: NextRequest) {
         remove: () => {},
       },
     })
+    console.log("[v0] Supabase client created successfully")
 
-    // Store analytics data in database
-    const { error: insertError } = await supabase.from("analytics").insert({
+    const insertData = {
       screen_id: screenId,
       event_type: "audience_analytics",
       event_data: analytics,
       created_at: timestamp || new Date().toISOString(),
-    })
-
-    if (insertError) {
-      console.error("[v0] Error storing analytics:", insertError)
-      return NextResponse.json({ error: "Failed to store analytics data" }, { status: 500 })
     }
 
-    console.log("[v0] Analytics data stored successfully")
+    console.log("[v0] Attempting to insert data:", JSON.stringify(insertData, null, 2))
+
+    const { data: insertedData, error: insertError } = await supabase.from("analytics").insert(insertData).select()
+
+    if (insertError) {
+      console.error("[v0] ❌ Database insert error:", insertError)
+      console.error("[v0] Error details:", {
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+        code: insertError.code,
+      })
+      return NextResponse.json({ error: "Failed to store analytics data", details: insertError }, { status: 500 })
+    }
+
+    console.log("[v0] ✅ Analytics data stored successfully!")
+    console.log("[v0] Inserted data:", insertedData)
+    console.log("[v0] ===== Analytics Frame Processing Complete =====")
 
     return NextResponse.json({
       success: true,
       analytics,
+      insertedData,
       message: "Analytics processed successfully",
     })
   } catch (error) {
-    console.error("[v0] Analytics processing error:", error)
-    return NextResponse.json({ error: "Failed to process analytics" }, { status: 500 })
+    console.error("[v0] ❌ Analytics processing error:", error)
+    console.error("[v0] Error stack:", error instanceof Error ? error.stack : "No stack trace")
+    return NextResponse.json(
+      {
+        error: "Failed to process analytics",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
