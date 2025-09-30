@@ -43,7 +43,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .eq("playlist_id", params.id)
       .order("position", { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     const nextPosition = (lastItem?.position || 0) + 1
 
