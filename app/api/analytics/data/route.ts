@@ -85,6 +85,7 @@ function aggregateAnalytics(data: any[]) {
       totalInteractions: 0,
       peakHour: null,
       demographics: { male: 0, female: 0, unknown: 0 },
+      ageGroups: { child: 0, teen: 0, adult: 0, senior: 0 },
       emotions: { happy: 0, neutral: 0, sad: 0, angry: 0, surprised: 0, unknown: 0 },
     }
   }
@@ -101,6 +102,12 @@ function aggregateAnalytics(data: any[]) {
       acc.demographics.female += eventData.demographics?.female || 0
       acc.demographics.unknown += eventData.demographics?.unknown || 0
 
+      // Age Groups
+      acc.ageGroups.child += eventData.ageGroups?.child || 0
+      acc.ageGroups.teen += eventData.ageGroups?.teen || 0
+      acc.ageGroups.adult += eventData.ageGroups?.adult || 0
+      acc.ageGroups.senior += eventData.ageGroups?.senior || 0
+
       // Emotions
       acc.emotions.happy += eventData.emotions?.happy || 0
       acc.emotions.neutral += eventData.emotions?.neutral || 0
@@ -115,6 +122,7 @@ function aggregateAnalytics(data: any[]) {
       personCount: 0,
       lookingAtScreen: 0,
       demographics: { male: 0, female: 0, unknown: 0 },
+      ageGroups: { child: 0, teen: 0, adult: 0, senior: 0 },
       emotions: { happy: 0, neutral: 0, sad: 0, angry: 0, surprised: 0, unknown: 0 },
     },
   )
@@ -124,6 +132,7 @@ function aggregateAnalytics(data: any[]) {
     totalInteractions: totals.lookingAtScreen,
     peakHour: findPeakHour(data),
     demographics: totals.demographics,
+    ageGroups: totals.ageGroups,
     emotions: totals.emotions,
   }
 }
