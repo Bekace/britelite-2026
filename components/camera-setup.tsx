@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Camera, CheckCircle, XCircle, AlertTriangle, Settings, Play, Square } from "lucide-react"
+import { Camera, CheckCircle, XCircle, AlertTriangle, Settings, Square } from "lucide-react"
 
 interface CameraDevice {
   deviceId: string
@@ -35,6 +35,12 @@ export default function CameraSetup({ onCameraConfigured }: CameraSetupProps) {
     checkCameraPermissions()
   }, [])
 
+  useEffect(() => {
+    if (selectedCamera && !isStreaming) {
+      startCameraTest()
+    }
+  }, [selectedCamera])
+
   const checkCameraPermissions = async () => {
     try {
       const result = await navigator.permissions.query({ name: "camera" as PermissionName })
@@ -55,7 +61,7 @@ export default function CameraSetup({ onCameraConfigured }: CameraSetupProps) {
     try {
       // Request permission first
       const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      stream.getTracks().forEach((track) => track.stop()) // Stop the stream immediately
+      stream.getTracks().forEach((track) => track.stop())
 
       // Now enumerate devices
       const devices = await navigator.mediaDevices.enumerateDevices()
@@ -85,12 +91,17 @@ export default function CameraSetup({ onCameraConfigured }: CameraSetupProps) {
   }
 
   const startCameraTest = async () => {
-    if (!selectedCamera) return
+    if (!selectedCamera) {
+      console.log("[v0] No camera selected")
+      return
+    }
 
     setIsLoading(true)
     setError("")
 
     try {
+      console.log("[v0] Starting camera test for device:", selectedCamera)
+
       const constraints: MediaStreamConstraints = {
         video: {
           deviceId: { exact: selectedCamera },
@@ -103,9 +114,30 @@ export default function CameraSetup({ onCameraConfigured }: CameraSetupProps) {
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
       streamRef.current = stream
 
+      console.log("[v0] Got media stream:", stream)
+      console.log("[v0] Video tracks:", stream.getVideoTracks())
+
       if (videoRef.current) {
+        console.log("[v0] Attaching stream to video element")
         videoRef.current.srcObject = stream
-        await videoRef.current.play()
+
+        videoRef.current.onloadedmetadata = () => {
+          console.log("[v0] Video metadata loaded")
+          videoRef.current
+            ?.play()
+            .then(() => {
+              console.log("[v0] Video playing successfully")
+            })
+            .catch((err) => {
+              console.error("[v0] Video play failed:", err)
+              setError(`Video playback failed: ${err.message}`)
+            })
+        }
+
+        videoRef.current.onerror = (err) => {
+          console.error("[v0] Video element error:", err)
+          setError("Video element error occurred")
+        }
       }
 
       // Get actual stream settings
@@ -124,8 +156,13 @@ export default function CameraSetup({ onCameraConfigured }: CameraSetupProps) {
   }
 
   const stopCameraTest = () => {
+    console.log("[v0] Stopping camera test")
+
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current.getTracks().forEach((track) => {
+        console.log("[v0] Stopping track:", track.label)
+        track.stop()
+      })
       streamRef.current = null
     }
 
@@ -221,21 +258,11 @@ export default function CameraSetup({ onCameraConfigured }: CameraSetupProps) {
             </div>
           )}
 
-          {/* Camera Test Controls */}
-          {selectedCamera && (
-            <div className="flex gap-2">
-              {!isStreaming ? (
-                <Button onClick={startCameraTest} disabled={isLoading}>
-                  <Play className="w-4 h-4 mr-2" />
-                  Test Camera
-                </Button>
-              ) : (
-                <Button onClick={stopCameraTest} variant="outline">
-                  <Square className="w-4 h-4 mr-2" />
-                  Stop Test
-                </Button>
-              )}
-            </div>
+          {selectedCamera && isStreaming && (
+            <Button onClick={stopCameraTest} variant="outline" className="w-full bg-transparent">
+              <Square className="w-4 h-4 mr-2" />
+              Stop Test
+            </Button>
           )}
 
           {/* Error Display */}
@@ -249,7 +276,7 @@ export default function CameraSetup({ onCameraConfigured }: CameraSetupProps) {
       </Card>
 
       {/* Camera Preview */}
-      {isStreaming && (
+      {selectedCamera && (
         <Card>
           <CardHeader>
             <CardTitle>Camera Preview</CardTitle>
@@ -257,7 +284,24 @@ export default function CameraSetup({ onCameraConfigured }: CameraSetupProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <video ref={videoRef} className="w-full max-w-md mx-auto rounded-lg border" autoPlay muted playsInline />
+              <div className="relative w-full max-w-2xl mx-auto bg-black rounded-lg overflow-hidden">
+                <video
+                  ref={videoRef}
+                  className="w-full h-auto"
+                  autoPlay
+                  muted
+                  playsInline
+                  style={{ minHeight: "400px" }}
+                />
+                {!isStreaming && (
+                  <div className="absolute inset-0 flex items-center justify-center text-white">
+                    <div className="text-center">
+                      <Camera className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm opacity-75">Initializing camera...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Stream Settings */}
               {streamSettings && (
@@ -279,17 +323,19 @@ export default function CameraSetup({ onCameraConfigured }: CameraSetupProps) {
                   <div>
                     <span className="font-medium">Status:</span>
                     <Badge variant="default" className="ml-2 bg-green-100 text-green-800">
-                      Active
+                      {isStreaming ? "Active" : "Initializing"}
                     </Badge>
                   </div>
                 </div>
               )}
 
               {/* Confirm Setup */}
-              <Button onClick={confirmCameraSetup} className="w-full">
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Confirm Camera Setup
-              </Button>
+              {isStreaming && (
+                <Button onClick={confirmCameraSetup} className="w-full">
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Confirm Camera Setup
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
