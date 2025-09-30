@@ -33,11 +33,14 @@ import {
   RefreshCw,
   Eye,
   ExternalLink,
+  Settings,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 
 interface AnalyticsData {
   overview: {
@@ -112,6 +115,8 @@ export default function AnalyticsPage() {
   const [selectedScreen, setSelectedScreen] = useState<Screen | null>(null)
   const [screenAnalytics, setScreenAnalytics] = useState<any>(null)
   const [loadingScreenAnalytics, setLoadingScreenAnalytics] = useState(false)
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(false)
+  const [savingSettings, setSavingSettings] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -139,10 +144,55 @@ export default function AnalyticsPage() {
         const data = await response.json()
         setScreenAnalytics(data)
       }
+
+      const settingsResponse = await fetch(`/api/analytics/settings?screenId=${screenId}`)
+      if (settingsResponse.ok) {
+        const settings = await settingsResponse.json()
+        setAnalyticsEnabled(settings.enabled || false)
+      }
     } catch (error) {
       console.error("Error fetching screen analytics:", error)
     } finally {
       setLoadingScreenAnalytics(false)
+    }
+  }
+
+  const handleAnalyticsToggle = async (enabled: boolean) => {
+    if (!selectedScreen) return
+
+    setSavingSettings(true)
+    try {
+      const response = await fetch("/api/analytics/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          screenId: selectedScreen.id,
+          enabled,
+          faceDetection: enabled,
+          demographicAnalysis: enabled,
+          emotionDetection: enabled,
+          attentionTracking: enabled,
+        }),
+      })
+
+      if (response.ok) {
+        setAnalyticsEnabled(enabled)
+        toast({
+          title: "Settings saved",
+          description: `Camera analytics ${enabled ? "enabled" : "disabled"} successfully`,
+        })
+      } else {
+        throw new Error("Failed to save settings")
+      }
+    } catch (error) {
+      console.error("Error saving analytics settings:", error)
+      toast({
+        title: "Error",
+        description: "Failed to save analytics settings",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingSettings(false)
     }
   }
 
@@ -546,6 +596,57 @@ export default function AnalyticsPage() {
                   {selectedScreen.location} • {selectedScreen.screen_code}
                 </SheetDescription>
               </SheetHeader>
+
+              <Card className="mt-6 border-cyan-200 bg-cyan-50/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Settings className="h-4 w-4 text-cyan-600" />
+                    Camera Analytics Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="analytics-toggle" className="text-sm font-medium">
+                        Enable AI Analytics
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Detect audience demographics, emotions, and engagement
+                      </p>
+                    </div>
+                    <Switch
+                      id="analytics-toggle"
+                      checked={analyticsEnabled}
+                      onCheckedChange={handleAnalyticsToggle}
+                      disabled={savingSettings}
+                    />
+                  </div>
+
+                  {analyticsEnabled && (
+                    <div className="bg-white border border-cyan-200 rounded-lg p-3 space-y-2">
+                      <p className="text-xs font-medium text-cyan-900">Privacy & Compliance</p>
+                      <ul className="text-xs text-muted-foreground space-y-1">
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-3 w-3 text-green-600 mt-0.5 flex-shrink-0" />
+                          <span>All processing happens locally in the browser</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-3 w-3 text-green-600 mt-0.5 flex-shrink-0" />
+                          <span>No images or videos are stored</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-3 w-3 text-green-600 mt-0.5 flex-shrink-0" />
+                          <span>Only anonymized metrics are collected</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle className="h-3 w-3 text-green-600 mt-0.5 flex-shrink-0" />
+                          <span>GDPR compliant data handling</span>
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
               <div className="mt-6">
                 {loadingScreenAnalytics ? (
