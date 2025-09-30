@@ -176,16 +176,19 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
   const fetchAnalyticsSettings = async (screenId: string) => {
     try {
+      console.log("[v0] Fetching analytics settings for screen:", screenId)
       const response = await fetch(`/api/analytics/settings?screenId=${screenId}`)
 
       if (response.ok) {
         const data = await response.json()
+        console.log("[v0] Analytics settings fetched:", data)
         setAnalyticsEnabled(data.enabled || false)
       } else {
+        console.log("[v0] Failed to fetch analytics settings, status:", response.status)
         setAnalyticsEnabled(false)
       }
     } catch (err) {
-      console.error("Error fetching analytics settings:", err)
+      console.error("[v0] Error fetching analytics settings:", err)
       setAnalyticsEnabled(false)
     }
   }
@@ -431,6 +434,13 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : screen.content || []
   const currentMedia = contentToDisplay[currentMediaIndex]
 
+  console.log("[v0] Player page render - Analytics component conditions:", {
+    hasScreenId: !!config?.screen.id,
+    analyticsEnabled,
+    screenId: config?.screen.id,
+    willRenderAnalytics: !!(config?.screen.id && analyticsEnabled),
+  })
+
   return (
     <div className="fixed inset-0 flex items-center justify-center overflow-hidden" style={getScreenStyles()}>
       <div className="absolute top-4 left-4 z-50">
@@ -447,6 +457,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
       {config?.screen.id && analyticsEnabled && (
         <div className="absolute top-4 right-4 z-50 w-80">
+          {console.log("[v0] Rendering CameraAnalytics component with screenId:", config.screen.id)}
           <CameraAnalytics
             screenId={config.screen.id}
             enabled={analyticsEnabled}

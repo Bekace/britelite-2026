@@ -45,6 +45,8 @@ interface CameraConfig {
 }
 
 export function CameraAnalytics({ screenId, enabled = false, onToggle, className }: CameraAnalyticsProps) {
+  console.log("[v0] CameraAnalytics component mounted with props:", { screenId, enabled })
+
   const [isActive, setIsActive] = useState(enabled)
   const [hasPermission, setHasPermission] = useState<boolean | null>(null)
   const [error, setError] = useState<string>("")
@@ -60,6 +62,15 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
   const isMountedRef = useRef(true)
 
   useEffect(() => {
+    console.log("[v0] CameraAnalytics state changed:", {
+      isActive,
+      enabled,
+      modelsReady,
+      hasCameraConfig: !!cameraConfig,
+    })
+  }, [isActive, enabled, modelsReady, cameraConfig])
+
+  useEffect(() => {
     const savedConfig = localStorage.getItem("cameraConfig")
     if (savedConfig) {
       try {
@@ -69,6 +80,8 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
       } catch (err) {
         console.error("[v0] Failed to parse camera config:", err)
       }
+    } else {
+      console.log("[v0] No camera configuration found in localStorage")
     }
   }, [])
 
