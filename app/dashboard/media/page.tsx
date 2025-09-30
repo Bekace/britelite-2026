@@ -169,17 +169,7 @@ export default function MediaLibraryPage() {
   const uploadLimits = useUploadLimits()
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (loading) {
-        console.error("[v0] Media library loading timeout - forcing stop")
-        setLoading(false)
-        setFetchError("Loading timeout - please refresh the page")
-      }
-    }, 10000) // 10 second timeout
-
     checkAuthAndFetchMedia()
-
-    return () => clearTimeout(timeoutId)
   }, [])
 
   const checkAuthAndFetchMedia = async () => {
@@ -472,10 +462,10 @@ export default function MediaLibraryPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>
-            <Grid className="h-4 w-4" />
+            <Grid className="h-5 w-5" />
           </Button>
           <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
-            <List className="h-4 w-4" />
+            <List className="h-5 w-5" />
           </Button>
         </div>
       </div>
