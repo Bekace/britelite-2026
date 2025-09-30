@@ -18,34 +18,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Supabase not configured" }, { status: 500 })
     }
 
-    // Get current user
     const {
       data: { user },
-      error: authError,
     } = await supabase.auth.getUser()
-    if (authError || !user) {
-      console.log("[v0] Auth error:", authError)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
 
-    // Verify user owns the screen first
-    const { data: screen, error: screenError } = await supabase
-      .from("screens")
-      .select("id")
-      .eq("id", screenId)
-      .eq("user_id", user.id)
-      .single()
+    if (user) {
+      const { data: screen, error: screenError } = await supabase
+        .from("screens")
+        .select("id")
+        .eq("id", screenId)
+        .eq("user_id", user.id)
+        .single()
 
-    if (screenError || !screen) {
-      console.log("[v0] Screen access error:", screenError)
-      return NextResponse.json({ error: "Screen not found or access denied" }, { status: 404 })
+      if (screenError || !screen) {
+        console.log("[v0] Screen access error:", screenError)
+        return NextResponse.json({ error: "Screen not found or access denied" }, { status: 404 })
+      }
     }
 
     const { data: settings, error } = await supabase
       .from("analytics_settings")
       .select("*")
       .eq("screen_id", screenId)
-      .eq("user_id", user.id)
       .maybeSingle()
 
     if (error) {
