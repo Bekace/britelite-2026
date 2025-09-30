@@ -58,7 +58,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [maxRetries] = useState(3)
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const [shuffledContent, setShuffledContent] = useState<MediaItem[]>([])
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(false)
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(true)
   const router = useRouter()
   const [showCameraSetup, setShowCameraSetup] = useState(false)
 
@@ -147,7 +147,8 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       }
 
       if (configData.screen.id) {
-        fetchAnalyticsSettings(configData.screen.id)
+        console.log("[v0] Analytics enabled by default for testing, screenId:", configData.screen.id)
+        // fetchAnalyticsSettings(configData.screen.id)
       }
 
       if (!isScreenCode) {
@@ -175,6 +176,10 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   }
 
   const fetchAnalyticsSettings = async (screenId: string) => {
+    console.log("[v0] fetchAnalyticsSettings temporarily disabled, using default enabled state")
+    return
+
+    /* Original code - temporarily disabled
     try {
       console.log("[v0] Fetching analytics settings for screen:", screenId)
       const response = await fetch(`/api/analytics/settings?screenId=${screenId}`)
@@ -191,6 +196,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       console.error("[v0] Error fetching analytics settings:", err)
       setAnalyticsEnabled(false)
     }
+    */
   }
 
   const sendHeartbeat = async () => {
