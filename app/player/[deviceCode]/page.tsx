@@ -468,6 +468,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
             screenId={config.screen.id}
             enabled={analyticsEnabled}
             onToggle={setAnalyticsEnabled}
+            onSetupClick={() => setShowCameraSetup(true)}
             className="bg-black/80 backdrop-blur-sm border-white/20"
           />
         </div>

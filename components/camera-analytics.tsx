@@ -12,6 +12,7 @@ interface CameraAnalyticsProps {
   enabled?: boolean
   onToggle?: (enabled: boolean) => void
   className?: string
+  onSetupClick?: () => void
 }
 
 interface AnalyticsData {
@@ -44,7 +45,13 @@ interface CameraConfig {
   settings: MediaTrackSettings
 }
 
-export function CameraAnalytics({ screenId, enabled = false, onToggle, className }: CameraAnalyticsProps) {
+export function CameraAnalytics({
+  screenId,
+  enabled = false,
+  onToggle,
+  className,
+  onSetupClick,
+}: CameraAnalyticsProps) {
   console.log("[v0] CameraAnalytics component mounted with props:", { screenId, enabled })
 
   const [isActive, setIsActive] = useState(enabled)
@@ -327,7 +334,7 @@ export function CameraAnalytics({ screenId, enabled = false, onToggle, className
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.open("/dashboard/screens/camera-setup", "_blank")}
+              onClick={() => (onSetupClick ? onSetupClick() : window.open("/dashboard/screens/camera-setup", "_blank"))}
             >
               <Settings className="h-4 w-4 mr-2" />
               Setup
