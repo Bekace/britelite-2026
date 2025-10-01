@@ -242,22 +242,29 @@ export function CameraAnalytics({
   }, [screenId, isProcessing])
 
   const startAnalytics = useCallback(async () => {
+    console.log("[v0] startAnalytics called, current state:", { isActive, cameraConfig: !!cameraConfig, modelsReady })
+
     if (isActive) {
       console.log("[v0] Analytics already active, skipping start")
       return
     }
 
     if (!cameraConfig) {
+      console.log("[v0] No camera config, cannot start")
       setError("Camera not configured. Click 'Setup' to configure your camera.")
       return
     }
 
     if (!modelsReady) {
+      console.log("[v0] Models not ready, cannot start")
       setError("AI models loading. Please wait...")
       return
     }
 
+    console.log("[v0] Requesting camera permission...")
     const hasCamera = await requestCameraPermission()
+    console.log("[v0] Camera permission result:", hasCamera)
+
     if (hasCamera && isMountedRef.current) {
       setIsActive(true)
       console.log("[v0] Camera started, beginning frame capture every 5 seconds")
@@ -271,9 +278,12 @@ export function CameraAnalytics({
 
       setTimeout(() => {
         if (isMountedRef.current) {
+          console.log("[v0] Capturing first frame...")
           captureAndAnalyze()
         }
       }, 1000)
+    } else {
+      console.log("[v0] Failed to start analytics - camera permission denied or component unmounted")
     }
   }, [cameraConfig, modelsReady, requestCameraPermission, captureAndAnalyze, isActive])
 
