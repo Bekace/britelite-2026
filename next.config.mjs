@@ -22,7 +22,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://*.vercel-insights.com https://vitals.vercel-insights.com https://*.supabase.co wss://*.supabase.co https://api.v0.app",
+              "connect-src 'self' https://*.vercel-insights.com https://vitals.vercel-insights.com https://*.supabase.co wss://*.supabase.co https://api.v0.app https://tfhub.dev https://storage.googleapis.com https://www.kaggle.com",
               "frame-src 'self'",
               "media-src 'self' blob: https:",
               "worker-src 'self' blob:",
