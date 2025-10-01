@@ -54,7 +54,7 @@ export function CameraAnalytics({
 }: CameraAnalyticsProps) {
   console.log("[v0] CameraAnalytics component mounted with props:", { screenId, enabled })
 
-  const [isActive, setIsActive] = useState(enabled)
+  const [isActive, setIsActive] = useState(false)
   const [hasPermission, setHasPermission] = useState<boolean | null>(null)
   const [error, setError] = useState<string>("")
   const [isProcessing, setIsProcessing] = useState(false)
