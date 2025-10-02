@@ -36,6 +36,7 @@ import {
   HelpCircle,
 } from "lucide-react"
 import { useParams } from "next/navigation"
+import { createBrowserClient } from "@supabase/ssr"
 
 interface AnalyticsData {
   totalRecords: number
@@ -78,6 +79,37 @@ export default function ScreenAnalyticsPage() {
   useEffect(() => {
     fetchAnalyticsData()
   }, [fetchAnalyticsData])
+
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    )
+
+    console.log("[v0] Setting up real-time subscription for screen:", screenId)
+
+    const channel = supabase
+      .channel(`analytics-${screenId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "analytics",
+          filter: `screen_id=eq.${screenId}`,
+        },
+        (payload) => {
+          console.log("[v0] Real-time analytics update received:", payload)
+          fetchAnalyticsData()
+        },
+      )
+      .subscribe()
+
+    return () => {
+      console.log("[v0] Cleaning up real-time subscription")
+      supabase.removeChannel(channel)
+    }
+  }, [screenId, fetchAnalyticsData])
 
   // Prepare chart data
   const demographicsData = analyticsData?.summary?.demographics

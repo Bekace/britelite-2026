@@ -61,6 +61,7 @@ export function CameraAnalytics({
   const [lastAnalytics, setLastAnalytics] = useState<AnalyticsData | null>(null)
   const [cameraConfig, setCameraConfig] = useState<CameraConfig | null>(null)
   const [modelsReady, setModelsReady] = useState(false)
+  const [latestFrame, setLatestFrame] = useState<string | null>(null)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -268,6 +269,8 @@ export function CameraAnalytics({
       console.log("[v0] Analytics stored:", result)
 
       setLastAnalytics(analytics)
+      const frameDataUrl = canvas.toDataURL("image/jpeg", 0.8)
+      setLatestFrame(frameDataUrl)
     } catch (err) {
       console.error("[v0] Frame analysis error:", err)
       setError(`Analysis failed: ${err instanceof Error ? err.message : "Unknown error"}`)
@@ -328,6 +331,7 @@ export function CameraAnalytics({
     if (isMountedRef.current) {
       setIsActive(false)
       setLastAnalytics(null)
+      setLatestFrame(null)
     }
   }, [stopCamera])
 
@@ -437,6 +441,16 @@ export function CameraAnalytics({
 
         {isActive && hasPermission && (
           <div className="space-y-4">
+            {latestFrame && (
+              <div className="space-y-2">
+                <div className="font-medium text-sm">Latest Frame</div>
+                <div className="relative rounded-lg overflow-hidden border bg-muted">
+                  <img src={latestFrame || "/placeholder.svg"} alt="Latest captured frame" className="w-full h-auto" />
+                  <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">Live</div>
+                </div>
+              </div>
+            )}
+
             {lastAnalytics ? (
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
