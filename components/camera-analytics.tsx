@@ -138,6 +138,27 @@ export function CameraAnalytics({
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream
+        try {
+          await videoRef.current.play()
+          console.log("[v0] Video playback started")
+
+          // Wait for video to have metadata loaded
+          await new Promise<void>((resolve) => {
+            if (videoRef.current && videoRef.current.readyState >= 2) {
+              resolve()
+            } else {
+              videoRef.current?.addEventListener("loadedmetadata", () => resolve(), { once: true })
+            }
+          })
+
+          console.log("[v0] Video ready with dimensions:", {
+            width: videoRef.current.videoWidth,
+            height: videoRef.current.videoHeight,
+            readyState: videoRef.current.readyState,
+          })
+        } catch (playError) {
+          console.error("[v0] Video play error:", playError)
+        }
       }
 
       streamRef.current = stream
