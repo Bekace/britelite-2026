@@ -180,7 +180,13 @@ export function CameraAnalytics({
   }, [])
 
   const captureAndAnalyze = useCallback(async () => {
+    console.log("[v0] captureAndAnalyze called, checking conditions...")
+    console.log("[v0] videoRef.current:", !!videoRef.current)
+    console.log("[v0] canvasRef.current:", !!canvasRef.current)
+    console.log("[v0] isProcessing:", isProcessing)
+
     if (!videoRef.current || !canvasRef.current || isProcessing) {
+      console.log("[v0] Early return: missing refs or already processing")
       return
     }
 
@@ -188,7 +194,15 @@ export function CameraAnalytics({
     const canvas = canvasRef.current
     const ctx = canvas.getContext("2d")
 
+    console.log("[v0] Video dimensions:", {
+      videoWidth: video.videoWidth,
+      videoHeight: video.videoHeight,
+      readyState: video.readyState,
+      paused: video.paused,
+    })
+
     if (!ctx || video.videoWidth === 0 || video.videoHeight === 0) {
+      console.log("[v0] Early return: no context or video not ready")
       return
     }
 
