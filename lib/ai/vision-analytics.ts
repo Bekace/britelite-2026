@@ -1,7 +1,9 @@
-// AI-powered computer vision analytics using TensorFlow.js
+// AI-powered computer vision analytics using TensorFlow.js and AI SDK
 // Processes video frames to detect faces and analyze demographics, emotions, and attention
 
 import * as tf from "@tensorflow/tfjs"
+import { generateObject } from "ai"
+import { z } from "zod"
 
 export interface VisionAnalyticsResult {
   personCount: number
@@ -145,6 +147,101 @@ function analyzeFace(faceData: any, imageWidth: number, imageHeight: number): Fa
   }
 }
 
+const FaceAnalysisSchema = z.object({
+  faces: z.array(
+    z.object({
+      gender: z.enum(["male", "female", "unknown"]).describe("The apparent gender of the person"),
+      estimatedAge: z.number().describe("The estimated age of the person in years"),
+      emotion: z
+        .enum(["happy", "neutral", "sad", "angry", "surprised", "fearful", "disgusted"])
+        .describe("The primary emotion expressed by the person"),
+      lookingAtCamera: z.boolean().describe("Whether the person appears to be looking at the camera"),
+      confidence: z.number().min(0).max(1).describe("Confidence level of the analysis (0-1)"),
+    }),
+  ),
+})
+
+async function analyzeFaceWithAI(
+  canvas: HTMLCanvasElement,
+  faceCount: number,
+): Promise<{ faces: Array<Omit<FaceAnalysis, "boundingBox">> }> {
+  try {
+    // Convert canvas to base64
+    const imageData = canvas.toDataURL("image/jpeg", 0.9)
+
+    console.log(`[v0] Analyzing ${faceCount} face(s) with AI vision model...`)
+
+    // Use AI SDK with vision model for accurate analysis
+    const { object } = await generateObject({
+      model: "openai/gpt-4o",
+      schema: FaceAnalysisSchema,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image",
+              image: imageData,
+            },
+            {
+              type: "text",
+              text: `Analyze this image and provide detailed information about each person visible. I detected ${faceCount} face(s) using face detection.
+
+For EACH person in the image, provide:
+1. Gender: male, female, or unknown (if unclear)
+2. Estimated age in years (be as accurate as possible based on facial features, not just a guess)
+3. Primary emotion: happy, neutral, sad, angry, surprised, fearful, or disgusted (look at facial expressions carefully)
+4. Whether they appear to be looking at the camera (true/false)
+5. Your confidence level in this analysis (0-1)
+
+Be precise and analytical. Look at:
+- Facial structure and features for gender
+- Skin texture, wrinkles, facial proportions for age
+- Facial muscle movements, eye shape, mouth position for emotions
+- Eye gaze direction and head orientation for attention
+
+Provide exactly ${faceCount} face analysis results.`,
+            },
+          ],
+        },
+      ],
+    })
+
+    console.log("[v0] AI vision analysis complete:", object)
+
+    return {
+      faces: object.faces.map((face) => ({
+        gender: face.gender,
+        age: face.estimatedAge,
+        ageGroup:
+          face.estimatedAge < 13
+            ? "child"
+            : face.estimatedAge < 20
+              ? "teen"
+              : face.estimatedAge < 60
+                ? "adult"
+                : "senior",
+        emotion: face.emotion === "fearful" || face.emotion === "disgusted" ? "unknown" : face.emotion,
+        lookingAtScreen: face.lookingAtCamera,
+        confidence: face.confidence,
+      })),
+    }
+  } catch (error) {
+    console.error("[v0] AI vision analysis error:", error)
+    // Fallback to unknown values if AI analysis fails
+    return {
+      faces: Array(faceCount).fill({
+        gender: "unknown",
+        age: 30,
+        ageGroup: "adult",
+        emotion: "unknown",
+        lookingAtScreen: false,
+        confidence: 0.5,
+      }),
+    }
+  }
+}
+
 // Main function to analyze a video frame
 export async function analyzeFrame(
   imageData: string | HTMLImageElement | HTMLVideoElement | HTMLCanvasElement,
@@ -156,30 +253,81 @@ export async function analyzeFrame(
   try {
     console.log("[v0] Analyzing frame with AI...")
 
-    // Convert base64 to image element if needed
-    let imageElement: HTMLImageElement | HTMLVideoElement | HTMLCanvasElement
+    // Convert to canvas for consistent processing
+    let canvas: HTMLCanvasElement
 
-    if (typeof imageData === "string") {
-      imageElement = await loadImage(imageData)
+    if (imageData instanceof HTMLCanvasElement) {
+      canvas = imageData
     } else {
-      imageElement = imageData
+      // Convert other types to canvas
+      let imageElement: HTMLImageElement | HTMLVideoElement
+
+      if (typeof imageData === "string") {
+        imageElement = await loadImage(imageData)
+      } else {
+        imageElement = imageData
+      }
+
+      canvas = document.createElement("canvas")
+      const width = imageElement instanceof HTMLImageElement ? imageElement.width : imageElement.videoWidth
+      const height = imageElement instanceof HTMLImageElement ? imageElement.height : imageElement.videoHeight
+
+      canvas.width = width
+      canvas.height = height
+
+      const ctx = canvas.getContext("2d")
+      if (!ctx) throw new Error("Failed to get canvas context")
+
+      ctx.drawImage(imageElement, 0, 0, width, height)
     }
 
-    // Detect faces in the frame
-    const predictions = await faceDetectionModel.estimateFaces(imageElement, false)
+    // Detect faces using BlazeFace
+    const predictions = await faceDetectionModel.estimateFaces(canvas, false)
+    const faceCount = predictions.length
 
-    console.log(`[v0] Detected ${predictions.length} face(s)`)
+    console.log(`[v0] Detected ${faceCount} face(s) with BlazeFace`)
 
-    // Analyze each detected face
-    const faces: FaceAnalysis[] = predictions.map((face: any) =>
-      analyzeFace(
-        face,
-        imageElement instanceof HTMLImageElement ? imageElement.width : imageElement.videoWidth || imageElement.width,
-        imageElement instanceof HTMLImageElement
-          ? imageElement.height
-          : imageElement.videoHeight || imageElement.height,
-      ),
-    )
+    if (faceCount === 0) {
+      // No faces detected
+      return {
+        personCount: 0,
+        demographics: { male: 0, female: 0, unknown: 0 },
+        ageGroups: { child: 0, teen: 0, adult: 0, senior: 0 },
+        emotions: { happy: 0, neutral: 0, sad: 0, angry: 0, surprised: 0, unknown: 0 },
+        lookingAtScreen: 0,
+        timestamp: new Date().toISOString(),
+        faces: [],
+      }
+    }
+
+    const aiAnalysis = await analyzeFaceWithAI(canvas, faceCount)
+
+    // Combine BlazeFace bounding boxes with AI analysis
+    const faces: FaceAnalysis[] = predictions.map((face: any, index: number) => {
+      const topLeft = face.topLeft as [number, number]
+      const bottomRight = face.bottomRight as [number, number]
+
+      const boundingBox = {
+        x: topLeft[0],
+        y: topLeft[1],
+        width: bottomRight[0] - topLeft[0],
+        height: bottomRight[1] - topLeft[1],
+      }
+
+      const aiData = aiAnalysis.faces[index] || {
+        gender: "unknown",
+        age: 30,
+        ageGroup: "adult",
+        emotion: "unknown",
+        lookingAtScreen: false,
+        confidence: 0.5,
+      }
+
+      return {
+        boundingBox,
+        ...aiData,
+      }
+    })
 
     // Aggregate results
     const demographics = {
