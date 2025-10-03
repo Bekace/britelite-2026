@@ -2,7 +2,6 @@
 // Processes video frames to detect faces and analyze demographics, emotions, and attention
 
 import * as tf from "@tensorflow/tfjs"
-import { generateObject } from "ai"
 import { z } from "zod"
 
 export interface VisionAnalyticsResult {
@@ -169,63 +168,29 @@ async function analyzeFaceWithAI(
     // Convert canvas to base64
     const imageData = canvas.toDataURL("image/jpeg", 0.9)
 
-    console.log(`[v0] Analyzing ${faceCount} face(s) with AI vision model...`)
+    console.log(`[v0] Sending ${faceCount} face(s) to server for AI analysis...`)
 
-    // Use AI SDK with vision model for accurate analysis
-    const { object } = await generateObject({
-      model: "openai/gpt-4o",
-      schema: FaceAnalysisSchema,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              image: imageData,
-            },
-            {
-              type: "text",
-              text: `Analyze this image and provide detailed information about each person visible. I detected ${faceCount} face(s) using face detection.
-
-For EACH person in the image, provide:
-1. Gender: male, female, or unknown (if unclear)
-2. Estimated age in years (be as accurate as possible based on facial features, not just a guess)
-3. Primary emotion: happy, neutral, sad, angry, surprised, fearful, or disgusted (look at facial expressions carefully)
-4. Whether they appear to be looking at the camera (true/false)
-5. Your confidence level in this analysis (0-1)
-
-Be precise and analytical. Look at:
-- Facial structure and features for gender
-- Skin texture, wrinkles, facial proportions for age
-- Facial muscle movements, eye shape, mouth position for emotions
-- Eye gaze direction and head orientation for attention
-
-Provide exactly ${faceCount} face analysis results.`,
-            },
-          ],
-        },
-      ],
+    // Call server-side API for AI analysis
+    const response = await fetch("/api/analytics/analyze-face", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        imageData,
+        faceCount,
+      }),
     })
 
-    console.log("[v0] AI vision analysis complete:", object)
-
-    return {
-      faces: object.faces.map((face) => ({
-        gender: face.gender,
-        age: face.estimatedAge,
-        ageGroup:
-          face.estimatedAge < 13
-            ? "child"
-            : face.estimatedAge < 20
-              ? "teen"
-              : face.estimatedAge < 60
-                ? "adult"
-                : "senior",
-        emotion: face.emotion === "fearful" || face.emotion === "disgusted" ? "unknown" : face.emotion,
-        lookingAtScreen: face.lookingAtCamera,
-        confidence: face.confidence,
-      })),
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(`Server analysis failed: ${error.error}`)
     }
+
+    const result = await response.json()
+    console.log("[v0] AI vision analysis complete:", result)
+
+    return result
   } catch (error) {
     console.error("[v0] AI vision analysis error:", error)
     // Fallback to unknown values if AI analysis fails

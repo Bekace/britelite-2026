@@ -1,13 +1,4 @@
 {
-  "name": "my-v0-project",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "build": "next build",
-    "dev": "next dev",
-    "lint": "next lint",
-    "start": "next start"
-  },
   "dependencies": {
     "@dnd-kit/core": "latest",
     "@dnd-kit/sortable": "latest",
@@ -43,12 +34,7 @@
     "@radix-ui/react-tooltip": "1.1.6",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
-    "@tensorflow-models/blazeface": "latest",
-    "@tensorflow/tfjs": "latest",
-    "@tensorflow/tfjs-converter": "latest",
-    "@tensorflow/tfjs-core": "latest",
     "@vercel/blob": "latest",
-    "ai": "latest",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -71,7 +57,12 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.6",
-    "zod": "^3.25.1"
+    "zod": "^3.25.1",
+    "@tensorflow/tfjs": "4.22.0",
+    "@tensorflow-models/blazeface": "0.1.0",
+    "ai": "5.0.59",
+    "@tensorflow/tfjs-converter": "latest",
+    "@tensorflow/tfjs-core": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
@@ -80,5 +71,14 @@
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
+  },
+  "name": "my-v0-project",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "lint": "next lint",
+    "start": "next start"
   }
 }
