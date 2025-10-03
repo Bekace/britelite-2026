@@ -305,14 +305,14 @@ export function CameraAnalytics({
 
     if (hasCamera && isMountedRef.current) {
       setIsActive(true)
-      console.log("[v0] Camera started, beginning frame capture every 5 seconds")
+      console.log("[v0] Camera started, beginning frame capture every 30 seconds")
 
       intervalRef.current = setInterval(() => {
         if (isMountedRef.current) {
           console.log("[v0] Triggering frame capture...")
           captureAndAnalyze()
         }
-      }, 5000)
+      }, 30000)
 
       setTimeout(() => {
         if (isMountedRef.current) {
