@@ -184,7 +184,17 @@ async function analyzeFaceWithAI(
 
     if (!response.ok) {
       const error = await response.json()
-      throw new Error(`Server analysis failed: ${error.error}`)
+      console.error("[v0] Server returned error:", {
+        status: response.status,
+        error: error.error,
+        details: error.details,
+        errorName: error.errorName,
+        errorCode: error.errorCode,
+        fullError: error.fullError,
+      })
+      throw new Error(
+        `Server analysis failed: ${error.error}\nDetails: ${error.details}\nError Name: ${error.errorName || "Unknown"}\nError Code: ${error.errorCode || "Unknown"}`,
+      )
     }
 
     const result = await response.json()
