@@ -26,9 +26,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`[v0] Server: Analyzing ${faceCount} face(s) with AI vision model...`)
 
-    // Use AI SDK with vision model for accurate analysis
     const { object } = await generateObject({
-      model: "openai/gpt-4o",
+      model: "openai/gpt-4o-mini", // Using gpt-4o-mini which supports vision and is available in AI Gateway
       schema: FaceAnalysisSchema,
       messages: [
         {
@@ -83,6 +82,18 @@ Provide exactly ${faceCount} face analysis results.`,
     })
   } catch (error) {
     console.error("[v0] Server: AI vision analysis error:", error)
-    return NextResponse.json({ error: "AI analysis failed", details: error }, { status: 500 })
+    console.error("[v0] Server: Error details:", {
+      message: error instanceof Error ? error.message : "Unknown error",
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
+    })
+
+    return NextResponse.json(
+      {
+        error: "AI analysis failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
