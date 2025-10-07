@@ -4,7 +4,11 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
+
+    if (!supabase) {
+      return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
+    }
 
     // Check authentication
     const {

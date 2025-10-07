@@ -10,6 +10,9 @@ const config = {
     "*.{js,ts,jsx,tsx,mdx}",
   ],
   prefix: "",
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   theme: {
     container: {
       center: true,
@@ -55,6 +58,11 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        lightBlue: "sky",
+        warmGray: "stone",
+        trueGray: "neutral",
+        coolGray: "gray",
+        blueGray: "slate",
       },
       borderRadius: {
         lg: "var(--radius)",
