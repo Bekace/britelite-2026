@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video, Eye } from "lucide-react"
+import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video, Eye, LinkIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog" // Added import for custom confirmation dialog
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { useUploadLimits } from "@/hooks/use-upload-limits"
 import { StorageUsageBar } from "@/components/ui/storage-usage-bar"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface MediaItem {
   id: string
@@ -65,10 +66,26 @@ function MediaPreviewModal({
     )
   }
 
+  const isYouTubeVideo = (media: MediaItem) => {
+    return media.mime_type === "video/youtube" || media.file_path?.includes("youtube.com/embed")
+  }
+
   const renderMedia = () => {
     if (media.mime_type?.startsWith("image/")) {
       return (
         <img src={media.file_path || "/placeholder.svg"} alt={media.name} className="w-full h-full object-contain" />
+      )
+    }
+
+    if (isYouTubeVideo(media)) {
+      return (
+        <iframe
+          src={media.file_path}
+          className="w-full h-full border-0"
+          allowFullScreen
+          title={media.name}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        />
       )
     }
 
@@ -153,6 +170,10 @@ export default function MediaLibraryPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [tags, setTags] = useState("")
+  const [importUrl, setImportUrl] = useState("")
+  const [importName, setImportName] = useState("")
+  const [importTags, setImportTags] = useState("")
+  const [importing, setImporting] = useState(false)
   const [authError, setAuthError] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -355,6 +376,85 @@ export default function MediaLibraryPage() {
     }
   }
 
+  const handleImportUrl = async () => {
+    if (!importUrl) {
+      toast({
+        title: "Error",
+        description: "Please enter a URL",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser()
+
+      if (error || !user) {
+        toast({
+          title: "Authentication Error",
+          description: "Please log in to import media",
+          variant: "destructive",
+        })
+        return
+      }
+    } catch (error) {
+      console.error("Auth check error:", error)
+      toast({
+        title: "Error",
+        description: "Authentication failed",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setImporting(true)
+    try {
+      const response = await fetch("/api/media/import-url", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: importUrl,
+          name: importName || undefined,
+          tags: importTags || undefined,
+        }),
+      })
+
+      if (response.ok) {
+        const newMedia = await response.json()
+        setMedia((prev) => [newMedia, ...prev])
+        setImportUrl("")
+        setImportName("")
+        setImportTags("")
+        toast({
+          title: "Success",
+          description: "Media imported successfully",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Import failed",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Import error:", error)
+      toast({
+        title: "Error",
+        description: "Import failed",
+        variant: "destructive",
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
+
   const handleDelete = async (id: string, name: string) => {
     setDeleteDialog({
       open: true,
@@ -475,7 +575,7 @@ export default function MediaLibraryPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5" />
-            Upload Media
+            Add Media
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -488,43 +588,99 @@ export default function MediaLibraryPage() {
             />
           )}
 
-          <div className="flex items-center gap-4">
-            <Input
-              type="file"
-              accept="image/*,video/*"
-              onChange={handleFileSelect}
-              className="flex-1"
-              disabled={uploadLimits.isAtLimit}
-            />
-            <Input
-              placeholder="Tags (comma separated)"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              className="w-64"
-            />
-            <Button
-              onClick={handleUpload}
-              disabled={!selectedFile || uploading || uploadLimits.isAtLimit}
-              className="bg-cyan-500 hover:bg-cyan-600"
-            >
-              {uploading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <Plus className="h-4 w-4" />
+          <Tabs defaultValue="upload" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="upload">
+                <Upload className="h-4 w-4 mr-2" />
+                Upload File
+              </TabsTrigger>
+              <TabsTrigger value="import">
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Import URL
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="upload" className="space-y-4 mt-4">
+              <div className="flex items-center gap-4">
+                <Input
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={handleFileSelect}
+                  className="flex-1"
+                  disabled={uploadLimits.isAtLimit}
+                />
+                <Input
+                  placeholder="Tags (comma separated)"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  className="w-64"
+                />
+                <Button
+                  onClick={handleUpload}
+                  disabled={!selectedFile || uploading || uploadLimits.isAtLimit}
+                  className="bg-cyan-500 hover:bg-cyan-600"
+                >
+                  {uploading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  Upload
+                </Button>
+              </div>
+              {selectedFile && (
+                <p className="text-sm text-gray-600">
+                  Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                </p>
               )}
-              Upload
-            </Button>
-          </div>
-          {selectedFile && (
-            <p className="text-sm text-gray-600">
-              Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-            </p>
-          )}
-          {uploadLimits.isAtLimit && (
-            <p className="text-sm text-red-600">
-              Storage limit reached. Please delete some files or upgrade your plan to upload more content.
-            </p>
-          )}
+              {uploadLimits.isAtLimit && (
+                <p className="text-sm text-red-600">
+                  Storage limit reached. Please delete some files or upgrade your plan to upload more content.
+                </p>
+              )}
+            </TabsContent>
+
+            <TabsContent value="import" className="space-y-4 mt-4">
+              <div className="space-y-3">
+                <Input
+                  placeholder="Google Slides or YouTube URL"
+                  value={importUrl}
+                  onChange={(e) => setImportUrl(e.target.value)}
+                  className="w-full"
+                />
+                <div className="flex items-center gap-4">
+                  <Input
+                    placeholder="Name (optional)"
+                    value={importName}
+                    onChange={(e) => setImportName(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Input
+                    placeholder="Tags (comma separated)"
+                    value={importTags}
+                    onChange={(e) => setImportTags(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleImportUrl}
+                    disabled={!importUrl || importing}
+                    className="bg-cyan-500 hover:bg-cyan-600"
+                  >
+                    {importing ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    Import
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">
+                Supported: Google Slides presentations and YouTube videos. External URLs don't count toward your storage
+                limit.
+              </p>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
