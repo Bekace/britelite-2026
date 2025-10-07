@@ -297,6 +297,7 @@ export default function MediaLibraryPage() {
   }
 
   const handleUpload = async () => {
+    console.log("[v0] handleUpload called, selectedFile:", selectedFile)
     if (!selectedFile) return
 
     if (!uploadLimits.canUpload(selectedFile.size)) {
@@ -309,6 +310,7 @@ export default function MediaLibraryPage() {
     }
 
     try {
+      console.log("[v0] Checking authentication...")
       const supabase = createClient()
       const {
         data: { user },
@@ -316,6 +318,7 @@ export default function MediaLibraryPage() {
       } = await supabase.auth.getUser()
 
       if (error || !user) {
+        console.log("[v0] Auth error:", error)
         toast({
           title: "Authentication Error",
           description: "Please log in to upload media",
@@ -324,7 +327,7 @@ export default function MediaLibraryPage() {
         return
       }
     } catch (error) {
-      console.error("Auth check error:", error)
+      console.error("[v0] Auth check error:", error)
       toast({
         title: "Error",
         description: "Authentication failed",
@@ -334,6 +337,7 @@ export default function MediaLibraryPage() {
     }
 
     setUploading(true)
+    console.log("[v0] Starting upload...")
     try {
       const formData = new FormData()
       formData.append("file", selectedFile)
@@ -341,13 +345,16 @@ export default function MediaLibraryPage() {
         formData.append("tags", tags)
       }
 
+      console.log("[v0] Sending upload request...")
       const response = await fetch("/api/media/upload", {
         method: "POST",
         body: formData,
       })
 
+      console.log("[v0] Upload response status:", response.status)
       if (response.ok) {
         const newMedia = await response.json()
+        console.log("[v0] Upload successful:", newMedia)
         setMedia((prev) => [newMedia, ...prev])
         setSelectedFile(null)
         setTags("")
@@ -358,6 +365,7 @@ export default function MediaLibraryPage() {
         })
       } else {
         const error = await response.json()
+        console.log("[v0] Upload error:", error)
         toast({
           title: "Error",
           description: error.error || "Upload failed",
@@ -365,7 +373,7 @@ export default function MediaLibraryPage() {
         })
       }
     } catch (error) {
-      console.error("Upload error:", error)
+      console.error("[v0] Upload error:", error)
       toast({
         title: "Error",
         description: "Upload failed",
@@ -373,10 +381,12 @@ export default function MediaLibraryPage() {
       })
     } finally {
       setUploading(false)
+      console.log("[v0] Upload complete")
     }
   }
 
   const handleImportUrl = async () => {
+    console.log("[v0] handleImportUrl called, importUrl:", importUrl)
     if (!importUrl) {
       toast({
         title: "Error",
@@ -387,6 +397,7 @@ export default function MediaLibraryPage() {
     }
 
     try {
+      console.log("[v0] Checking authentication...")
       const supabase = createClient()
       const {
         data: { user },
@@ -394,6 +405,7 @@ export default function MediaLibraryPage() {
       } = await supabase.auth.getUser()
 
       if (error || !user) {
+        console.log("[v0] Auth error:", error)
         toast({
           title: "Authentication Error",
           description: "Please log in to import media",
@@ -402,7 +414,7 @@ export default function MediaLibraryPage() {
         return
       }
     } catch (error) {
-      console.error("Auth check error:", error)
+      console.error("[v0] Auth check error:", error)
       toast({
         title: "Error",
         description: "Authentication failed",
@@ -412,7 +424,9 @@ export default function MediaLibraryPage() {
     }
 
     setImporting(true)
+    console.log("[v0] Starting import...")
     try {
+      console.log("[v0] Sending import request...")
       const response = await fetch("/api/media/import-url", {
         method: "POST",
         headers: {
@@ -425,8 +439,10 @@ export default function MediaLibraryPage() {
         }),
       })
 
+      console.log("[v0] Import response status:", response.status)
       if (response.ok) {
         const newMedia = await response.json()
+        console.log("[v0] Import successful:", newMedia)
         setMedia((prev) => [newMedia, ...prev])
         setImportUrl("")
         setImportName("")
@@ -437,6 +453,7 @@ export default function MediaLibraryPage() {
         })
       } else {
         const error = await response.json()
+        console.log("[v0] Import error:", error)
         toast({
           title: "Error",
           description: error.error || "Import failed",
@@ -444,7 +461,7 @@ export default function MediaLibraryPage() {
         })
       }
     } catch (error) {
-      console.error("Import error:", error)
+      console.error("[v0] Import error:", error)
       toast({
         title: "Error",
         description: "Import failed",
@@ -452,6 +469,7 @@ export default function MediaLibraryPage() {
       })
     } finally {
       setImporting(false)
+      console.log("[v0] Import complete")
     }
   }
 
