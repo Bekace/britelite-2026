@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video, Eye, LinkIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { createClient } from "@/lib/supabase/client"
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { useUploadLimits } from "@/hooks/use-upload-limits"
@@ -174,8 +173,6 @@ export default function MediaLibraryPage() {
   const [importName, setImportName] = useState("")
   const [importTags, setImportTags] = useState("")
   const [importing, setImporting] = useState(false)
-  const [authError, setAuthError] = useState(false)
-  const [fetchError, setFetchError] = useState<string | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean
     itemId: string
@@ -190,93 +187,37 @@ export default function MediaLibraryPage() {
   const uploadLimits = useUploadLimits()
 
   useEffect(() => {
-    checkAuthAndFetchMedia()
+    fetchMedia()
   }, [])
-
-  const checkAuthAndFetchMedia = async () => {
-    console.log("[v0] Starting media library load...")
-    try {
-      console.log("[v0] Creating Supabase client...")
-      const supabase = createClient()
-
-      if (!supabase) {
-        console.error("[v0] Failed to create Supabase client")
-        setAuthError(true)
-        setFetchError("Failed to initialize - please check your connection")
-        setLoading(false)
-        return
-      }
-
-      console.log("[v0] Checking authentication...")
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser()
-
-      if (error || !user) {
-        console.error("[v0] Authentication error:", error)
-        setAuthError(true)
-        setLoading(false)
-        toast({
-          title: "Authentication Error",
-          description: "Please log in to access the media library",
-          variant: "destructive",
-        })
-        return
-      }
-
-      console.log("[v0] Authentication successful, fetching media...")
-      await fetchMedia()
-    } catch (error) {
-      console.error("[v0] Auth check error:", error)
-      setAuthError(true)
-      setFetchError("Authentication failed - please try logging in again")
-      setLoading(false)
-    }
-  }
 
   const fetchMedia = async () => {
     try {
-      console.log("[v0] Calling /api/media/list...")
       const response = await fetch("/api/media/list")
-
-      console.log("[v0] API response status:", response.status)
 
       if (response.ok) {
         const data = await response.json()
-        console.log("[v0] Media fetched successfully:", data.media?.length || 0, "items")
         setMedia(Array.isArray(data.media) ? data.media : [])
-        setFetchError(null)
+      } else if (response.status === 401) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to access the media library",
+          variant: "destructive",
+        })
       } else {
-        const errorText = await response.text()
-        console.error("[v0] API error:", response.status, errorText)
-
-        let errorMessage = "Failed to fetch media"
-        if (response.status === 401) {
-          errorMessage = "Authentication expired - please log in again"
-          setAuthError(true)
-        } else if (response.status === 503) {
-          errorMessage = "Service temporarily unavailable - please try again"
-        }
-
-        setFetchError(errorMessage)
         toast({
           title: "Error",
-          description: errorMessage,
+          description: "Failed to fetch media",
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("[v0] Error fetching media:", error)
-      const errorMessage = error instanceof Error ? error.message : "Network error - please check your connection"
-      setFetchError(errorMessage)
+      console.error("Error fetching media:", error)
       toast({
         title: "Error",
-        description: "Failed to fetch media - please try again",
+        description: "Failed to fetch media",
         variant: "destructive",
       })
     } finally {
-      console.log("[v0] Fetch complete, setting loading to false")
       setLoading(false)
     }
   }
@@ -297,7 +238,6 @@ export default function MediaLibraryPage() {
   }
 
   const handleUpload = async () => {
-    console.log("[v0] handleUpload called, selectedFile:", selectedFile)
     if (!selectedFile) return
 
     if (!uploadLimits.canUpload(selectedFile.size)) {
@@ -309,41 +249,7 @@ export default function MediaLibraryPage() {
       return
     }
 
-    try {
-      console.log("[v0] Checking authentication...")
-      const supabase = createClient()
-      console.log("[v0] Supabase client created:", !!supabase)
-
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser()
-
-      console.log("[v0] Auth result - user:", !!user, "error:", error)
-
-      if (error || !user) {
-        console.log("[v0] Auth failed, showing toast")
-        toast({
-          title: "Authentication Error",
-          description: "Please log in to upload media",
-          variant: "destructive",
-        })
-        return
-      }
-
-      console.log("[v0] Auth successful, proceeding with upload")
-    } catch (error) {
-      console.error("[v0] Auth check exception:", error)
-      toast({
-        title: "Error",
-        description: "Authentication failed",
-        variant: "destructive",
-      })
-      return
-    }
-
     setUploading(true)
-    console.log("[v0] Starting upload...")
     try {
       const formData = new FormData()
       formData.append("file", selectedFile)
@@ -351,16 +257,13 @@ export default function MediaLibraryPage() {
         formData.append("tags", tags)
       }
 
-      console.log("[v0] Sending upload request...")
       const response = await fetch("/api/media/upload", {
         method: "POST",
         body: formData,
       })
 
-      console.log("[v0] Upload response status:", response.status)
       if (response.ok) {
         const newMedia = await response.json()
-        console.log("[v0] Upload successful:", newMedia)
         setMedia((prev) => [newMedia, ...prev])
         setSelectedFile(null)
         setTags("")
@@ -371,7 +274,6 @@ export default function MediaLibraryPage() {
         })
       } else {
         const error = await response.json()
-        console.log("[v0] Upload error:", error)
         toast({
           title: "Error",
           description: error.error || "Upload failed",
@@ -379,7 +281,7 @@ export default function MediaLibraryPage() {
         })
       }
     } catch (error) {
-      console.error("[v0] Upload error:", error)
+      console.error("Upload error:", error)
       toast({
         title: "Error",
         description: "Upload failed",
@@ -387,12 +289,10 @@ export default function MediaLibraryPage() {
       })
     } finally {
       setUploading(false)
-      console.log("[v0] Upload complete")
     }
   }
 
   const handleImportUrl = async () => {
-    console.log("[v0] handleImportUrl called, importUrl:", importUrl)
     if (!importUrl) {
       toast({
         title: "Error",
@@ -402,46 +302,8 @@ export default function MediaLibraryPage() {
       return
     }
 
-    try {
-      console.log("[v0] Step 1: About to check authentication...")
-      console.log("[v0] Step 2: Calling createClient()...")
-      const supabase = createClient()
-      console.log("[v0] Step 3: createClient() returned:", !!supabase)
-
-      console.log("[v0] Step 4: About to call getUser()...")
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser()
-      console.log("[v0] Step 5: getUser() completed")
-
-      console.log("[v0] Auth result - user:", !!user, "error:", error)
-
-      if (error || !user) {
-        console.log("[v0] Auth failed, showing toast")
-        toast({
-          title: "Authentication Error",
-          description: "Please log in to import media",
-          variant: "destructive",
-        })
-        return
-      }
-
-      console.log("[v0] Auth successful, proceeding with import")
-    } catch (error) {
-      console.error("[v0] Auth check exception:", error)
-      toast({
-        title: "Error",
-        description: "Authentication failed",
-        variant: "destructive",
-      })
-      return
-    }
-
     setImporting(true)
-    console.log("[v0] Starting import...")
     try {
-      console.log("[v0] Sending import request...")
       const response = await fetch("/api/media/import-url", {
         method: "POST",
         headers: {
@@ -454,10 +316,8 @@ export default function MediaLibraryPage() {
         }),
       })
 
-      console.log("[v0] Import response status:", response.status)
       if (response.ok) {
         const newMedia = await response.json()
-        console.log("[v0] Import successful:", newMedia)
         setMedia((prev) => [newMedia, ...prev])
         setImportUrl("")
         setImportName("")
@@ -468,7 +328,6 @@ export default function MediaLibraryPage() {
         })
       } else {
         const error = await response.json()
-        console.log("[v0] Import error:", error)
         toast({
           title: "Error",
           description: error.error || "Import failed",
@@ -476,7 +335,7 @@ export default function MediaLibraryPage() {
         })
       }
     } catch (error) {
-      console.error("[v0] Import error:", error)
+      console.error("Import error:", error)
       toast({
         title: "Error",
         description: "Import failed",
@@ -484,7 +343,6 @@ export default function MediaLibraryPage() {
       })
     } finally {
       setImporting(false)
-      console.log("[v0] Import complete")
     }
   }
 
@@ -548,40 +406,11 @@ export default function MediaLibraryPage() {
     return nameMatch || tagMatch
   })
 
-  if (authError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
-          <p className="text-gray-600">Please log in to access the media library</p>
-          {fetchError && <p className="text-sm text-red-600 mt-2">{fetchError}</p>}
-        </div>
-        <Button onClick={() => (window.location.href = "/auth/login")} className="bg-cyan-500 hover:bg-cyan-600">
-          Go to Login
-        </Button>
-      </div>
-    )
-  }
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 space-y-4">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
         <p className="text-sm text-gray-600">Loading media library...</p>
-      </div>
-    )
-  }
-
-  if (fetchError && !authError) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Media</h2>
-          <p className="text-gray-600">{fetchError}</p>
-        </div>
-        <Button onClick={() => window.location.reload()} className="bg-cyan-500 hover:bg-cyan-600">
-          Retry
-        </Button>
       </div>
     )
   }
