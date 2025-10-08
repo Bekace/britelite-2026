@@ -43,7 +43,8 @@ function getGoogleSlidesEmbedUrl(id: string): string {
 }
 
 function getYouTubeEmbedUrl(id: string): string {
-  return `https://www.youtube.com/embed/${id}`
+  // Add parameters: autoplay=0, rel=0 (no related videos), modestbranding=1 (minimal branding)
+  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=0&rel=0&modestbranding=1`
 }
 
 export async function POST(request: NextRequest) {

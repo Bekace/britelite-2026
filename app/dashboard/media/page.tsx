@@ -66,7 +66,11 @@ function MediaPreviewModal({
   }
 
   const isYouTubeVideo = (media: MediaItem) => {
-    return media.mime_type === "video/youtube" || media.file_path?.includes("youtube.com/embed")
+    return (
+      media.mime_type === "video/youtube" ||
+      media.file_path?.includes("youtube.com/embed") ||
+      media.file_path?.includes("youtube-nocookie.com/embed")
+    )
   }
 
   const renderMedia = () => {
@@ -84,6 +88,7 @@ function MediaPreviewModal({
           allowFullScreen
           title={media.name}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerPolicy="no-referrer-when-downgrade"
         />
       )
     }
