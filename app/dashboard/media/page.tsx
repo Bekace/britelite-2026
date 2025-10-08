@@ -83,7 +83,8 @@ function MediaPreviewModal({
           className="w-full h-full border-0"
           allowFullScreen
           title={media.name}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
         />
       )
     }
