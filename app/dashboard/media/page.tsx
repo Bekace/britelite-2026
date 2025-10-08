@@ -73,6 +73,19 @@ function MediaPreviewModal({
     )
   }
 
+  // Helper function to ensure YouTube videos autoplay
+  const getYouTubeUrlWithAutoplay = (url: string) => {
+    try {
+      const urlObj = new URL(url)
+      // Set autoplay to 1
+      urlObj.searchParams.set("autoplay", "1")
+      return urlObj.toString()
+    } catch (error) {
+      console.error("Error parsing YouTube URL:", error)
+      return url
+    }
+  }
+
   const renderMedia = () => {
     if (media.mime_type?.startsWith("image/")) {
       return (
@@ -81,9 +94,10 @@ function MediaPreviewModal({
     }
 
     if (isYouTubeVideo(media)) {
+      const autoplayUrl = getYouTubeUrlWithAutoplay(media.file_path)
       return (
         <iframe
-          src={media.file_path}
+          src={autoplayUrl}
           className="w-full h-full border-0"
           allowFullScreen
           title={media.name}
