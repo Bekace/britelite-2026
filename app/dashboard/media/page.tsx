@@ -403,14 +403,17 @@ export default function MediaLibraryPage() {
     }
 
     try {
-      console.log("[v0] Checking authentication...")
+      console.log("[v0] Step 1: About to check authentication...")
+      console.log("[v0] Step 2: Calling createClient()...")
       const supabase = createClient()
-      console.log("[v0] Supabase client created:", !!supabase)
+      console.log("[v0] Step 3: createClient() returned:", !!supabase)
 
+      console.log("[v0] Step 4: About to call getUser()...")
       const {
         data: { user },
         error,
       } = await supabase.auth.getUser()
+      console.log("[v0] Step 5: getUser() completed")
 
       console.log("[v0] Auth result - user:", !!user, "error:", error)
 
