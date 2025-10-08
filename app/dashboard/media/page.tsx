@@ -353,10 +353,9 @@ export default function MediaLibraryPage() {
           description: "Media imported successfully",
         })
       } else {
-        const error = await response.json()
         toast({
           title: "Error",
-          description: error.error || "Import failed",
+          description: "Import failed",
           variant: "destructive",
         })
       }
@@ -395,6 +394,7 @@ export default function MediaLibraryPage() {
       if (response.ok) {
         setMedia((prev) => prev.filter((item) => item.id !== itemId))
         await uploadLimits.refresh()
+        setDeleteDialog({ open: false, itemId: "", itemName: "" })
         toast({
           title: "Success",
           description: "Media deleted successfully",
@@ -405,6 +405,7 @@ export default function MediaLibraryPage() {
           description: "Failed to delete media",
           variant: "destructive",
         })
+        setDeleteDialog({ open: false, itemId: "", itemName: "" })
       }
     } catch (error) {
       console.error("Delete error:", error)
@@ -413,6 +414,7 @@ export default function MediaLibraryPage() {
         description: "Failed to delete media",
         variant: "destructive",
       })
+      setDeleteDialog({ open: false, itemId: "", itemName: "" })
     }
   }
 
