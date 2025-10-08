@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video, Eye, LinkIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useUploadLimits } from "@/hooks/use-upload-limits"
 import { StorageUsageBar } from "@/components/ui/storage-usage-bar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -115,6 +115,12 @@ function MediaPreviewModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-full max-h-full p-0 m-0" style={{ width: "100vw", height: "100vh" }}>
+        <DialogTitle className="sr-only">{media.name}</DialogTitle>
+        <DialogDescription className="sr-only">
+          Preview of {media.mime_type} file, {formatFileSize(media.file_size)}, created on{" "}
+          {new Date(media.created_at).toLocaleDateString()}
+        </DialogDescription>
+
         <div className="absolute top-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm text-white p-4">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">

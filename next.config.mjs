@@ -23,7 +23,7 @@ const nextConfig = {
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
               "connect-src 'self' https://*.vercel-insights.com https://vitals.vercel-insights.com https://*.supabase.co wss://*.supabase.co https://api.v0.app https://tfhub.dev https://storage.googleapis.com https://www.kaggle.com",
-              "frame-src 'self'",
+              "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://docs.google.com https://drive.google.com",
               "media-src 'self' blob: https:",
               "worker-src 'self' blob:",
             ].join('; ')
