@@ -312,13 +312,17 @@ export default function MediaLibraryPage() {
     try {
       console.log("[v0] Checking authentication...")
       const supabase = createClient()
+      console.log("[v0] Supabase client created:", !!supabase)
+
       const {
         data: { user },
         error,
       } = await supabase.auth.getUser()
 
+      console.log("[v0] Auth result - user:", !!user, "error:", error)
+
       if (error || !user) {
-        console.log("[v0] Auth error:", error)
+        console.log("[v0] Auth failed, showing toast")
         toast({
           title: "Authentication Error",
           description: "Please log in to upload media",
@@ -326,8 +330,10 @@ export default function MediaLibraryPage() {
         })
         return
       }
+
+      console.log("[v0] Auth successful, proceeding with upload")
     } catch (error) {
-      console.error("[v0] Auth check error:", error)
+      console.error("[v0] Auth check exception:", error)
       toast({
         title: "Error",
         description: "Authentication failed",
@@ -399,13 +405,17 @@ export default function MediaLibraryPage() {
     try {
       console.log("[v0] Checking authentication...")
       const supabase = createClient()
+      console.log("[v0] Supabase client created:", !!supabase)
+
       const {
         data: { user },
         error,
       } = await supabase.auth.getUser()
 
+      console.log("[v0] Auth result - user:", !!user, "error:", error)
+
       if (error || !user) {
-        console.log("[v0] Auth error:", error)
+        console.log("[v0] Auth failed, showing toast")
         toast({
           title: "Authentication Error",
           description: "Please log in to import media",
@@ -413,8 +423,10 @@ export default function MediaLibraryPage() {
         })
         return
       }
+
+      console.log("[v0] Auth successful, proceeding with import")
     } catch (error) {
-      console.error("[v0] Auth check error:", error)
+      console.error("[v0] Auth check exception:", error)
       toast({
         title: "Error",
         description: "Authentication failed",
