@@ -77,8 +77,8 @@ function MediaPreviewModal({
   const getYouTubeUrlWithAutoplay = (url: string) => {
     try {
       const urlObj = new URL(url)
-      // Set autoplay to 1
       urlObj.searchParams.set("autoplay", "1")
+      urlObj.searchParams.set("mute", "1")
       return urlObj.toString()
     } catch (error) {
       console.error("Error parsing YouTube URL:", error)
@@ -97,6 +97,7 @@ function MediaPreviewModal({
       const autoplayUrl = getYouTubeUrlWithAutoplay(media.file_path)
       return (
         <iframe
+          key={media.id}
           src={autoplayUrl}
           className="w-full h-full border-0"
           allowFullScreen
