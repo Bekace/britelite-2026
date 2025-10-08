@@ -6,13 +6,21 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video, Eye, LinkIcon } from "lucide-react"
+import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video, Eye, LinkIcon, Pencil } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogHeader,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { useUploadLimits } from "@/hooks/use-upload-limits"
 import { StorageUsageBar } from "@/components/ui/storage-usage-bar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Label } from "@/components/ui/label"
 
 interface MediaItem {
   id: string
@@ -209,6 +217,16 @@ export default function MediaLibraryPage() {
     itemName: "",
   })
   const [previewMedia, setPreviewMedia] = useState<MediaItem | null>(null)
+  const [editDialog, setEditDialog] = useState<{
+    open: boolean
+    item: MediaItem | null
+  }>({
+    open: false,
+    item: null,
+  })
+  const [editName, setEditName] = useState("")
+  const [editTags, setEditTags] = useState("")
+  const [updating, setUpdating] = useState(false)
   const { toast } = useToast()
   const uploadLimits = useUploadLimits()
 
@@ -420,6 +438,58 @@ export default function MediaLibraryPage() {
 
   const handlePreview = (media: MediaItem) => {
     setPreviewMedia(media)
+  }
+
+  const handleEdit = (item: MediaItem) => {
+    setEditDialog({
+      open: true,
+      item,
+    })
+    setEditName(item.name)
+    setEditTags(item.tags ? item.tags.join(", ") : "")
+  }
+
+  const handleConfirmEdit = async () => {
+    if (!editDialog.item) return
+
+    setUpdating(true)
+    try {
+      const response = await fetch(`/api/media/${editDialog.item.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: editName,
+          tags: editTags,
+        }),
+      })
+
+      if (response.ok) {
+        const updatedMedia = await response.json()
+        setMedia((prev) => prev.map((item) => (item.id === updatedMedia.id ? updatedMedia : item)))
+        setEditDialog({ open: false, item: null })
+        toast({
+          title: "Success",
+          description: "Media updated successfully",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update media",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Update error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update media",
+        variant: "destructive",
+      })
+    } finally {
+      setUpdating(false)
+    }
   }
 
   const filteredMedia = media.filter((item) => {
@@ -634,6 +704,14 @@ export default function MediaLibraryPage() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleEdit(item)}
+                        className="bg-white/90 hover:bg-white"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id, item.name)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -694,6 +772,14 @@ export default function MediaLibraryPage() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(item)}
+                        className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id, item.name)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -720,6 +806,49 @@ export default function MediaLibraryPage() {
         onConfirm={handleConfirmDelete}
         variant="destructive"
       />
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialog.open} onOpenChange={(open) => setEditDialog({ ...editDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Media</DialogTitle>
+            <DialogDescription>Update the name and tags for this media item.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Enter media name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-tags">Tags</Label>
+              <Input
+                id="edit-tags"
+                value={editTags}
+                onChange={(e) => setEditTags(e.target.value)}
+                placeholder="Enter tags (comma separated)"
+              />
+              <p className="text-sm text-gray-500">Separate multiple tags with commas</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialog({ open: false, item: null })} disabled={updating}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmEdit} disabled={updating || !editName.trim()}>
+              {updating ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
