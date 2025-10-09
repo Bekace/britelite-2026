@@ -454,19 +454,23 @@ export default function MediaLibraryPage() {
 
     setUpdating(true)
     try {
-      const response = await fetch(`/api/media/${editDialog.item.id}`, {
+      const response = await fetch("/api/media/update", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          id: editDialog.item.id,
           name: editName,
-          tags: editTags,
+          tags: editTags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter((tag) => tag.length > 0),
         }),
       })
 
       if (response.ok) {
-        const updatedMedia = await response.json()
+        const { media: updatedMedia } = await response.json()
         setMedia((prev) => prev.map((item) => (item.id === updatedMedia.id ? updatedMedia : item)))
         setEditDialog({ open: false, item: null })
         toast({

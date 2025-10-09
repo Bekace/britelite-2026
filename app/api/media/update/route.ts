@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { NextResponse } from "next/server"
 
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(request: Request) {
   try {
-    const { id } = await params
     const supabase = await createClient()
 
+    // Check authentication
     const {
       data: { user },
       error: authError,
@@ -15,32 +15,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Parse request body
     const body = await request.json()
-    const { name, tags } = body
+    const { id, name, tags } = body
 
-    if (!name && !tags) {
-      return NextResponse.json({ error: "No fields to update" }, { status: 400 })
+    if (!id) {
+      return NextResponse.json({ error: "Media ID is required" }, { status: 400 })
     }
 
-    const updateData: { name?: string; tags?: string[]; updated_at?: string } = {
+    // Prepare update data
+    const updateData: { name?: string; tags?: string[]; updated_at: string } = {
       updated_at: new Date().toISOString(),
     }
 
-    if (name) {
+    if (name !== undefined) {
       updateData.name = name
     }
 
-    if (tags) {
-      if (typeof tags === "string") {
-        updateData.tags = tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter((tag) => tag.length > 0)
-      } else if (Array.isArray(tags)) {
-        updateData.tags = tags
-      }
+    if (tags !== undefined) {
+      updateData.tags = tags
     }
 
+    // Update media in database
     const { data: media, error: updateError } = await supabase
       .from("media")
       .update(updateData)
@@ -54,13 +50,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Failed to update media" }, { status: 500 })
     }
 
-    if (!media) {
-      return NextResponse.json({ error: "Media not found or unauthorized" }, { status: 404 })
-    }
-
-    return NextResponse.json(media)
+    return NextResponse.json({ media })
   } catch (error) {
-    console.error("Error in PATCH /api/media/[id]:", error)
+    console.error("Error in media update:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
