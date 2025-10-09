@@ -89,11 +89,16 @@ const getYouTubeUrlWithAutoplay = (url: string) => {
     const urlObj = new URL(url)
     urlObj.searchParams.set("autoplay", "1")
     urlObj.searchParams.set("mute", "1")
+    urlObj.searchParams.set("controls", "0")
+    urlObj.searchParams.set("showinfo", "0")
+    urlObj.searchParams.set("fs", "0")
+    urlObj.searchParams.set("modestbranding", "1")
+    urlObj.searchParams.set("iv_load_policy", "3")
     return urlObj.toString()
   } catch {
     // If URL parsing fails, try to add parameters manually
     const separator = url.includes("?") ? "&" : "?"
-    return `${url}${separator}autoplay=1&mute=1`
+    return `${url}${separator}autoplay=1&mute=1&controls=0&showinfo=0&fs=0&modestbranding=1&iv_load_policy=3`
   }
 }
 

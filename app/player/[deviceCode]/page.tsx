@@ -312,6 +312,11 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       const urlObj = new URL(url)
       urlObj.searchParams.set("autoplay", "1")
       urlObj.searchParams.set("mute", "1")
+      urlObj.searchParams.set("controls", "0")
+      urlObj.searchParams.set("showinfo", "0")
+      urlObj.searchParams.set("fs", "0")
+      urlObj.searchParams.set("modestbranding", "1")
+      urlObj.searchParams.set("iv_load_policy", "3")
       return urlObj.toString()
     } catch {
       return url
