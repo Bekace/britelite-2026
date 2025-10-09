@@ -75,6 +75,43 @@ interface Media {
   created_at: string
 }
 
+const isYouTubeVideo = (media: { mime_type?: string; file_path?: string }) => {
+  return (
+    media.mime_type === "video/youtube" ||
+    media.file_path?.includes("youtube.com") ||
+    media.file_path?.includes("youtu.be") ||
+    media.file_path?.includes("youtube-nocookie.com")
+  )
+}
+
+const getYouTubeUrlWithAutoplay = (url: string) => {
+  try {
+    const urlObj = new URL(url)
+    urlObj.searchParams.set("autoplay", "1")
+    urlObj.searchParams.set("mute", "1")
+    return urlObj.toString()
+  } catch {
+    // If URL parsing fails, try to add parameters manually
+    const separator = url.includes("?") ? "&" : "?"
+    return `${url}${separator}autoplay=1&mute=1`
+  }
+}
+
+const isGoogleSlides = (media: { mime_type?: string; file_path?: string }) => {
+  return (
+    media.mime_type === "application/vnd.google-apps.presentation" ||
+    media.file_path?.includes("docs.google.com/presentation") ||
+    media.file_path?.includes("slides.google")
+  )
+}
+
+const getGoogleSlidesEmbedUrl = (url: string) => {
+  if (url.includes("/embed")) {
+    return url
+  }
+  return url.replace("/edit", "/embed").replace("/view", "/embed")
+}
+
 const PlaylistPreviewModal = ({
   playlist,
   isOpen,
@@ -337,19 +374,45 @@ const PlaylistPreviewModal = ({
     const item = items[currentIndex]
     const mediaStyle = getTransitionStyles(isTransitioning)
 
+    if (isYouTubeVideo(item.media)) {
+      const embedUrl = getYouTubeUrlWithAutoplay(item.media.file_path)
+      return (
+        <div className="relative w-full h-full overflow-hidden">
+          <iframe
+            key={item.id}
+            src={embedUrl}
+            style={mediaStyle}
+            className="w-full h-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+            title={item.media.name}
+          />
+        </div>
+      )
+    }
+
+    if (isGoogleSlides(item.media)) {
+      const embedUrl = getGoogleSlidesEmbedUrl(item.media.file_path)
+      return (
+        <div className="relative w-full h-full overflow-hidden">
+          <iframe
+            src={embedUrl}
+            style={mediaStyle}
+            className="w-full h-full border-0"
+            allowFullScreen
+            title={item.media.name}
+          />
+        </div>
+      )
+    }
+
     return (
       <div className="relative w-full h-full overflow-hidden">
         {item.media.mime_type?.startsWith("image/") ? (
           <img src={item.media.file_path || "/placeholder.svg"} alt={item.media.name} style={mediaStyle} />
         ) : item.media.mime_type?.startsWith("video/") ? (
           <video src={item.media.file_path} style={mediaStyle} autoPlay muted={volume === 0} onEnded={goToNext} />
-        ) : item.media.file_path?.includes("docs.google.com/presentation") ? (
-          <iframe
-            src={item.media.file_path.replace("/edit", "/embed")}
-            style={mediaStyle}
-            frameBorder="0"
-            allowFullScreen
-          />
         ) : (
           <div style={mediaStyle} className="flex items-center justify-center bg-gray-100 text-gray-500">
             <p>Unsupported media type</p>
@@ -1514,7 +1577,9 @@ export default function PlaylistsPage() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium truncate text-primary">{item.media.name}</p>
-                                <p className="text-sm font-medium w-6 text-primary">Duration: {item.duration_override}s</p>
+                                <p className="text-sm font-medium w-6 text-primary">
+                                  Duration: {item.duration_override}s
+                                </p>
                               </div>
                               <div className="flex items-center gap-1">
                                 <Button
