@@ -174,6 +174,26 @@ export default function ScreenPlayerPage({ params }: { params: { screenCode: str
     )
   }
 
+  const isYouTubeVideo = (media: MediaItem["media"]) => {
+    return (
+      media.mime_type === "video/youtube" ||
+      media.file_path.includes("youtube.com") ||
+      media.file_path.includes("youtu.be") ||
+      media.file_path.includes("youtube-nocookie.com")
+    )
+  }
+
+  const getYouTubeUrlWithAutoplay = (url: string) => {
+    try {
+      const urlObj = new URL(url)
+      urlObj.searchParams.set("autoplay", "1")
+      urlObj.searchParams.set("mute", "1")
+      return urlObj.toString()
+    } catch {
+      return url
+    }
+  }
+
   const getGoogleSlidesEmbedUrl = (media: MediaItem["media"]) => {
     let presentationId = ""
 
@@ -312,6 +332,16 @@ export default function ScreenPlayerPage({ params }: { params: { screenCode: str
                   className={getMediaObjectFit("image")}
                   priority
                   unoptimized
+                />
+              ) : isYouTubeVideo(currentMedia.media) ? (
+                <iframe
+                  key={currentMedia.id}
+                  src={getYouTubeUrlWithAutoplay(currentMedia.media.file_path)}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  referrerPolicy="no-referrer"
+                  title={currentMedia.media.name}
                 />
               ) : currentMedia.media.mime_type.startsWith("video/") ? (
                 <video
