@@ -1,7 +1,7 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const supabase = await createClient()
@@ -18,12 +18,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json()
     const { name, tags } = body
 
-    // Validate that at least one field is being updated
     if (!name && !tags) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })
     }
 
-    // Build update object
     const updateData: { name?: string; tags?: string[]; updated_at?: string } = {
       updated_at: new Date().toISOString(),
     }
@@ -33,7 +31,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if (tags) {
-      // Parse tags if it's a string
       if (typeof tags === "string") {
         updateData.tags = tags
           .split(",")
@@ -44,7 +41,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
     }
 
-    // Update the media item
     const { data: media, error: updateError } = await supabase
       .from("media")
       .update(updateData)
