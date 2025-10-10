@@ -1125,7 +1125,7 @@ export default function ScreensPage() {
                   <div className="mt-3">
                     <div className="text-sm font-medium mb-1">Content Assignment</div>
                     {screen.playlists ? (
-                      <div className="bg-green-50 border border-green-200 rounded p-2 text-sm">
+                      <div className="border border-green-200 rounded p-2 text-sm bg-primary-foreground">
                         Playlist: {screen.playlists.name}
                       </div>
                     ) : screen.media_id ? (
