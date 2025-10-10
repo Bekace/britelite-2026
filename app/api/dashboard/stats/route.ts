@@ -14,6 +14,10 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { data: userScreens } = await supabase.from("screens").select("id").eq("user_id", user.id)
+
+    const screenIds = userScreens?.map((s) => s.id) || []
+
     // Get active screens count
     const { count: screensCount } = await supabase
       .from("screens")
@@ -34,12 +38,15 @@ export async function GET() {
       .eq("user_id", user.id)
       .eq("is_active", true)
 
-    // Get total views from analytics (count of media_start events)
-    const { count: viewsCount } = await supabase
-      .from("analytics")
-      .select("*", { count: "exact", head: true })
-      .eq("event_type", "media_start")
-      .in("screen_id", supabase.from("screens").select("id").eq("user_id", user.id))
+    let viewsCount = 0
+    if (screenIds.length > 0) {
+      const { count } = await supabase
+        .from("analytics")
+        .select("*", { count: "exact", head: true })
+        .eq("event_type", "media_start")
+        .in("screen_id", screenIds)
+      viewsCount = count || 0
+    }
 
     // Get previous period counts for comparison
     const oneWeekAgo = new Date()
@@ -61,13 +68,17 @@ export async function GET() {
     const twoWeeksAgo = new Date()
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
 
-    const { count: previousViewsCount } = await supabase
-      .from("analytics")
-      .select("*", { count: "exact", head: true })
-      .eq("event_type", "media_start")
-      .gte("created_at", twoWeeksAgo.toISOString())
-      .lt("created_at", oneWeekAgo.toISOString())
-      .in("screen_id", supabase.from("screens").select("id").eq("user_id", user.id))
+    let previousViewsCount = 0
+    if (screenIds.length > 0) {
+      const { count } = await supabase
+        .from("analytics")
+        .select("*", { count: "exact", head: true })
+        .eq("event_type", "media_start")
+        .gte("created_at", twoWeeksAgo.toISOString())
+        .lt("created_at", oneWeekAgo.toISOString())
+        .in("screen_id", screenIds)
+      previousViewsCount = count || 0
+    }
 
     // Calculate changes
     const mediaChange = (mediaCount || 0) - (previousMediaCount || 0)
