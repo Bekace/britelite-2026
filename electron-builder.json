@@ -1,28 +1,33 @@
 {
-  "appId": "com.yourcompany.digitalplayer",
-  "productName": "Digital Signage Player",
+  "appId": "com.pointerai.digitalplayer",
+  "productName": "Pointer AI Player",
   "directories": {
-    "output": "dist-electron"
+    "output": "dist"
   },
-  "files": ["electron/**/*"],
+  "files": ["electron/**/*", "node_modules/**/*", "package.json"],
   "win": {
     "target": [
       {
         "target": "nsis",
         "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
       }
     ],
-    "icon": "electron/icon.ico",
-    "artifactName": "${productName}-${version}-Setup.${ext}"
+    "artifactName": "${productName} Setup ${version}.${ext}"
   },
   "nsis": {
     "oneClick": false,
     "allowToChangeInstallationDirectory": true,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "Digital Signage Player"
+    "shortcutName": "Pointer AI Player",
+    "installerIcon": "electron/icon.ico",
+    "uninstallerIcon": "electron/icon.ico"
   },
-  "extraMetadata": {
-    "main": "electron/main.js"
+  "portable": {
+    "artifactName": "${productName} Portable ${version}.${ext}"
   }
 }
