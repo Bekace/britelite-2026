@@ -1,0 +1,28 @@
+{
+  "appId": "com.yourcompany.digitalplayer",
+  "productName": "Digital Signage Player",
+  "directories": {
+    "output": "dist-electron"
+  },
+  "files": ["electron/**/*"],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "electron/icon.ico",
+    "artifactName": "${productName}-${version}-Setup.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Digital Signage Player"
+  },
+  "extraMetadata": {
+    "main": "electron/main.js"
+  }
+}
