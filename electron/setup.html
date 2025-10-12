@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Player Setup</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 16px;
+        padding: 48px;
+        max-width: 480px;
+        width: 100%;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3),
+          0 10px 10px -5px rgba(0, 0, 0, 0.2);
+      }
+
+      .logo {
+        text-align: center;
+        margin-bottom: 32px;
+      }
+
+      .logo-icon {
+        width: 64px;
+        height: 64px;
+        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        margin-bottom: 16px;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 600;
+        text-align: center;
+        margin-bottom: 8px;
+        color: #f1f5f9;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: #94a3b8;
+        font-size: 14px;
+        margin-bottom: 32px;
+        line-height: 1.5;
+      }
+
+      .form-group {
+        margin-bottom: 24px;
+      }
+
+      label {
+        display: block;
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: #e2e8f0;
+      }
+
+      input {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 16px;
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        color: #f1f5f9;
+        transition: all 0.2s;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-weight: 600;
+        text-align: center;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+
+      input::placeholder {
+        color: #475569;
+        text-transform: none;
+        letter-spacing: normal;
+        font-weight: 400;
+      }
+
+      button {
+        width: 100%;
+        padding: 14px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .error {
+        background: #7f1d1d;
+        border: 1px solid #991b1b;
+        color: #fecaca;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        margin-bottom: 16px;
+        display: none;
+      }
+
+      .error.show {
+        display: block;
+      }
+
+      .instructions {
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 24px;
+      }
+
+      .instructions h3 {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: #e2e8f0;
+      }
+
+      .instructions ol {
+        margin-left: 20px;
+        color: #94a3b8;
+        font-size: 13px;
+        line-height: 1.8;
+      }
+
+      .instructions li {
+        margin-bottom: 8px;
+      }
+
+      .instructions code {
+        background: #1e293b;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: "Courier New", monospace;
+        color: #3b82f6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo">
+        <div class="logo-icon">📺</div>
+        <h1>Digital Signage Player</h1>
+        <p class="subtitle">
+          Enter the device code from your dashboard to connect this player
+        </p>
+      </div>
+
+      <form id="setupForm">
+        <div id="errorMessage" class="error"></div>
+
+        <div class="form-group">
+          <label for="deviceCode">Device Code</label>
+          <input
+            type="text"
+            id="deviceCode"
+            placeholder="Enter code (e.g., SCR-ABC123)"
+            required
+            autocomplete="off"
+            autofocus
+          />
+        </div>
+
+        <button type="submit" id="submitBtn">Connect Player</button>
+      </form>
+
+      <div class="instructions">
+        <h3>How to get your device code:</h3>
+        <ol>
+          <li>Open your dashboard in a web browser</li>
+          <li>Go to <code>Screens</code> section</li>
+          <li>Click <code>Add New Screen</code></li>
+          <li>Copy the generated device code</li>
+          <li>Paste it above and click Connect</li>
+        </ol>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("setupForm")
+      const input = document.getElementById("deviceCode")
+      const submitBtn = document.getElementById("submitBtn")
+      const errorMessage = document.getElementById("errorMessage")
+
+      function showError(message) {
+        errorMessage.textContent = message
+        errorMessage.classList.add("show")
+      }
+
+      function hideError() {
+        errorMessage.classList.remove("show")
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault()
+        hideError()
+
+        const deviceCode = input.value.trim()
+
+        if (!deviceCode) {
+          showError("Please enter a device code")
+          return
+        }
+
+        // Basic validation
+        if (deviceCode.length < 3) {
+          showError("Device code is too short")
+          return
+        }
+
+        submitBtn.disabled = true
+        submitBtn.textContent = "Connecting..."
+
+        try {
+          // Save device code using Electron API
+          const success = await window.electronAPI.saveDeviceCode(deviceCode)
+
+          if (success) {
+            submitBtn.textContent = "Connected! Loading player..."
+            // Reload to player page
+            setTimeout(() => {
+              window.electronAPI.reloadPlayer()
+            }, 1000)
+          } else {
+            showError("Failed to save device code. Please try again.")
+            submitBtn.disabled = false
+            submitBtn.textContent = "Connect Player"
+          }
+        } catch (error) {
+          console.error("Setup error:", error)
+          showError("An error occurred. Please try again.")
+          submitBtn.disabled = false
+          submitBtn.textContent = "Connect Player"
+        }
+      })
+
+      // Auto-format input
+      input.addEventListener("input", (e) => {
+        e.target.value = e.target.value.toUpperCase()
+      })
+    </script>
+  </body>
+</html>

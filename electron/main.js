@@ -1,32 +1,28 @@
-const { app, BrowserWindow, screen } = require("electron")
+const { app, BrowserWindow, screen, ipcMain, Menu } = require("electron")
 const path = require("path")
+const Store = require("electron-store")
 
-// Configuration - can be set via environment variables or config file
+// Initialize persistent storage
+const store = new Store()
+
+// Configuration
 const CONFIG = {
-  // The URL of your deployed player (change this to your actual URL)
-  playerUrl: process.env.PLAYER_URL || "https://xkreen.vercel.app/player/",
-  // Device code for this player instance
-  deviceCode: process.env.DEVICE_CODE || "SCR-MG35TQRT",
-  // Whether to start in fullscreen/kiosk mode
-  fullscreen: process.env.FULLSCREEN !== "false", // default true
-  // Whether to show dev tools (for debugging)
-  devTools: process.env.DEV_TOOLS === "true", // default false
+  playerUrl: process.env.PLAYER_URL || "https://xkreen.vercel.app/player",
+  devTools: process.env.DEV_TOOLS === "true",
 }
 
 let mainWindow
 
 function createWindow() {
-  // Get primary display dimensions
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width, height } = primaryDisplay.workAreaSize
 
-  // Create the browser window
   mainWindow = new BrowserWindow({
     width: width,
     height: height,
-    fullscreen: CONFIG.fullscreen,
-    kiosk: CONFIG.fullscreen,
-    frame: !CONFIG.fullscreen, // Hide frame in fullscreen
+    fullscreen: true,
+    kiosk: true,
+    frame: false,
     autoHideMenuBar: true,
     backgroundColor: "#000000",
     webPreferences: {
@@ -37,25 +33,34 @@ function createWindow() {
     },
   })
 
-  // Build the player URL with device code
-  const playerUrl = CONFIG.deviceCode ? `${CONFIG.playerUrl}/${CONFIG.deviceCode}` : CONFIG.playerUrl
+  const deviceCode = store.get("deviceCode")
 
-  console.log("[Electron Player] Loading URL:", playerUrl)
-  console.log("[Electron Player] Fullscreen:", CONFIG.fullscreen)
-  console.log("[Electron Player] Device Code:", CONFIG.deviceCode || "Not set")
+  if (!deviceCode) {
+    // No device code - show setup screen
+    console.log("[Electron Player] No device code found, showing setup screen")
+    mainWindow.loadFile(path.join(__dirname, "setup.html"))
+  } else {
+    // Device code exists - load player
+    loadPlayer(deviceCode)
+  }
 
-  // Load the player
-  mainWindow.loadURL(playerUrl)
-
-  // Open DevTools if enabled
   if (CONFIG.devTools) {
     mainWindow.webContents.openDevTools()
   }
 
-  // Handle window closed
   mainWindow.on("closed", () => {
     mainWindow = null
   })
+
+  createMenu()
+}
+
+function loadPlayer(deviceCode) {
+  const playerUrl = `${CONFIG.playerUrl}/${deviceCode}`
+  console.log("[Electron Player] Loading player:", playerUrl)
+  console.log("[Electron Player] Device Code:", deviceCode)
+
+  mainWindow.loadURL(playerUrl)
 
   // Prevent navigation away from player
   mainWindow.webContents.on("will-navigate", (event, url) => {
@@ -71,6 +76,63 @@ function createWindow() {
     return { action: "deny" }
   })
 }
+
+function createMenu() {
+  const template = [
+    {
+      label: "Player",
+      submenu: [
+        {
+          label: "Reset Device Code",
+          click: () => {
+            store.delete("deviceCode")
+            console.log("[Electron Player] Device code reset")
+            if (mainWindow) {
+              mainWindow.loadFile(path.join(__dirname, "setup.html"))
+            }
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Reload",
+          accelerator: "CmdOrCtrl+R",
+          click: () => {
+            if (mainWindow) mainWindow.reload()
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Exit",
+          accelerator: "CmdOrCtrl+Q",
+          click: () => {
+            app.quit()
+          },
+        },
+      ],
+    },
+  ]
+
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
+}
+
+ipcMain.handle("save-device-code", async (event, deviceCode) => {
+  try {
+    store.set("deviceCode", deviceCode)
+    console.log("[Electron Player] Device code saved:", deviceCode)
+    return true
+  } catch (error) {
+    console.error("[Electron Player] Error saving device code:", error)
+    return false
+  }
+})
+
+ipcMain.handle("reload-player", async () => {
+  const deviceCode = store.get("deviceCode")
+  if (deviceCode && mainWindow) {
+    loadPlayer(deviceCode)
+  }
+})
 
 // App lifecycle
 app.whenReady().then(() => {
@@ -91,7 +153,6 @@ process.on("uncaughtException", (error) => {
 })
 
 app.on("web-contents-created", (event, contents) => {
-  // Prevent new windows
   contents.on("new-window", (event) => {
     event.preventDefault()
   })

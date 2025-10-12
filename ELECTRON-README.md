@@ -14,38 +14,30 @@ This is a Windows desktop application for the digital signage player. It loads t
 npm install
 \`\`\`
 
+## How It Works
+
+The Electron player uses a **dynamic device code system**:
+
+1. **First Launch**: Player shows a setup screen asking for a device code
+2. **Get Device Code**: Go to your web dashboard → Screens → Add New Screen → Copy the generated code
+3. **Enter Code**: Paste the code into the player setup screen
+4. **Connected**: The player saves the code locally and loads your content
+5. **Automatic**: On subsequent launches, the player automatically uses the saved code
+
 ## Configuration
 
-The player can be configured using environment variables:
+### Player URL
 
-- `PLAYER_URL` - The base URL of your deployed player (default: `https://your-app.vercel.app/player`)
-- `DEVICE_CODE` - The device code for this player instance (optional)
-- `FULLSCREEN` - Whether to start in fullscreen mode (default: `true`)
-- `DEV_TOOLS` - Whether to show developer tools (default: `false`)
-
-### Option 1: Environment Variables
-
-Create a `.env` file in the project root:
-
-\`\`\`env
-PLAYER_URL=https://your-app.vercel.app/player
-DEVICE_CODE=abc123
-FULLSCREEN=true
-DEV_TOOLS=false
-\`\`\`
-
-### Option 2: Edit electron/main.js
-
-Open `electron/main.js` and modify the `CONFIG` object:
+Edit `electron/main.js` and update the `playerUrl`:
 
 \`\`\`javascript
 const CONFIG = {
-  playerUrl: 'https://your-app.vercel.app/player',
-  deviceCode: 'abc123',
-  fullscreen: true,
-  devTools: false,
+  playerUrl: process.env.PLAYER_URL || "https://your-app.vercel.app/player",
+  devTools: process.env.DEV_TOOLS === "true",
 }
 \`\`\`
+
+Replace `https://your-app.vercel.app/player` with your actual deployed app URL.
 
 ## Development
 
@@ -61,7 +53,7 @@ npm run electron:dev
 
 ## Building the Windows Executable
 
-1. **Update configuration** in `electron/main.js` with your production URL and settings
+1. **Update the player URL** in `electron/main.js` with your production URL
 
 2. **Build the executable**:
 \`\`\`bash
@@ -77,6 +69,27 @@ npm run electron:build
    - Run the installer
    - The app will be installed and can be launched from the Start Menu
 
+## First Time Setup (For End Users)
+
+1. **Install the player** on your Windows PC
+2. **Launch the player** - You'll see a setup screen
+3. **Go to your web dashboard** in a browser
+4. **Create a new screen**:
+   - Navigate to Screens section
+   - Click "Add New Screen"
+   - Copy the generated device code (e.g., `SCR-ABC123`)
+5. **Enter the code** in the player setup screen
+6. **Click Connect** - The player will save the code and start displaying content
+
+## Resetting Device Code
+
+If you need to change the device code:
+
+1. **Open the player**
+2. **Press `Alt` key** to show the menu bar
+3. **Click Player → Reset Device Code**
+4. **Enter new code** from your dashboard
+
 ## Auto-Start on Windows Boot
 
 To make the player start automatically when Windows boots:
@@ -85,8 +98,7 @@ To make the player start automatically when Windows boots:
 
 1. Press `Win + R` and type: `shell:startup`
 2. Create a shortcut to the installed app in this folder
-3. Right-click the shortcut → Properties
-4. Add `--fullscreen` to the Target field (optional)
+3. The player will now start automatically on boot
 
 ### Method 2: Task Scheduler (Advanced)
 
@@ -99,23 +111,36 @@ To make the player start automatically when Windows boots:
 
 ## Keyboard Shortcuts
 
-- `F11` - Toggle fullscreen (if not in kiosk mode)
+- `Alt` - Show menu bar (to access Reset Device Code)
+- `Ctrl + R` - Reload player
+- `Ctrl + Q` - Exit player
 - `Alt + F4` - Close the app
-- `Ctrl + Shift + I` - Open DevTools (if DEV_TOOLS=true)
 
 ## Troubleshooting
 
-### Player doesn't load
-- Check that `PLAYER_URL` is correct and accessible
+### Setup screen doesn't appear
+- The device code might already be saved
+- Use menu: Player → Reset Device Code to show setup screen again
+
+### Player doesn't load after entering code
+- Check that the device code is correct
+- Verify the device code exists in your web dashboard
 - Check your internet connection
-- Open DevTools (`DEV_TOOLS=true`) to see console errors
+- Open DevTools (`npm run electron:dev`) to see console errors
+
+### "Invalid device code" error
+- The code might be typed incorrectly
+- The screen might have been deleted from the dashboard
+- Create a new screen in the dashboard and use that code
 
 ### Black screen
-- The player URL might be incorrect
+- The player URL might be incorrect in `electron/main.js`
 - Check the console logs in the terminal where you ran `npm run electron`
+- Verify your deployed app is accessible
 
 ### Can't exit fullscreen
-- Press `Alt + F4` to close the app
+- Press `Alt` to show menu bar, then Player → Exit
+- Or press `Ctrl + Q`
 - Or use Task Manager to end the process
 
 ## Updating the Player
@@ -124,6 +149,8 @@ Since the Electron app loads the player from the web:
 1. Update your web app (deploy to Vercel)
 2. The Electron app will automatically load the new version
 3. No need to rebuild or redistribute the `.exe`
+
+**Note**: If you need to update the Electron app itself (not the player content), you'll need to rebuild and redistribute the `.exe`.
 
 ## Building for Other Platforms
 
@@ -136,6 +163,13 @@ npm run electron:build:all
 # - macOS: .dmg installer
 # - Linux: .AppImage
 \`\`\`
+
+## Technical Details
+
+- **Storage**: Device codes are stored locally using `electron-store`
+- **Security**: The player runs in a sandboxed environment with context isolation
+- **Updates**: Content updates happen automatically via the web app
+- **Offline**: The player requires internet connection to load content
 
 ## Support
 
