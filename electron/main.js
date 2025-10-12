@@ -4,9 +4,9 @@ const path = require("path")
 // Configuration - can be set via environment variables or config file
 const CONFIG = {
   // The URL of your deployed player (change this to your actual URL)
-  playerUrl: process.env.PLAYER_URL || "https://your-app.vercel.app/player",
+  playerUrl: process.env.PLAYER_URL || "https://xkreen.vercel.app/player/",
   // Device code for this player instance
-  deviceCode: process.env.DEVICE_CODE || "",
+  deviceCode: process.env.DEVICE_CODE || "SCR-MG35TQRT",
   // Whether to start in fullscreen/kiosk mode
   fullscreen: process.env.FULLSCREEN !== "false", // default true
   // Whether to show dev tools (for debugging)
