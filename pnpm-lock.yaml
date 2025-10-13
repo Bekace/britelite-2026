@@ -111,7 +111,7 @@ importers:
         specifier: latest
         version: 2.75.0
       '@tailwindcss/postcss':
-        specifier: latest
+        specifier: 4.1.14
         version: 4.1.14
       '@tensorflow-models/blazeface':
         specifier: latest
@@ -132,7 +132,7 @@ importers:
         specifier: latest
         version: 5.0.68(zod@3.25.1)
       autoprefixer:
-        specifier: latest
+        specifier: ^10.4.20
         version: 10.4.21(postcss@8.5.0)
       class-variance-authority:
         specifier: ^0.7.1
