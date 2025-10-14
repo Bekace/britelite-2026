@@ -34,7 +34,14 @@ import {
   Eye,
   ExternalLink,
   Settings,
+  Smile,
+  Meh,
+  Frown,
+  Angry,
+  Zap,
+  HelpCircle,
 } from "lucide-react"
+
 import { useToast } from "@/hooks/use-toast"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -805,29 +812,33 @@ export default function AnalyticsPage() {
                           {(() => {
                             const emotions = screenAnalytics?.summary?.emotions || {}
                             const emotionData = [
-                              { name: "Happy", value: emotions.happy || 0, emoji: "😊", color: "bg-green-500" },
-                              { name: "Neutral", value: emotions.neutral || 0, emoji: "😐", color: "bg-gray-500" },
-                              { name: "Sad", value: emotions.sad || 0, emoji: "😢", color: "bg-blue-500" },
-                              { name: "Angry", value: emotions.angry || 0, emoji: "😠", color: "bg-red-500" },
+                              { name: "Happy", value: emotions.happy || 0, icon: Smile, color: "bg-green-500" },
+                              { name: "Neutral", value: emotions.neutral || 0, icon: Meh, color: "bg-gray-500" },
+                              { name: "Sad", value: emotions.sad || 0, icon: Frown, color: "bg-blue-500" },
+                              { name: "Angry", value: emotions.angry || 0, icon: Angry, color: "bg-red-500" },
                               {
                                 name: "Surprised",
                                 value: emotions.surprised || 0,
-                                emoji: "😲",
+                                icon: Zap,
                                 color: "bg-yellow-500",
                               },
-                              { name: "Unknown", value: emotions.unknown || 0, emoji: "❓", color: "bg-gray-400" },
+                              { name: "Unknown", value: emotions.unknown || 0, icon: HelpCircle, color: "bg-gray-400" },
                             ]
+                            // </CHANGE>
                             const totalEmotions = emotionData.reduce((sum, item) => sum + item.value, 0)
 
                             return totalEmotions > 0 ? (
                               <div className="space-y-3">
                                 {emotionData.map((emotion) => {
                                   const percentage = totalEmotions > 0 ? (emotion.value / totalEmotions) * 100 : 0
+                                  const IconComponent = emotion.icon
+                                  // </CHANGE>
                                   return (
                                     <div key={emotion.name} className="space-y-1">
                                       <div className="flex items-center justify-between text-sm">
                                         <div className="flex items-center gap-2">
-                                          <span className="text-lg">{emotion.emoji}</span>
+                                          <IconComponent className="h-5 w-5 text-muted-foreground" />
+                                          {/* </CHANGE> */}
                                           <span className="font-medium">{emotion.name}</span>
                                         </div>
                                         <div className="flex items-center gap-2">
