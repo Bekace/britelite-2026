@@ -14,12 +14,11 @@ import { AnimatedSection } from "@/components/animated-section"
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden pb-0">
+    <div className="min-h-screen bg-background relative pb-0">
       <div className="relative z-10">
         <main className="max-w-[1620px] mx-auto relative">
           <HeroSection />
-          {/* Dashboard Preview Wrapper */}
-          <div className="absolute bottom-[-150px] md:bottom-[-400px] left-1/2 transform -translate-x-1/2 z-30">
+          <div className="relative w-full">
             <AnimatedSection>
               <DashboardPreview />
             </AnimatedSection>
