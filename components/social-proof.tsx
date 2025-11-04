@@ -3,7 +3,7 @@ import Image from "next/image"
 export function SocialProof() {
   return (
     <section className="self-stretch flex flex-col justify-center items-center overflow-hidden gap-6 py-14">
-      <div className="text-center text-gray-300 font-medium leading-tight text-6xl">
+      <div className="text-center text-gray-300 text-sm font-medium leading-tight">
         Trusted by forward-thinking brands, agencies, and retailers
       </div>
       <div className="self-stretch grid grid-cols-2 md:grid-cols-4 gap-8 justify-items-center">

@@ -812,98 +812,51 @@ export default function AnalyticsPage() {
                           {(() => {
                             const emotions = screenAnalytics?.summary?.emotions || {}
                             const emotionData = [
-                              {
-                                name: "Happy",
-                                value: emotions.happy || 0,
-                                icon: Smile,
-                                color: "#10b981",
-                                fill: "#10b981",
-                              },
-                              {
-                                name: "Neutral",
-                                value: emotions.neutral || 0,
-                                icon: Meh,
-                                color: "#6b7280",
-                                fill: "#6b7280",
-                              },
-                              { name: "Sad", value: emotions.sad || 0, icon: Frown, color: "#3b82f6", fill: "#3b82f6" },
-                              {
-                                name: "Angry",
-                                value: emotions.angry || 0,
-                                icon: Angry,
-                                color: "#ef4444",
-                                fill: "#ef4444",
-                              },
+                              { name: "Happy", value: emotions.happy || 0, icon: Smile, color: "bg-green-500" },
+                              { name: "Neutral", value: emotions.neutral || 0, icon: Meh, color: "bg-gray-500" },
+                              { name: "Sad", value: emotions.sad || 0, icon: Frown, color: "bg-blue-500" },
+                              { name: "Angry", value: emotions.angry || 0, icon: Angry, color: "bg-red-500" },
                               {
                                 name: "Surprised",
                                 value: emotions.surprised || 0,
                                 icon: Zap,
-                                color: "#f59e0b",
-                                fill: "#f59e0b",
+                                color: "bg-yellow-500",
                               },
-                              {
-                                name: "Unknown",
-                                value: emotions.unknown || 0,
-                                icon: HelpCircle,
-                                color: "#9ca3af",
-                                fill: "#9ca3af",
-                              },
+                              { name: "Unknown", value: emotions.unknown || 0, icon: HelpCircle, color: "bg-gray-400" },
                             ]
+                            // </CHANGE>
                             const totalEmotions = emotionData.reduce((sum, item) => sum + item.value, 0)
 
                             return totalEmotions > 0 ? (
-                              <div className="space-y-6">
-                                {/* Radial Chart */}
-                                <div className="flex justify-center">
-                                  <ResponsiveContainer width="100%" height={300}>
-                                    <RadialBarChart
-                                      cx="50%"
-                                      cy="50%"
-                                      innerRadius="20%"
-                                      outerRadius="90%"
-                                      barSize={24}
-                                      data={emotionData.map((emotion, index) => ({
-                                        ...emotion,
-                                        value: totalEmotions > 0 ? (emotion.value / totalEmotions) * 100 : 0,
-                                        index: emotionData.length - index,
-                                      }))}
-                                      startAngle={90}
-                                      endAngle={-270}
-                                    >
-                                      <RadialBar background={{ fill: "#f3f4f6" }} dataKey="value" cornerRadius={8} />
-                                    </RadialBarChart>
-                                  </ResponsiveContainer>
-                                </div>
-
-                                {/* Legend with Icons */}
-                                <div className="grid grid-cols-2 gap-3">
-                                  {emotionData.map((emotion) => {
-                                    const percentage = totalEmotions > 0 ? (emotion.value / totalEmotions) * 100 : 0
-                                    const IconComponent = emotion.icon
-                                    return (
-                                      <div
-                                        key={emotion.name}
-                                        className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:shadow-md transition-shadow"
-                                      >
-                                        <div
-                                          className="w-10 h-10 rounded-full flex items-center justify-center"
-                                          style={{ backgroundColor: `${emotion.color}20` }}
-                                        >
-                                          <IconComponent className="h-5 w-5" style={{ color: emotion.color }} />
+                              <div className="space-y-3">
+                                {emotionData.map((emotion) => {
+                                  const percentage = totalEmotions > 0 ? (emotion.value / totalEmotions) * 100 : 0
+                                  const IconComponent = emotion.icon
+                                  // </CHANGE>
+                                  return (
+                                    <div key={emotion.name} className="space-y-1">
+                                      <div className="flex items-center justify-between text-sm">
+                                        <div className="flex items-center gap-2">
+                                          <IconComponent className="h-5 w-5 text-muted-foreground" />
+                                          {/* </CHANGE> */}
+                                          <span className="font-medium">{emotion.name}</span>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="text-sm font-medium truncate">{emotion.name}</div>
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-lg font-bold" style={{ color: emotion.color }}>
-                                              {percentage.toFixed(1)}%
-                                            </span>
-                                            <span className="text-xs text-muted-foreground">({emotion.value})</span>
-                                          </div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-muted-foreground">{emotion.value}</span>
+                                          <span className="font-semibold min-w-[45px] text-right">
+                                            {percentage.toFixed(1)}%
+                                          </span>
                                         </div>
                                       </div>
-                                    )
-                                  })}
-                                </div>
+                                      <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
+                                        <div
+                                          className={`absolute top-0 left-0 h-full ${emotion.color} transition-all duration-500`}
+                                          style={{ width: `${percentage}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )
+                                })}
                               </div>
                             ) : (
                               <div className="text-center py-8 text-muted-foreground">
@@ -911,7 +864,6 @@ export default function AnalyticsPage() {
                                 <p className="text-sm">No emotional data available yet</p>
                               </div>
                             )
-                            // </CHANGE>
                           })()}
                         </CardContent>
                       </Card>

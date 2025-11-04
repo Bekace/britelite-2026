@@ -4,10 +4,9 @@
 
 @layer base {
   :root {
-    /* Fixed background color - was light in production, now dark like dark mode */
-    --background: 210 11% 7%; /* #0f1211 - Dark background for proper contrast */
-    --foreground: 160 14% 93%; /* #e7eceb - Light text */
-
+    /* Themeable Colors - Restored to Original Vibe */
+    /*--background: 255 255 255; */ /* #ffffff - White background */
+    /*--foreground: 22 78 99;*/ /* #164e63 - Cyan-800 for primary text */
     --card: 210 11% 12%; /* Dark card background for proper contrast with light text */
     --card-foreground: 160 14% 93%;
 
@@ -25,6 +24,11 @@
 
     --accent: 240 2% 25%; /* #3f3f42 */
     --accent-foreground: 240 2% 96%; /* #f4f4f5 */
+
+    /*--background: 210 11% 7%;*/ /* #0f1211 */
+    --background: 210 11% 7%; /* #0f1211 - Dark background for light text */
+
+    --foreground: 160 14% 93%; /* #e7eceb */
 
     --muted-foreground-light: 71 85 105 / 0.5;
     --muted-foreground-dark: 71 85 105 / 0.6;
