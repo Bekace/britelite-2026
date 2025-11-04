@@ -15,7 +15,7 @@ export function AIMediaPlayerSection() {
             {/* Product images */}
             <div className="relative z-10">
               <Image
-                src="/images/design-mode/xkreen-player.jpg"
+                src="/images/design-mode/xkreen-player(1).jpg"
                 alt="AI Media Player Complete Setup"
                 width={550}
                 height={450}
