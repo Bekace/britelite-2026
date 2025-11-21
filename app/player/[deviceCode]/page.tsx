@@ -1,5 +1,7 @@
 "use client"
 import { useState, useEffect } from "react"
+import type React from "react"
+
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, AlertCircle, RefreshCw, ArrowLeft, Settings } from "lucide-react"
@@ -61,6 +63,8 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true)
   const router = useRouter()
   const [showCameraSetup, setShowCameraSetup] = useState(false)
+  const [showLeftPanel, setShowLeftPanel] = useState(false)
+  const [showRightPanel, setShowRightPanel] = useState(false)
 
   const shuffleArray = (array: MediaItem[]) => {
     const shuffled = [...array]
@@ -382,6 +386,25 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     }
   }
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const threshold = 50 // pixels from edge to trigger
+    const windowWidth = window.innerWidth
+
+    // Left edge detection
+    if (e.clientX < threshold) {
+      setShowLeftPanel(true)
+    } else if (e.clientX > threshold * 2) {
+      setShowLeftPanel(false)
+    }
+
+    // Right edge detection
+    if (e.clientX > windowWidth - threshold) {
+      setShowRightPanel(true)
+    } else if (e.clientX < windowWidth - threshold * 2) {
+      setShowRightPanel(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -473,31 +496,48 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   })
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-hidden" style={getScreenStyles()}>
-      <div className="absolute top-4 left-4 z-50">
-        <Button
-          onClick={() => setShowCameraSetup(true)}
-          variant="secondary"
-          size="sm"
-          className="bg-black/80 backdrop-blur-sm border-white/20 text-white hover:bg-black/90"
-        >
-          <Settings className="w-4 h-4 mr-2" />
-          Camera Setup
-        </Button>
+    <div
+      className="fixed inset-0 flex items-center justify-center overflow-hidden"
+      style={getScreenStyles()}
+      onMouseMove={handleMouseMove}
+    >
+      <div
+        className={`fixed left-0 top-0 h-full w-64 bg-black/80 backdrop-blur-sm border-r border-white/20 z-50 transition-transform duration-300 ease-in-out ${
+          showLeftPanel ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="p-4 space-y-4">
+          <Button
+            onClick={() => setShowCameraSetup(true)}
+            variant="secondary"
+            className="w-full bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Camera Setup
+          </Button>
+        </div>
       </div>
 
-      {config?.screen.id && analyticsEnabled && (
-        <div className="absolute top-4 right-4 z-50 w-80">
-          {console.log("[v0] Rendering CameraAnalytics component with screenId:", config.screen.id)}
-          <CameraAnalytics
-            screenId={config.screen.id}
-            enabled={analyticsEnabled}
-            onToggle={setAnalyticsEnabled}
-            onSetupClick={() => setShowCameraSetup(true)}
-            className="bg-black/80 backdrop-blur-sm border-white/20"
-          />
+      <div
+        className={`fixed right-0 top-0 h-full w-96 bg-black/80 backdrop-blur-sm border-l border-white/20 z-50 transition-transform duration-300 ease-in-out ${
+          showRightPanel ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="p-4 h-full overflow-y-auto">
+          {config?.screen.id && analyticsEnabled && (
+            <>
+              {console.log("[v0] Rendering CameraAnalytics in right panel with screenId:", config.screen.id)}
+              <CameraAnalytics
+                screenId={config.screen.id}
+                enabled={analyticsEnabled}
+                onToggle={setAnalyticsEnabled}
+                onSetupClick={() => setShowCameraSetup(true)}
+                className="bg-transparent border-0"
+              />
+            </>
+          )}
         </div>
-      )}
+      </div>
 
       {contentToDisplay && contentToDisplay.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
