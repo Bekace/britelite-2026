@@ -389,18 +389,20 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const handleMouseMove = (e: React.MouseEvent) => {
     const threshold = 50 // pixels from edge to trigger
     const windowWidth = window.innerWidth
+    const leftPanelWidth = 256 // w-64 = 16rem = 256px
+    const rightPanelWidth = 384 // w-96 = 24rem = 384px
 
-    // Left edge detection
+    // Left edge detection - keep open if within panel width
     if (e.clientX < threshold) {
       setShowLeftPanel(true)
-    } else if (e.clientX > threshold * 2) {
+    } else if (e.clientX > leftPanelWidth) {
       setShowLeftPanel(false)
     }
 
-    // Right edge detection
+    // Right edge detection - keep open if within panel width
     if (e.clientX > windowWidth - threshold) {
       setShowRightPanel(true)
-    } else if (e.clientX < windowWidth - threshold * 2) {
+    } else if (e.clientX < windowWidth - rightPanelWidth) {
       setShowRightPanel(false)
     }
   }
