@@ -1,6 +1,8 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-/* Removed @layer base wrapper and migrated to Tailwind v4 syntax */
+@custom-variant dark (&:is(.dark *));
+
 :root {
   /* Themeable Colors - Restored to Original Vibe */
   --card: hsl(210 11% 12%); /* Dark card background for proper contrast with light text */
@@ -98,8 +100,8 @@
   --sidebar-ring: hsl(165 96% 71%);
 }
 
-/* Added @theme section for Tailwind v4 design tokens */
-@theme {
+@theme inline {
+  /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -119,6 +121,15 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -127,25 +138,15 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
 }
 
-* {
-  border-color: var(--color-border);
-}
-
-body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
 /* Added Inter font utility class for consistent usage */
@@ -153,4 +154,33 @@ body {
   font-family: "Inter", sans-serif;
   font-optical-sizing: auto;
   font-style: normal;
+}
+
+/* TV-specific focus styles for 10-foot UI */
+.tv-focusable {
+  outline: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.tv-focusable:focus-visible {
+  outline: 4px solid var(--color-primary);
+  outline-offset: 4px;
+  transform: scale(1.05);
+  box-shadow: 0 0 0 4px var(--color-primary), 0 0 20px var(--color-primary);
+}
+
+/* TV mode cursor hiding for cleaner experience */
+.tv-mode {
+  cursor: none;
+}
+
+.tv-mode * {
+  cursor: none;
+}
+
+/* Large touch targets for remote navigation */
+.tv-button {
+  min-width: 120px;
+  min-height: 48px;
+  font-size: 1.125rem;
 }

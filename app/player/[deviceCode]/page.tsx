@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
+import { useTVNavigation } from "@/hooks/use-tv-navigation"
 
 interface MediaItem {
   id: string
@@ -65,6 +66,39 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [showCameraSetup, setShowCameraSetup] = useState(false)
   const [showLeftPanel, setShowLeftPanel] = useState(false)
   const [showRightPanel, setShowRightPanel] = useState(false)
+
+  const { isTVMode } = useTVNavigation({
+    onLeft: () => {
+      if (!showCameraSetup) {
+        console.log("[v0] TV Navigation - Left pressed, toggling left panel")
+        setShowLeftPanel((prev) => !prev)
+        setShowRightPanel(false)
+      }
+    },
+    onRight: () => {
+      if (!showCameraSetup) {
+        console.log("[v0] TV Navigation - Right pressed, toggling right panel")
+        setShowRightPanel((prev) => !prev)
+        setShowLeftPanel(false)
+      }
+    },
+    onMenu: () => {
+      if (!showCameraSetup) {
+        console.log("[v0] TV Navigation - Menu pressed, toggling right panel")
+        setShowRightPanel((prev) => !prev)
+      }
+    },
+    onBack: () => {
+      console.log("[v0] TV Navigation - Back pressed")
+      if (showLeftPanel || showRightPanel) {
+        setShowLeftPanel(false)
+        setShowRightPanel(false)
+      } else if (showCameraSetup) {
+        setShowCameraSetup(false)
+      }
+    },
+    enabled: !loading && !error,
+  })
 
   const shuffleArray = (array: MediaItem[]) => {
     const shuffled = [...array]
@@ -387,6 +421,8 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (isTVMode) return
+
     const threshold = 50 // pixels from edge to trigger
     const windowWidth = window.innerWidth
     const leftPanelWidth = 256 // w-64 = 16rem = 256px
@@ -499,10 +535,16 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center overflow-hidden"
+      className={`fixed inset-0 flex items-center justify-center overflow-hidden ${isTVMode ? "tv-mode" : ""}`}
       style={getScreenStyles()}
       onMouseMove={handleMouseMove}
     >
+      {isTVMode && (
+        <div className="absolute top-4 right-4 bg-primary/20 text-primary px-3 py-1 rounded-full text-sm font-medium z-50">
+          TV Mode
+        </div>
+      )}
+
       <div
         className={`fixed left-0 top-0 h-full w-64 bg-black/80 backdrop-blur-sm border-r border-white/20 z-50 transition-transform duration-300 ease-in-out ${
           showLeftPanel ? "translate-x-0" : "-translate-x-full"
@@ -512,7 +554,8 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
           <Button
             onClick={() => setShowCameraSetup(true)}
             variant="secondary"
-            className="w-full bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20"
+            className="w-full bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 tv-focusable tv-button"
+            autoFocus={showLeftPanel}
           >
             <Settings className="w-4 h-4 mr-2" />
             Camera Setup
