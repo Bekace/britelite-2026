@@ -68,6 +68,27 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [showRightPanel, setShowRightPanel] = useState(false)
 
   const { isTVMode } = useTVNavigation({
+    onUp: () => {
+      if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+        console.log("[v0] TV Navigation - Up pressed")
+        // Navigate to previous media
+        setCurrentMediaIndex((prev) => {
+          const newIndex = prev - 1
+          return newIndex < 0 ? (shuffledContent.length || config?.screen.content?.length || 1) - 1 : newIndex
+        })
+      }
+    },
+    onDown: () => {
+      if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+        console.log("[v0] TV Navigation - Down pressed")
+        // Navigate to next media
+        const contentLength = shuffledContent.length || config?.screen.content?.length || 0
+        setCurrentMediaIndex((prev) => {
+          const newIndex = prev + 1
+          return newIndex >= contentLength ? 0 : newIndex
+        })
+      }
+    },
     onLeft: () => {
       if (!showCameraSetup) {
         console.log("[v0] TV Navigation - Left pressed, toggling left panel")
@@ -633,10 +654,6 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
                   <p className="text-2xl">{currentMedia.media.name}</p>
                 </div>
               )}
-
-              <div className="absolute bottom-4 left-4 bg-black/50 text-white px-3 py-1 rounded text-sm">
-                {currentMediaIndex + 1} / {contentToDisplay.length}
-              </div>
             </div>
           )}
         </div>
