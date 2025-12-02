@@ -5,7 +5,7 @@ export function IndustriesSection() {
   const industries = [
     {
       title: "Media Owners",
-      description: "Built for Media Owners. Includes everything for direct and programmatic DooH Ad Sales",
+      description: "Created for today’s media networks. Offers complete support for managing, selling, and optimizing DOOH inventory across every channel.",
       image: "/media-owner-advertising-billboard.png",
     },
     {
