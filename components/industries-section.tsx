@@ -4,33 +4,33 @@ import { ArrowUpRight } from "lucide-react"
 export function IndustriesSection() {
   const industries = [
     {
-      title: "Media Owners",
-      description: "Created for today’s media networks. Offers complete support for managing, selling, and optimizing DOOH inventory across every channel.",
+      title: "Retail & Consumer Environments",
+      description: "Built for modern retail spaces. Provides a full toolkit to boost sales impact and optimize in-store engagement with smart digital displays",
       image: "/media-owner-advertising-billboard.png",
     },
     {
-      title: "Malls",
-      description: "Maximize Ad revenue and increase customer retention by 10% in Malls",
+      title: "Hospitality & Lifestyle",
+      description: "Designed for hotels, resorts, and lifestyle brands. Delivers a unified solution to enhance guest communication and elevate onsite experiences",
       image: "/shopping-mall-retail-customers.png",
     },
     {
-      title: "Consumer Electronics",
-      description: "More sales in Consumer Electronics and Telco with AI Digital Signage & Analytics",
+      title: "Media Owners",
+      description: "Created for today’s media networks. Offers complete support for managing, selling, and optimizing DOOH inventory across every channel",
       image: "/consumer-electronics-store-technology.png",
     },
     {
-      title: "Restaurants & Cafes",
-      description: "Sales performance platform for QSR and casual restaurants",
+      title: "Transit & Mobility",
+      description: "Made for transportation hubs and mobility operators. Enables dynamic content delivery and smarter ad monetization across high-traffic locations",
       image: "/restaurant-chef-kitchen-food-service.png",
     },
     {
-      title: "Hotels & Resorts",
-      description: "Everything you need for Hotels & Resorts offline marketing in one platform",
+      title: "Corporate & Institutional",
+      description: "Tailored for offices, campuses, and public institutions. Centralizes messaging, improves communication, and streamlines display management",
       image: "/hotel-resort-hospitality-service.png",
     },
     {
-      title: "Food Retail",
-      description: "Maximize Ad revenue and increase sales up to 30% in Food Retail",
+      title: "Entertainment & Experience Venues",
+      description: "Ideal for arenas, cinemas, and attraction spaces. Enhances visitor engagement and unlocks new revenue through immersive digital signage",
       image: "/food-retail-grocery-store-shopping.png",
     },
   ]
