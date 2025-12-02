@@ -13,10 +13,10 @@ import android.util.Log;
 import android.graphics.Color;
 
 public class MainActivity extends Activity {
-    private static final String TAG = "PointerTV";
+    private static final String TAG = "XkreenTV";
     
     // IMPORTANT: Replace this with your actual Vercel deployment URL
-    private static final String APP_URL = "https://your-app.vercel.app/player/[deviceCode]?tv=true";
+    private static final String APP_URL = "https://xkreen.vercel.app/player/[deviceCode]?tv=true";
     
     private WebView webView;
 
