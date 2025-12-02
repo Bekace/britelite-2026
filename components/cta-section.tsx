@@ -110,7 +110,7 @@ export function CTASection() {
             See how businesses engage audiences faster, manage screens seamlessly, and grow with confidence using AI-powered digital signage.
           </p>
         </div>
-        <Link href="#" target="_blank" rel="noopener noreferrer">
+        <Link href="/auth/sign-up" target="_blank" rel="noopener noreferrer">
           <Button
             className="px-[30px] py-2 bg-secondary text-secondary-foreground text-base font-medium leading-6 rounded-[99px] shadow-[0px_0px_0px_4px_rgba(255,255,255,0.13)] hover:bg-secondary/90 transition-all duration-200"
             size="lg"
