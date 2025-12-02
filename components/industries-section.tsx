@@ -6,17 +6,17 @@ export function IndustriesSection() {
     {
       title: "Retail & Consumer Environments",
       description: "Built for modern retail spaces. Provides a full toolkit to boost sales impact and optimize in-store engagement with smart digital displays",
-      image: "/media-owner-advertising-billboard.png",
+      image: "/consumer-electronics-store-technology.png",
     },
     {
       title: "Hospitality & Lifestyle",
       description: "Designed for hotels, resorts, and lifestyle brands. Delivers a unified solution to enhance guest communication and elevate onsite experiences",
-      image: "/shopping-mall-retail-customers.png",
+      image: "/hotel-resort-hospitality-service.png",
     },
     {
       title: "Media Owners",
       description: "Created for today’s media networks. Offers complete support for managing, selling, and optimizing DOOH inventory across every channel",
-      image: "/consumer-electronics-store-technology.png",
+      image: "/media-owner-advertising-billboard.png",
     },
     {
       title: "Transit & Mobility",
