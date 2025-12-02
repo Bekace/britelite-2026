@@ -60,7 +60,7 @@
     "geist": "latest",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
-    "next": "15.2.4",
+    "next": "^15.3.0",
     "next-themes": "latest",
     "path": "0.12.7",
     "react": "^19",
@@ -81,7 +81,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "postcss": "^8.5",
-    "tailwindcss": "4.1.16",
+    "tailwindcss": "^4.1.9",
     "typescript": "^5"
   }
 }
