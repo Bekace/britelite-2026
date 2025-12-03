@@ -66,6 +66,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [showCameraSetup, setShowCameraSetup] = useState(false)
   const [showLeftPanel, setShowLeftPanel] = useState(false)
   const [showRightPanel, setShowRightPanel] = useState(false)
+  const [iframeErrors, setIframeErrors] = useState<Set<string>>(new Set())
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -487,6 +488,30 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     }
   }
 
+  const handleIframeError = (mediaId: string) => {
+    setIframeErrors((prev) => new Set(prev).add(mediaId))
+  }
+
+  const getDirectLink = (media: MediaItem["media"]) => {
+    if (isYouTubeVideo(media)) {
+      // Extract video ID and create direct YouTube link
+      let videoId = ""
+      if (media.file_path.includes("youtube.com/watch")) {
+        const urlObj = new URL(media.file_path)
+        videoId = urlObj.searchParams.get("v") || ""
+      } else if (media.file_path.includes("youtu.be/")) {
+        videoId = media.file_path.split("youtu.be/")[1]?.split("?")[0] || ""
+      } else if (media.file_path.includes("/embed/")) {
+        videoId = media.file_path.split("/embed/")[1]?.split("?")[0] || ""
+      }
+      return `https://www.youtube.com/watch?v=${videoId}`
+    } else if (isGoogleSlides(media)) {
+      // Return the original Google Slides link
+      return media.file_path
+    }
+    return media.file_path
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -642,15 +667,44 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
                   unoptimized
                 />
               ) : isYouTubeVideo(currentMedia.media) ? (
-                <iframe
-                  key={currentMedia.id}
-                  src={getYouTubeUrlWithAutoplay(currentMedia.media.file_path)}
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  referrerPolicy="no-referrer"
-                  title={currentMedia.media.name}
-                />
+                iframeErrors.has(currentMedia.id) ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-white bg-background/50 backdrop-blur-sm">
+                    <div className="max-w-md text-center space-y-4 p-8">
+                      <div className="text-6xl mb-4">📹</div>
+                      <h3 className="text-2xl font-bold">Video Embedding Restricted</h3>
+                      <p className="text-muted-foreground">
+                        This video cannot be embedded. The owner has disabled playback on external sites.
+                      </p>
+                      <a
+                        href={getDirectLink(currentMedia.media)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                      >
+                        Watch on YouTube
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                          />
+                        </svg>
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    key={currentMedia.id}
+                    src={getYouTubeUrlWithAutoplay(currentMedia.media.file_path)}
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    referrerPolicy="no-referrer"
+                    title={currentMedia.media.name}
+                    onError={() => handleIframeError(currentMedia.id)}
+                  />
+                )
               ) : currentMedia.media.mime_type.startsWith("video/") ? (
                 <video
                   src={getMediaUrl(currentMedia.media.file_path)}
@@ -666,12 +720,41 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
                   }}
                 />
               ) : isGoogleSlides(currentMedia.media) ? (
-                <iframe
-                  src={getGoogleSlidesEmbedUrl(currentMedia.media) || ""}
-                  className="w-full h-full border-0"
-                  allowFullScreen
-                  title={currentMedia.media.name}
-                />
+                iframeErrors.has(currentMedia.id) ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-white bg-background/50 backdrop-blur-sm">
+                    <div className="max-w-md text-center space-y-4 p-8">
+                      <div className="text-6xl mb-4">📊</div>
+                      <h3 className="text-2xl font-bold">Slides Access Restricted</h3>
+                      <p className="text-muted-foreground">
+                        This presentation cannot be embedded. The organization has restricted access.
+                      </p>
+                      <a
+                        href={getDirectLink(currentMedia.media)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                      >
+                        Open in Google Slides
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                          />
+                        </svg>
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    src={getGoogleSlidesEmbedUrl(currentMedia.media) || ""}
+                    className="w-full h-full border-0"
+                    allowFullScreen
+                    title={currentMedia.media.name}
+                    onError={() => handleIframeError(currentMedia.id)}
+                  />
+                )
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-white">
                   <p className="text-2xl">{currentMedia.media.name}</p>
