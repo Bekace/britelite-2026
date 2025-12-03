@@ -368,16 +368,39 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
   const getYouTubeUrlWithAutoplay = (url: string) => {
     try {
-      const urlObj = new URL(url)
+      let embedUrl = url
+
+      // Convert youtube.com/watch?v= to embed URL
+      if (url.includes("youtube.com/watch")) {
+        const urlObj = new URL(url)
+        const videoId = urlObj.searchParams.get("v")
+        if (videoId) {
+          embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
+        }
+      }
+      // Convert youtu.be/ to embed URL
+      else if (url.includes("youtu.be/")) {
+        const videoId = url.split("youtu.be/")[1]?.split("?")[0]
+        if (videoId) {
+          embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
+        }
+      }
+      // If already an embed URL, use youtube-nocookie.com
+      else if (url.includes("youtube.com/embed/")) {
+        embedUrl = url.replace("youtube.com", "youtube-nocookie.com")
+      }
+
+      const urlObj = new URL(embedUrl)
       urlObj.searchParams.set("autoplay", "1")
       urlObj.searchParams.set("mute", "1")
-      urlObj.searchParams.set("controls", "0")
-      urlObj.searchParams.set("showinfo", "0")
-      urlObj.searchParams.set("fs", "0")
+      urlObj.searchParams.set("controls", "1")
       urlObj.searchParams.set("modestbranding", "1")
-      urlObj.searchParams.set("iv_load_policy", "3")
+      urlObj.searchParams.set("rel", "0")
+      urlObj.searchParams.set("enablejsapi", "1")
+      urlObj.searchParams.set("origin", typeof window !== "undefined" ? window.location.origin : "")
       return urlObj.toString()
-    } catch {
+    } catch (error) {
+      console.error("[v0] Error parsing YouTube URL:", error)
       return url
     }
   }
