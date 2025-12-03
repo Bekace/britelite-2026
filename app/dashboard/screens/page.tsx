@@ -948,4 +948,314 @@ export default function ScreensPage() {
       })
     }
   }
+
+  const filteredScreens = screens.filter(
+    (screen) =>
+      screen.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      screen.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      screen.screen_code.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Screens</h1>
+          <p className="text-gray-600 mt-1">Manage your digital signage displays</p>
+        </div>
+        <Button
+          onClick={() => {
+            resetWizard()
+            setIsCreateDialogOpen(true)
+          }}
+          className="bg-cyan-500 hover:bg-cyan-600"
+        >
+          Add Screen
+        </Button>
+      </div>
+
+      {/* Search Section */}
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <Input
+            placeholder="Search screens by name, location, or code..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full"
+          />
+        </div>
+      </div>
+
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+          <p className="text-sm text-gray-600">Loading screens...</p>
+        </div>
+      ) : filteredScreens.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-12">
+            <Tv className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600 mb-4">
+              {searchTerm ? "No screens match your search" : "No screens configured yet"}
+            </p>
+            <Button
+              onClick={() => {
+                resetWizard()
+                setIsCreateDialogOpen(true)
+              }}
+              className="bg-cyan-500 hover:bg-cyan-600"
+            >
+              Create First Screen
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredScreens.map((screen) => (
+            <Card key={screen.id} className="hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Tv className="h-8 w-8 text-cyan-500" />
+                    <div>
+                      <h3 className="font-semibold text-lg">{screen.name}</h3>
+                      {screen.location && <p className="text-sm text-gray-600">{screen.location}</p>}
+                    </div>
+                  </div>
+                  <div
+                    className={`px-2 py-1 rounded text-xs font-medium ${
+                      screen.status === "online"
+                        ? "bg-green-100 text-green-700"
+                        : screen.status === "paired"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {screen.status}
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Code:</span>
+                    <span className="font-mono">{screen.screen_code}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Resolution:</span>
+                    <span>{screen.resolution}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Orientation:</span>
+                    <span className="capitalize">{screen.orientation}</span>
+                  </div>
+                  {screen.last_seen && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Last Seen:</span>
+                      <span>{new Date(screen.last_seen).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 mt-4">
+                  <Button variant="outline" size="sm" onClick={() => setEditingScreen(screen)} className="flex-1">
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteScreen(screen.id)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create/Wizard Dialog */}
+      {isCreateDialogOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardContent className="p-6">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold">
+                  {wizardState.step === 1 && "Connect Device"}
+                  {wizardState.step === 2 && "Select Content Type"}
+                  {wizardState.step === 3 && "Choose Content"}
+                  {wizardState.step === 4 && "Configure Screen"}
+                  {wizardState.step === 5 && "Advanced Settings"}
+                </h2>
+                <div className="flex gap-2 mt-4">
+                  {[1, 2, 3, 4, 5].map((step) => (
+                    <div
+                      key={step}
+                      className={`h-2 flex-1 rounded ${step <= wizardState.step ? "bg-cyan-500" : "bg-gray-200"}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {wizardState.step === 1 && renderStep1()}
+              {wizardState.step === 2 && renderStep2()}
+              {wizardState.step === 3 && renderStep3()}
+              {wizardState.step === 4 && renderStep4()}
+              {wizardState.step === 5 && renderStep5()}
+
+              <div className="flex justify-between gap-3 mt-6">
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <div className="flex gap-3">
+                  {wizardState.step > 1 && (
+                    <Button variant="outline" onClick={prevStep}>
+                      Back
+                    </Button>
+                  )}
+                  {wizardState.step < 5 && (
+                    <Button
+                      onClick={nextStep}
+                      disabled={
+                        (wizardState.step === 1 && !wizardState.isPaired) ||
+                        (wizardState.step === 2 && !wizardState.contentType)
+                      }
+                      className="bg-cyan-500 hover:bg-cyan-600"
+                    >
+                      Next
+                    </Button>
+                  )}
+                  {wizardState.step === 5 && (
+                    <Button
+                      onClick={createScreen}
+                      disabled={isCreatingScreen || !wizardState.name.trim()}
+                      className="bg-cyan-500 hover:bg-cyan-600"
+                    >
+                      {isCreatingScreen ? "Creating..." : "Create Screen"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit Dialog */}
+      {editingScreen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold mb-6">Edit Screen</h2>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="edit-name">Screen Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={editingScreen.name}
+                    onChange={(e) => setEditingScreen({ ...editingScreen, name: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-location">Location</Label>
+                  <Input
+                    id="edit-location"
+                    value={editingScreen.location || ""}
+                    onChange={(e) => setEditingScreen({ ...editingScreen, location: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-resolution">Resolution</Label>
+                  <Select
+                    value={editingScreen.resolution}
+                    onValueChange={(value) => setEditingScreen({ ...editingScreen, resolution: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1920x1080">1920x1080 (Full HD)</SelectItem>
+                      <SelectItem value="3840x2160">3840x2160 (4K)</SelectItem>
+                      <SelectItem value="1366x768">1366x768 (HD)</SelectItem>
+                      <SelectItem value="1280x720">1280x720 (HD Ready)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="edit-orientation">Orientation</Label>
+                  <Select
+                    value={editingScreen.orientation}
+                    onValueChange={(value) => setEditingScreen({ ...editingScreen, orientation: value as any })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="landscape">Landscape</SelectItem>
+                      <SelectItem value="rotate-90">Rotate 90°</SelectItem>
+                      <SelectItem value="rotate-180">Rotate 180°</SelectItem>
+                      <SelectItem value="rotate-270">Rotate 270°</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Content Type</Label>
+                  <div className="flex gap-2 mt-2">
+                    <Button
+                      variant={editingContentType === "playlist" ? "default" : "outline"}
+                      onClick={() => setEditingContentType("playlist")}
+                      className="flex-1"
+                    >
+                      Playlist
+                    </Button>
+                    <Button
+                      variant={editingContentType === "asset" ? "default" : "outline"}
+                      onClick={() => setEditingContentType("asset")}
+                      className="flex-1"
+                    >
+                      Asset
+                    </Button>
+                  </div>
+                </div>
+
+                {editingContentType === "playlist" && (
+                  <div>
+                    <Label>Assigned Playlists</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {editingScreen.playlists && Array.isArray(editingScreen.playlists) ? (
+                        editingScreen.playlists.map((playlist: any) => (
+                          <div key={playlist.id} className="px-3 py-1 bg-cyan-100 text-cyan-700 rounded-full text-sm">
+                            {playlist.name}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No playlists assigned</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-between gap-3 mt-6">
+                <Button variant="outline" onClick={() => setEditingScreen(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdateScreen} disabled={updating} className="bg-cyan-500 hover:bg-cyan-600">
+                  {updating ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
 }
