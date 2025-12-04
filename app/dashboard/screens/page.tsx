@@ -1227,7 +1227,7 @@ export default function ScreensPage() {
 
       {/* Edit Dialog */}
       {editingScreen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4 bg-[rgba(41,40,40,0.25)]">
           <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
             {/* Fixed Header */}
             <div className="p-6 border-b shrink-0">
