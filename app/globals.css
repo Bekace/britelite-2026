@@ -184,3 +184,14 @@
   min-height: 48px;
   font-size: 1.125rem;
 }
+
+/* Added scrollbar-hide utility for cleaner modal scrolling */
+/* Hide scrollbar while maintaining scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
+}

@@ -1882,7 +1882,7 @@ export default function PlaylistsPage() {
           </DialogHeader>
 
           {editingItem && (
-            <div className="flex-1 overflow-y-auto p-6 pt-4">
+            <div className="flex-1 overflow-y-auto p-6 pt-4 scrollbar-hide">
               <div className="space-y-4">
                 {/* Media Preview */}
                 <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border">

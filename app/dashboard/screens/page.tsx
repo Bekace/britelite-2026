@@ -1179,11 +1179,13 @@ export default function ScreensPage() {
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {wizardState.step === 1 && renderStep1()}
-              {wizardState.step === 2 && renderStep2()}
-              {wizardState.step === 3 && renderStep3()}
-              {wizardState.step === 4 && renderStep4()}
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+              <div className="space-y-4">
+                {wizardState.step === 1 && renderStep1()}
+                {wizardState.step === 2 && renderStep2()}
+                {wizardState.step === 3 && renderStep3()}
+                {wizardState.step === 4 && renderStep4()}
+              </div>
             </div>
 
             {/* Fixed Footer */}
@@ -1245,7 +1247,7 @@ export default function ScreensPage() {
             </div>
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="edit-name">Screen Name</Label>
@@ -1310,7 +1312,7 @@ export default function ScreensPage() {
                       <PlayCircle className="h-4 w-4 text-cyan-500" />
                       Playlists
                     </h4>
-                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50">
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
                       {playlists.length === 0 ? (
                         <p className="text-sm text-gray-500 text-center py-4">No playlists available</p>
                       ) : (
@@ -1350,7 +1352,7 @@ export default function ScreensPage() {
                       <ImageIcon className="h-4 w-4 text-cyan-500" />
                       Media Assets
                     </h4>
-                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50">
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
                       {mediaItems.length === 0 ? (
                         <p className="text-sm text-gray-500 text-center py-4">No media assets available</p>
                       ) : (
