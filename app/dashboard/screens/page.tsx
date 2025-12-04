@@ -1232,7 +1232,7 @@ export default function ScreensPage() {
             {/* Fixed Header */}
             <div className="p-6 border-b shrink-0">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold">Edit Screen</h2>
+                <h2 className="text-2xl font-bold text-primary">Edit Screen</h2>
                 <Button
                   variant="ghost"
                   size="icon"
