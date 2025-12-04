@@ -868,6 +868,8 @@ export default function ScreensPage() {
   const handleUpdateScreen = async () => {
     if (!editingScreen) return
 
+    console.log("[v0] handleUpdateScreen - editingSelectedContentIds:", editingSelectedContentIds)
+
     setUpdating(true)
     try {
       console.log("[v0] Updating screen with data:", editingScreen)
@@ -887,7 +889,7 @@ export default function ScreensPage() {
         const data = await response.json()
         console.log("[v0] Screen update response:", data)
         const transformedScreen = transformScreenData(data.screen)
-        setScreens((prev) => prev.map((screen) => (screen.id === editingScreen.id ? transformedScreen : screen)))
+        await fetchScreens()
         setEditingScreen(null)
         setEditingSelectedContentIds([])
         toast({
@@ -904,10 +906,10 @@ export default function ScreensPage() {
         })
       }
     } catch (error) {
-      console.error("Update error:", error)
+      console.error("[v0] Error updating screen:", error)
       toast({
         title: "Error",
-        description: "Failed to update screen",
+        description: "An unexpected error occurred",
         variant: "destructive",
       })
     } finally {
@@ -954,6 +956,10 @@ export default function ScreensPage() {
   )
 
   const openEditDialog = (screen: Screen) => {
+    console.log("[v0] openEditDialog - screen:", screen)
+    console.log("[v0] openEditDialog - screen.screen_playlists:", screen.screen_playlists)
+    console.log("[v0] openEditDialog - screen.media_id:", screen.media_id)
+
     setEditingScreen(screen)
 
     // Populate selected content IDs from screen_playlists and media_id
@@ -971,6 +977,7 @@ export default function ScreensPage() {
       selectedIds.push(screen.media_id)
     }
 
+    console.log("[v0] openEditDialog - selectedIds:", selectedIds)
     setEditingSelectedContentIds(selectedIds)
   }
 
