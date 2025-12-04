@@ -1,6 +1,7 @@
 "use client"
 
 import { Switch } from "@/components/ui/switch"
+import { X } from "lucide-react" // Import X icon for closing modals
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -1149,32 +1150,45 @@ export default function ScreensPage() {
 
       {/* Create/Wizard Dialog */}
       {isCreateDialogOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <CardContent className="p-6">
-              <div className="mb-6">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+            {/* Fixed Header */}
+            <div className="p-6 border-b shrink-0">
+              <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold">
                   {wizardState.step === 1 && "Connect Device"}
                   {wizardState.step === 2 && "Select Content"}
                   {wizardState.step === 3 && "Configure Screen"}
                   {wizardState.step === 4 && "Advanced Settings"}
                 </h2>
-                <div className="flex gap-2 mt-4">
-                  {[1, 2, 3, 4].map((step) => (
-                    <div
-                      key={step}
-                      className={`h-2 flex-1 rounded ${step <= wizardState.step ? "bg-cyan-500" : "bg-gray-200"}`}
-                    />
-                  ))}
-                </div>
+                <Button variant="ghost" size="icon" onClick={() => setIsCreateDialogOpen(false)}>
+                  <X className="h-5 w-5" />
+                </Button>
               </div>
+              {/* Progress Bar */}
+              <div className="flex gap-2">
+                {[1, 2, 3, 4].map((step) => (
+                  <div
+                    key={step}
+                    className={`h-2 flex-1 rounded-full transition-colors ${
+                      step <= wizardState.step ? "bg-cyan-500" : "bg-gray-200"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
 
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6">
               {wizardState.step === 1 && renderStep1()}
               {wizardState.step === 2 && renderStep2()}
               {wizardState.step === 3 && renderStep3()}
               {wizardState.step === 4 && renderStep4()}
+            </div>
 
-              <div className="flex justify-between gap-3 mt-6">
+            {/* Fixed Footer */}
+            <div className="p-6 border-t shrink-0 bg-gray-50/50">
+              <div className="flex justify-between gap-3">
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   Cancel
                 </Button>
@@ -1204,18 +1218,34 @@ export default function ScreensPage() {
                   )}
                 </div>
               </div>
-            </CardContent>
+            </div>
           </Card>
         </div>
       )}
 
-      {/* Replace edit dialog with multi-select version */}
+      {/* Edit Dialog */}
       {editingScreen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <CardContent className="p-6">
-              <h2 className="text-2xl font-bold mb-6">Edit Screen</h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+            {/* Fixed Header */}
+            <div className="p-6 border-b shrink-0">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">Edit Screen</h2>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    setEditingScreen(null)
+                    setEditingSelectedContentIds([])
+                  }}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
 
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="edit-name">Screen Name</Label>
@@ -1245,10 +1275,10 @@ export default function ScreensPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1920x1080">1920x1080 (Full HD)</SelectItem>
-                      <SelectItem value="3840x2160">3840x2160 (4K)</SelectItem>
-                      <SelectItem value="1366x768">1366x768 (HD)</SelectItem>
-                      <SelectItem value="1280x720">1280x720 (HD Ready)</SelectItem>
+                      <SelectItem value="1920x1080">1920×1080 (Full HD)</SelectItem>
+                      <SelectItem value="3840x2160">3840×2160 (4K)</SelectItem>
+                      <SelectItem value="1366x768">1366×768 (HD)</SelectItem>
+                      <SelectItem value="1280x720">1280×720 (HD Ready)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1272,7 +1302,7 @@ export default function ScreensPage() {
                 </div>
 
                 <div className="space-y-4 border-t pt-4">
-                  <Label>Assigned Content</Label>
+                  <Label className="text-base font-semibold">Assigned Content</Label>
 
                   {/* Playlists Section */}
                   <div className="space-y-2">
@@ -1280,17 +1310,17 @@ export default function ScreensPage() {
                       <PlayCircle className="h-4 w-4 text-cyan-500" />
                       Playlists
                     </h4>
-                    <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-2">
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50">
                       {playlists.length === 0 ? (
-                        <p className="text-sm text-gray-500 text-center py-2">No playlists available</p>
+                        <p className="text-sm text-gray-500 text-center py-4">No playlists available</p>
                       ) : (
                         playlists.map((playlist) => (
                           <div
                             key={playlist.id}
-                            className={`p-2 rounded cursor-pointer transition-colors ${
+                            className={`p-3 rounded-lg cursor-pointer transition-all ${
                               editingSelectedContentIds.includes(playlist.id)
-                                ? "bg-cyan-50 ring-1 ring-cyan-500"
-                                : "hover:bg-gray-50"
+                                ? "bg-cyan-50 ring-2 ring-cyan-500"
+                                : "bg-white hover:bg-gray-50"
                             }`}
                             onClick={() => {
                               setEditingSelectedContentIds((prev) =>
@@ -1300,11 +1330,11 @@ export default function ScreensPage() {
                               )
                             }}
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                               {editingSelectedContentIds.includes(playlist.id) ? (
-                                <CheckCircle2 className="h-4 w-4 text-cyan-500" />
+                                <CheckCircle2 className="h-5 w-5 text-cyan-500" />
                               ) : (
-                                <Circle className="h-4 w-4 text-gray-300" />
+                                <Circle className="h-5 w-5 text-gray-300" />
                               )}
                               <span className="text-sm font-medium">{playlist.name}</span>
                             </div>
@@ -1320,17 +1350,17 @@ export default function ScreensPage() {
                       <ImageIcon className="h-4 w-4 text-cyan-500" />
                       Media Assets
                     </h4>
-                    <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-2">
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50">
                       {mediaItems.length === 0 ? (
-                        <p className="text-sm text-gray-500 text-center py-2">No media assets available</p>
+                        <p className="text-sm text-gray-500 text-center py-4">No media assets available</p>
                       ) : (
                         mediaItems.map((media) => (
                           <div
                             key={media.id}
-                            className={`p-2 rounded cursor-pointer transition-colors ${
+                            className={`p-3 rounded-lg cursor-pointer transition-all ${
                               editingSelectedContentIds.includes(media.id)
-                                ? "bg-cyan-50 ring-1 ring-cyan-500"
-                                : "hover:bg-gray-50"
+                                ? "bg-cyan-50 ring-2 ring-cyan-500"
+                                : "bg-white hover:bg-gray-50"
                             }`}
                             onClick={() => {
                               setEditingSelectedContentIds((prev) =>
@@ -1338,14 +1368,14 @@ export default function ScreensPage() {
                               )
                             }}
                           >
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                               {editingSelectedContentIds.includes(media.id) ? (
-                                <CheckCircle2 className="h-4 w-4 text-cyan-500" />
+                                <CheckCircle2 className="h-5 w-5 text-cyan-500" />
                               ) : (
-                                <Circle className="h-4 w-4 text-gray-300" />
+                                <Circle className="h-5 w-5 text-gray-300" />
                               )}
                               <div>
-                                <span className="text-sm font-medium">{media.name}</span>
+                                <span className="text-sm font-medium block">{media.name}</span>
                                 <p className="text-xs text-gray-500">{media.mime_type}</p>
                               </div>
                             </div>
@@ -1356,8 +1386,11 @@ export default function ScreensPage() {
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="flex justify-between gap-3 mt-6">
+            {/* Fixed Footer */}
+            <div className="p-6 border-t shrink-0 bg-gray-50/50">
+              <div className="flex justify-end gap-3">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -1371,7 +1404,7 @@ export default function ScreensPage() {
                   {updating ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
-            </CardContent>
+            </div>
           </Card>
         </div>
       )}

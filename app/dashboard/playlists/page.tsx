@@ -1816,47 +1816,49 @@ export default function PlaylistsPage() {
 
       {/* ADDED: Create Playlist Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="p-6 pb-4 border-b shrink-0">
             <DialogTitle>Create New Playlist</DialogTitle>
             <DialogDescription>Create a new playlist to organize your media content</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="playlist-name">Playlist Name</Label>
-              <Input
-                id="playlist-name"
-                value={newPlaylist.name}
-                onChange={(e) => setNewPlaylist((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Enter playlist name"
-              />
-            </div>
+          <div className="flex-1 overflow-y-auto p-6 pt-4">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="playlist-name">Playlist Name</Label>
+                <Input
+                  id="playlist-name"
+                  value={newPlaylist.name}
+                  onChange={(e) => setNewPlaylist((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter playlist name"
+                />
+              </div>
 
-            <div>
-              <Label htmlFor="playlist-description">Description (Optional)</Label>
-              <Textarea
-                id="playlist-description"
-                value={newPlaylist.description}
-                onChange={(e) => setNewPlaylist((prev) => ({ ...prev, description: e.target.value }))}
-                placeholder="Enter playlist description"
-                rows={3}
-              />
-            </div>
+              <div>
+                <Label htmlFor="playlist-description">Description (Optional)</Label>
+                <Textarea
+                  id="playlist-description"
+                  value={newPlaylist.description}
+                  onChange={(e) => setNewPlaylist((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Enter playlist description"
+                  rows={3}
+                />
+              </div>
 
-            <div>
-              <Label htmlFor="background-color">Background Color</Label>
-              <Input
-                id="background-color"
-                type="color"
-                value={newPlaylist.background_color}
-                onChange={(e) => setNewPlaylist((prev) => ({ ...prev, background_color: e.target.value }))}
-                className="w-full h-10"
-              />
+              <div>
+                <Label htmlFor="background-color">Background Color</Label>
+                <Input
+                  id="background-color"
+                  type="color"
+                  value={newPlaylist.background_color}
+                  onChange={(e) => setNewPlaylist((prev) => ({ ...prev, background_color: e.target.value }))}
+                  className="w-full h-10"
+                />
+              </div>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="p-6 pt-4 border-t shrink-0 bg-gray-50/50">
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
               Cancel
             </Button>
@@ -1873,176 +1875,180 @@ export default function PlaylistsPage() {
       </Dialog>
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="p-6 pb-4 border-b shrink-0">
             <DialogTitle>Edit Playlist Item</DialogTitle>
             <DialogDescription>Modify the settings for this playlist item</DialogDescription>
           </DialogHeader>
 
           {editingItem && (
-            <div className="space-y-4">
-              {/* Media Preview */}
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-accent">
-                <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
-                  {editingItem.media.mime_type?.startsWith("image/") ? (
-                    <img
-                      src={editingItem.media.file_path || "/placeholder.svg"}
-                      alt={editingItem.media.name}
-                      className="w-full h-full object-cover rounded"
-                    />
-                  ) : editingItem.media.mime_type?.startsWith("video/") ? (
-                    <Video className="h-6 w-6 text-gray-400" />
-                  ) : (
-                    <ImageIcon className="h-6 w-6 text-gray-400" />
-                  )}
+            <div className="flex-1 overflow-y-auto p-6 pt-4">
+              <div className="space-y-4">
+                {/* Media Preview */}
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border">
+                  <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center overflow-hidden">
+                    {editingItem.media.mime_type?.startsWith("image/") ? (
+                      <img
+                        src={editingItem.media.file_path || "/placeholder.svg"}
+                        alt={editingItem.media.name}
+                        className="w-full h-full object-cover rounded"
+                      />
+                    ) : editingItem.media.mime_type?.startsWith("video/") ? (
+                      <Video className="h-6 w-6 text-gray-400" />
+                    ) : (
+                      <ImageIcon className="h-6 w-6 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{editingItem.media.name}</p>
+                    <p className="text-sm text-gray-500">{editingItem.media.mime_type}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{editingItem.media.name}</p>
-                  <p className="text-sm text-gray-500">{editingItem.media.mime_type}</p>
+
+                {/* Display Name */}
+                <div>
+                  <Label htmlFor="item-name">Display Name</Label>
+                  <Input
+                    id="item-name"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="Item display name"
+                  />
                 </div>
-              </div>
 
-              {/* Display Name */}
-              <div>
-                <Label htmlFor="item-name">Display Name</Label>
-                <Input
-                  id="item-name"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
-                  placeholder="Item display name"
-                />
-              </div>
+                {/* Duration */}
+                <div>
+                  <Label htmlFor="duration">Duration (seconds)</Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    min="1"
+                    max="3600"
+                    value={editForm.duration_override}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, duration_override: Number.parseInt(e.target.value) || 10 }))
+                    }
+                  />
+                  <p className="text-xs mt-1 text-gray-500">How long this item should display in the playlist</p>
+                </div>
 
-              {/* Duration */}
-              <div>
-                <Label htmlFor="duration">Duration (seconds)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  min="1"
-                  max="3600"
-                  value={editForm.duration_override}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({ ...prev, duration_override: Number.parseInt(e.target.value) || 10 }))
-                  }
-                />
-                <p className="text-xs mt-1 text-ring">How long this item should display in the playlist</p>
-              </div>
+                {/* Position */}
+                <div>
+                  <Label htmlFor="position">Position</Label>
+                  <Input
+                    id="position"
+                    type="number"
+                    min="1"
+                    value={editForm.position}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, position: Number.parseInt(e.target.value) || 1 }))
+                    }
+                  />
+                  <p className="text-xs mt-1 text-gray-500">Order position in the playlist</p>
+                </div>
 
-              {/* Position */}
-              <div>
-                <Label htmlFor="position">Position</Label>
-                <Input
-                  id="position"
-                  type="number"
-                  min="1"
-                  value={editForm.position}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, position: Number.parseInt(e.target.value) || 1 }))}
-                />
-                <p className="text-xs mt-1 text-primary">Order position in the playlist</p>
-              </div>
+                {/* Video Clip Settings (for videos) */}
+                {editingItem.media.mime_type?.startsWith("video/") && (
+                  <div className="space-y-3 border-t pt-4">
+                    <Label className="text-base font-semibold">Video Clip Settings</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="start-time" className="text-sm">
+                          Start Time (s)
+                        </Label>
+                        <Input
+                          id="start-time"
+                          type="number"
+                          min="0"
+                          value={editForm.start_time}
+                          onChange={(e) =>
+                            setEditForm((prev) => ({ ...prev, start_time: Number.parseInt(e.target.value) || 0 }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="end-time" className="text-sm">
+                          End Time (s)
+                        </Label>
+                        <Input
+                          id="end-time"
+                          type="number"
+                          min="0"
+                          value={editForm.end_time}
+                          onChange={(e) =>
+                            setEditForm((prev) => ({ ...prev, end_time: Number.parseInt(e.target.value) || 0 }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500">Set start/end times to show only a portion of the video</p>
+                  </div>
+                )}
 
-              {/* Video Clip Settings (for videos) */}
-              {editingItem.media.mime_type?.startsWith("video/") && (
-                <div className="space-y-3">
-                  <Label>Video Clip Settings</Label>
+                {/* Notes */}
+                <div>
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Add notes or description for this item"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="space-y-3 border-t pt-4">
+                  <Label className="text-base font-semibold">Transition Settings</Label>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="start-time" className="text-sm">
-                        Start Time (s)
+                      <Label htmlFor="transition-type" className="text-sm">
+                        Transition Type
                       </Label>
-                      <Input
-                        id="start-time"
-                        type="number"
-                        min="0"
-                        value={editForm.start_time}
-                        onChange={(e) =>
-                          setEditForm((prev) => ({ ...prev, start_time: Number.parseInt(e.target.value) || 0 }))
-                        }
-                      />
+                      <select
+                        id="transition-type"
+                        value={editForm.transition_type}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, transition_type: e.target.value as any }))}
+                        className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      >
+                        <option value="fade">Fade</option>
+                        <option value="slide-left">Slide Left</option>
+                        <option value="slide-right">Slide Right</option>
+                        <option value="cross-fade">Cross Fade</option>
+                        <option value="zoom">Zoom</option>
+                      </select>
                     </div>
                     <div>
-                      <Label htmlFor="end-time" className="text-sm">
-                        End Time (s)
+                      <Label htmlFor="transition-duration" className="text-sm">
+                        Duration (seconds)
                       </Label>
-                      <Input
-                        id="end-time"
+                      <input
+                        id="transition-duration"
                         type="number"
-                        min="0"
-                        value={editForm.end_time}
+                        min="0.1"
+                        max="3"
+                        step="0.1"
+                        value={editForm.transition_duration}
                         onChange={(e) =>
-                          setEditForm((prev) => ({ ...prev, end_time: Number.parseInt(e.target.value) || 0 }))
+                          setEditForm((prev) => ({
+                            ...prev,
+                            transition_duration: Number.parseFloat(e.target.value) || 0.8,
+                          }))
                         }
+                        className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       />
                     </div>
                   </div>
-                  <p className="text-xs text-primary">Set start/end times to show only a portion of the video</p>
+                  <p className="text-xs text-gray-500">Set how this item transitions when it appears in the playlist</p>
                 </div>
-              )}
-
-              {/* Notes */}
-              <div>
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={editForm.notes}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Add notes or description for this item"
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-3">
-                <Label>Transition Settings</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="transition-type" className="text-sm">
-                      Transition Type
-                    </Label>
-                    <select
-                      id="transition-type"
-                      value={editForm.transition_type}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, transition_type: e.target.value as any }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-accent"
-                    >
-                      <option value="fade">Fade</option>
-                      <option value="slide-left">Slide Left</option>
-                      <option value="slide-right">Slide Right</option>
-                      <option value="cross-fade">Cross Fade</option>
-                      <option value="zoom">Zoom</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="transition-duration" className="text-sm">
-                      Duration (seconds)
-                    </Label>
-                    <input
-                      id="transition-duration"
-                      type="number"
-                      min="0.1"
-                      max="3"
-                      step="0.1"
-                      value={editForm.transition_duration}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          transition_duration: Number.parseFloat(e.target.value) || 0.8,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-accent"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-primary">Set how this item transitions when it appears in the playlist</p>
               </div>
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="p-6 pt-4 border-t shrink-0 bg-gray-50/50">
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateItem} disabled={updating}>
+            <Button onClick={handleUpdateItem} disabled={updating} className="bg-cyan-500 hover:bg-cyan-600">
               {updating ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> : null}
               Update Item
             </Button>
