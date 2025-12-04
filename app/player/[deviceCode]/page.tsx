@@ -66,6 +66,8 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [showCameraSetup, setShowCameraSetup] = useState(false)
   const [showLeftPanel, setShowLeftPanel] = useState(false)
   const [showRightPanel, setShowRightPanel] = useState(false)
+  const [pendingUpdate, setPendingUpdate] = useState<ScreenConfig | null>(null)
+  const [updateProgress, setUpdateProgress] = useState(0)
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -270,19 +272,92 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     }
   }
 
+  const checkForUpdates = async () => {
+    if (!config) return
+
+    try {
+      const isScreenCode = params.deviceCode.startsWith("SCR-")
+      const apiEndpoint = isScreenCode
+        ? `/api/screens/config/${params.deviceCode}`
+        : `/api/devices/config/${params.deviceCode}`
+
+      const response = await fetch(apiEndpoint, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+        },
+      })
+
+      if (!response.ok) return
+
+      const data = await response.json()
+
+      let newConfigData
+      if (isScreenCode) {
+        newConfigData = {
+          device: {
+            id: `screen-${data.screen.id}`,
+            device_code: params.deviceCode,
+            is_paired: true,
+            screen_id: data.screen.id,
+          },
+          screen: {
+            id: data.screen.id,
+            name: data.screen.name,
+            orientation: data.screen.orientation || "landscape",
+            status: data.screen.status || "active",
+            playlist: {
+              id: `default-${data.screen.id}`,
+              name: "Default Playlist",
+              background_color: data.screen.background_color || "#000000",
+              scale_image: data.screen.scale_image || "fit",
+              scale_video: data.screen.scale_video || "fit",
+              scale_document: "fit",
+              shuffle: data.screen.shuffle || false,
+              default_transition: "fade",
+            },
+            content: data.screen.content || [],
+          },
+        }
+      } else {
+        newConfigData = data
+      }
+
+      // Check if content has changed
+      const currentContentHash = JSON.stringify(config.screen.content)
+      const newContentHash = JSON.stringify(newConfigData.screen.content)
+
+      if (currentContentHash !== newContentHash) {
+        console.log("[v0] Content update detected, queuing for next media transition")
+        setPendingUpdate(newConfigData)
+        setUpdateProgress(0)
+      }
+    } catch (err) {
+      console.log("[v0] Update check failed:", err)
+    }
+  }
+
   useEffect(() => {
     fetchConfig()
 
     const isScreenCode = params.deviceCode.startsWith("SCR-")
     let heartbeatInterval: NodeJS.Timeout | null = null
+    let pollingInterval: NodeJS.Timeout | null = null
 
     if (!isScreenCode) {
       heartbeatInterval = setInterval(sendHeartbeat, 30000)
     }
 
+    // Poll for updates every 30 seconds
+    pollingInterval = setInterval(checkForUpdates, 30000)
+
     return () => {
       if (heartbeatInterval) {
         clearInterval(heartbeatInterval)
+      }
+      if (pollingInterval) {
+        clearInterval(pollingInterval)
       }
     }
   }, [params.deviceCode])
@@ -307,6 +382,32 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
     const duration = (currentMedia.duration_override || currentMedia.media.duration || 10) * 1000
 
+    if (pendingUpdate) {
+      const progressInterval = setInterval(() => {
+        setUpdateProgress((prev) => Math.min(prev + 100 / (duration / 100), 100))
+      }, 100)
+
+      const timer = setTimeout(() => {
+        clearInterval(progressInterval)
+        // Apply pending update when media finishes
+        console.log("[v0] Applying pending content update")
+        setConfig(pendingUpdate)
+        if (pendingUpdate.screen.content && pendingUpdate.screen.playlist?.shuffle) {
+          setShuffledContent(shuffleArray(pendingUpdate.screen.content))
+        } else {
+          setShuffledContent(pendingUpdate.screen.content || [])
+        }
+        setPendingUpdate(null)
+        setUpdateProgress(0)
+        setCurrentMediaIndex(0)
+      }, duration)
+
+      return () => {
+        clearTimeout(timer)
+        clearInterval(progressInterval)
+      }
+    }
+
     const timer = setTimeout(() => {
       setCurrentMediaIndex((prev) => {
         const nextIndex = prev + 1
@@ -315,7 +416,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     }, duration)
 
     return () => clearTimeout(timer)
-  }, [currentMediaIndex, shuffledContent, config?.screen.content])
+  }, [currentMediaIndex, shuffledContent, config?.screen.content, pendingUpdate])
 
   const handleRetry = () => {
     setRetryCount(0)
@@ -579,10 +680,19 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
   return (
     <div
-      className={`fixed inset-0 flex items-center justify-center overflow-hidden ${isTVMode ? "tv-mode" : ""}`}
-      style={getScreenStyles()}
+      className={`relative w-screen h-screen overflow-hidden ${isTVMode ? "tv-mode" : ""}`}
+      style={{
+        backgroundColor: config?.screen.playlist?.background_color || "#000000",
+        cursor: isTVMode ? "none" : "default",
+      }}
       onMouseMove={handleMouseMove}
     >
+      {pendingUpdate && updateProgress > 0 && (
+        <div className="fixed top-2 right-2 text-[10px] text-white/40 font-mono z-50">
+          {Math.round(updateProgress)}%
+        </div>
+      )}
+
       {isTVMode && (
         <div className="absolute top-4 right-4 bg-primary/20 text-primary px-3 py-1 rounded-full text-sm font-medium z-50">
           TV Mode
