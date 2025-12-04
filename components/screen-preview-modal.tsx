@@ -130,26 +130,55 @@ export function ScreenPreviewModal({
 
   const isYouTubeVideo = (media: MediaItem) => {
     return (
+      media.mime_type === "video/youtube" ||
       media.file_path?.includes("youtube.com") ||
       media.file_path?.includes("youtu.be") ||
-      media.mime_type === "video/youtube"
+      media.file_path?.includes("youtube-nocookie.com")
     )
+  }
+
+  const getYouTubeEmbedUrl = (url: string) => {
+    try {
+      let embedUrl = url
+
+      // Convert youtube.com/watch?v= to embed URL
+      if (url.includes("youtube.com/watch")) {
+        const urlObj = new URL(url)
+        const videoId = urlObj.searchParams.get("v")
+        if (videoId) {
+          embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
+        }
+      }
+      // Convert youtu.be/ to embed URL
+      else if (url.includes("youtu.be/")) {
+        const videoId = url.split("youtu.be/")[1]?.split("?")[0]
+        if (videoId) {
+          embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
+        }
+      }
+      // If already an embed URL, use youtube-nocookie.com
+      else if (url.includes("youtube.com/embed/")) {
+        embedUrl = url.replace("youtube.com", "youtube-nocookie.com")
+      }
+
+      const urlObj = new URL(embedUrl)
+      urlObj.searchParams.set("autoplay", "1")
+      urlObj.searchParams.set("mute", "1")
+      urlObj.searchParams.set("controls", "0")
+      urlObj.searchParams.set("showinfo", "0")
+      urlObj.searchParams.set("fs", "0")
+      urlObj.searchParams.set("modestbranding", "1")
+      urlObj.searchParams.set("iv_load_policy", "3")
+      urlObj.searchParams.set("rel", "0")
+      return urlObj.toString()
+    } catch (error) {
+      console.error("[v0] Error parsing YouTube URL:", error)
+      return url
+    }
   }
 
   const isGoogleSlides = (media: MediaItem) => {
     return media.file_path?.includes("docs.google.com/presentation") || media.mime_type === "application/slides"
-  }
-
-  const getYouTubeEmbedUrl = (url: string) => {
-    let videoId = ""
-    if (url.includes("youtube.com/watch?v=")) {
-      videoId = url.split("v=")[1]?.split("&")[0]
-    } else if (url.includes("youtu.be/")) {
-      videoId = url.split("youtu.be/")[1]?.split("?")[0]
-    } else if (url.includes("youtube.com/embed/")) {
-      return url
-    }
-    return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&controls=1&rel=0&modestbranding=1`
   }
 
   const getGoogleSlidesEmbedUrl = (url: string) => {
