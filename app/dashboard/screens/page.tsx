@@ -1,58 +1,60 @@
 "use client"
 
+import { Switch } from "@/components/ui/switch"
+
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
-  Smartphone,
+  Eye,
+  PlayCircle,
+  ImageIcon,
   Tv,
+  Smartphone,
   CheckCircle,
   Wifi,
   RotateCw,
-  ImageIcon,
-  PlayCircle,
-  CheckCircle2,
-  Circle,
-  Eye,
   Edit,
+  Circle,
+  CheckCircle2,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { transformScreenData } from "@/utils/transformScreenData"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu" // Import DropdownMenu components
+import { ScreenPreviewModal } from "@/components/screen-preview-modal" // Import the real ScreenPreviewModal component instead of using placeholder
 
 // Placeholder for the ScreenPreviewModal component
 // In a real application, this would be imported from a separate file
-const ScreenPreviewModal = ({
-  screen,
-  isOpen,
-  onClose,
-}: { screen: Screen | null; isOpen: boolean; onClose: () => void }) => {
-  if (!isOpen || !screen) return null
+// const ScreenPreviewModal = ({
+//   screen,
+//   isOpen,
+//   onClose,
+// }: { screen: Screen | null; isOpen: boolean; onClose: () => void }) => {
+//   if (!isOpen || !screen) return null
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <CardContent className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Preview: {screen.name}</h2>
-            <Button variant="ghost" onClick={onClose}>
-              Close
-            </Button>
-          </div>
-          {/* Placeholder for actual preview content */}
-          <div className="text-center py-20">
-            <p className="text-gray-600">This is a preview of screen '{screen.name}'.</p>
-            <p className="text-gray-600">Content and layout would be rendered here.</p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
+//   return (
+//     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+//       <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+//         <CardContent className="p-6">
+//           <div className="flex justify-between items-center mb-6">
+//             <h2 className="text-2xl font-bold">Preview: {screen.name}</h2>
+//             <Button variant="ghost" onClick={onClose}>
+//               Close
+//             </Button>
+//           </div>
+//           {/* Placeholder for actual preview content */}
+//           <div className="text-center py-20">
+//             <p className="text-gray-600">This is a preview of screen '{screen.name}'.</p>
+//             <p className="text-gray-600">Content and layout would be rendered here.</p>
+//           </div>
+//         </CardContent>
+//       </Card>
+//     </div>
+//   )
+// }
 
 interface Screen {
   id: string
