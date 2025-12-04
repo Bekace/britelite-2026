@@ -57,7 +57,7 @@ export function ScreenPreviewModal({
       const response = await fetch(`/api/screens/config/${screen.screen_code}`)
       if (response.ok) {
         const data = await response.json()
-        const contentItems = data.screen.content || []
+        const contentItems = data.screen?.content || []
         setContent(contentItems)
         setCurrentIndex(0)
         setTimeRemaining(contentItems[0]?.duration_override || 10)

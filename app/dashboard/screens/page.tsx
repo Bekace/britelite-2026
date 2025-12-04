@@ -18,9 +18,11 @@ import {
   CheckCircle2,
   Circle,
   Eye,
+  Edit,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { transformScreenData } from "@/utils/transformScreenData"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu" // Import DropdownMenu components
 
 // Placeholder for the ScreenPreviewModal component
 // In a real application, this would be imported from a separate file
@@ -64,6 +66,7 @@ interface Screen {
   created_at: string
   playlists?: { id: string; name: string }[] // Ensure playlists is an array
   media_id?: string
+  screen_playlists?: { playlist_id: string; is_active: boolean }[] // Added for editing
 }
 
 interface Playlist {
@@ -950,6 +953,27 @@ export default function ScreensPage() {
       screen.screen_code.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
+  const openEditDialog = (screen: Screen) => {
+    setEditingScreen(screen)
+
+    // Populate selected content IDs from screen_playlists and media_id
+    const selectedIds: string[] = []
+
+    if (screen.screen_playlists) {
+      screen.screen_playlists.forEach((sp: any) => {
+        if (sp.is_active && sp.playlist_id) {
+          selectedIds.push(sp.playlist_id)
+        }
+      })
+    }
+
+    if (screen.media_id) {
+      selectedIds.push(screen.media_id)
+    }
+
+    setEditingSelectedContentIds(selectedIds)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -1053,7 +1077,7 @@ export default function ScreensPage() {
                 </div>
 
                 <div className="flex gap-2 mt-4">
-                  <Button
+                  {/* <Button
                     variant="outline"
                     size="sm"
                     onClick={() => {
@@ -1069,27 +1093,31 @@ export default function ScreensPage() {
                     className="flex-1"
                   >
                     Edit
-                  </Button>
-                  {/* Add preview button to screen cards */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setPreviewingScreen(screen)
-                    }}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    Preview
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteScreen(screen.id)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    Delete
-                  </Button>
+                  </Button> */}
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex-1 bg-transparent">
+                        Actions
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEditDialog(screen)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setPreviewingScreen(screen)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Preview
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteScreen(screen.id)}
+                        className="text-red-600 focus:text-red-700"
+                      >
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </CardContent>
             </Card>

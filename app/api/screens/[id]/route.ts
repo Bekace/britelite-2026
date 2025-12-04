@@ -72,7 +72,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const requestData = await request.json()
-    const { name, location, resolution, orientation, playlist_id, media_id, content_type } = requestData
+    const { name, location, resolution, orientation, playlist_id, media_id, content_type, selectedContentIds } =
+      requestData
 
     const updateData: any = {
       name,
@@ -82,7 +83,50 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       updated_at: new Date().toISOString(),
     }
 
-    if (content_type !== undefined) {
+    if (selectedContentIds && Array.isArray(selectedContentIds) && selectedContentIds.length > 0) {
+      // Deactivate all existing assignments
+      await supabase.from("screen_playlists").update({ is_active: false }).eq("screen_id", params.id)
+
+      // Clear single media reference
+      updateData.media_id = null
+      updateData.content_type = "playlist"
+
+      // Check if IDs are playlists or media
+      const { data: playlists } = await supabase
+        .from("playlists")
+        .select("id")
+        .in("id", selectedContentIds)
+        .eq("user_id", user.id)
+
+      const playlistIds = playlists?.map((p) => p.id) || []
+      const mediaIds = selectedContentIds.filter((id) => !playlistIds.includes(id))
+
+      // Assign playlists
+      for (const playlistId of playlistIds) {
+        const { data: existing } = await supabase
+          .from("screen_playlists")
+          .select("id")
+          .eq("screen_id", params.id)
+          .eq("playlist_id", playlistId)
+          .single()
+
+        if (existing) {
+          await supabase.from("screen_playlists").update({ is_active: true }).eq("id", existing.id)
+        } else {
+          await supabase.from("screen_playlists").insert({
+            screen_id: params.id,
+            playlist_id: playlistId,
+            is_active: true,
+          })
+        }
+      }
+
+      // Handle media assets - assign first one to media_id (fallback for single asset)
+      if (mediaIds.length > 0) {
+        updateData.media_id = mediaIds[0]
+        updateData.content_type = "asset"
+      }
+    } else if (content_type !== undefined) {
       updateData.content_type = content_type
     } else if (playlist_id) {
       updateData.content_type = "playlist"
