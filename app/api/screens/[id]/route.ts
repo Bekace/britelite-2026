@@ -9,7 +9,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
     }
 
-    // Check authentication
     const {
       data: { user },
       error: authError,
@@ -55,7 +54,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
     }
 
-    // Check authentication
     const {
       data: { user },
       error: authError,
@@ -65,8 +63,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const requestData = await request.json()
-    const { name, location, resolution, orientation, playlist_id, media_id, content_type, selectedContentIds } =
-      requestData
+    const { name, location, resolution, orientation, selectedContentIds } = requestData
 
     const updateData: any = {
       name,
@@ -76,53 +73,43 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       updated_at: new Date().toISOString(),
     }
 
-    if (selectedContentIds && Array.isArray(selectedContentIds) && selectedContentIds.length > 0) {
-      // First, delete ALL existing screen_playlist assignments
+    if (selectedContentIds && Array.isArray(selectedContentIds)) {
+      // Delete ALL existing screen_playlist assignments
       await supabase.from("screen_playlists").delete().eq("screen_id", params.id)
 
-      // Clear single media reference
-      updateData.media_id = null
-      updateData.content_type = "playlist"
+      if (selectedContentIds.length === 0) {
+        updateData.media_id = null
+        updateData.content_type = "none"
+      } else {
+        const { data: playlists } = await supabase
+          .from("playlists")
+          .select("id")
+          .in("id", selectedContentIds)
+          .eq("user_id", user.id)
 
-      // Check which IDs are playlists vs media
-      const { data: playlists } = await supabase
-        .from("playlists")
-        .select("id")
-        .in("id", selectedContentIds)
-        .eq("user_id", user.id)
+        const playlistIds = playlists?.map((p) => p.id) || []
+        const mediaIds = selectedContentIds.filter((id) => !playlistIds.includes(id))
 
-      const playlistIds = playlists?.map((p) => p.id) || []
-      const mediaIds = selectedContentIds.filter((id) => !playlistIds.includes(id))
+        if (playlistIds.length > 0) {
+          const playlistAssignments = playlistIds.map((playlistId) => ({
+            screen_id: params.id,
+            playlist_id: playlistId,
+            is_active: true,
+          }))
 
-      // Insert new playlist assignments (all active)
-      if (playlistIds.length > 0) {
-        const playlistAssignments = playlistIds.map((playlistId) => ({
-          screen_id: params.id,
-          playlist_id: playlistId,
-          is_active: true,
-        }))
+          await supabase.from("screen_playlists").insert(playlistAssignments)
 
-        await supabase.from("screen_playlists").insert(playlistAssignments)
+          if (mediaIds.length === 0) {
+            updateData.content_type = "playlist"
+            updateData.media_id = null
+          }
+        }
+
+        if (mediaIds.length > 0) {
+          updateData.media_id = mediaIds[0]
+          updateData.content_type = "asset"
+        }
       }
-
-      // Handle media assets - assign first one to media_id
-      if (mediaIds.length > 0) {
-        updateData.media_id = mediaIds[0]
-        updateData.content_type = "asset"
-      }
-    } else if (content_type !== undefined) {
-      updateData.content_type = content_type
-    } else if (playlist_id) {
-      updateData.content_type = "playlist"
-    } else if (media_id) {
-      updateData.content_type = "asset"
-    } else if (playlist_id === null && media_id === null) {
-      updateData.content_type = "none"
-    }
-
-    // Only add media_id if it's provided (for backward compatibility)
-    if (media_id !== undefined) {
-      updateData.media_id = media_id || null
     }
 
     const { data: screen, error } = await supabase
@@ -135,40 +122,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     if (error) {
       console.error("Database error:", error)
-      if (error.message?.includes('column "media_id" of relation "screens" does not exist')) {
-        return NextResponse.json(
-          {
-            error: "Database schema needs to be updated. Please run the media_id migration script.",
-          },
-          { status: 500 },
-        )
-      }
       return NextResponse.json({ error: "Failed to update screen" }, { status: 500 })
-    }
-
-    if (media_id && updateData.media_id !== undefined) {
-      const { error: deactivateError } = await supabase.from("screen_playlists").delete().eq("screen_id", params.id)
-
-      if (deactivateError) {
-        console.error("Error removing existing playlists:", deactivateError)
-      }
-    }
-
-    if (playlist_id) {
-      await supabase.from("screens").update({ media_id: null }).eq("id", params.id)
-
-      await supabase.from("screen_playlists").delete().eq("screen_id", params.id)
-
-      const { error: insertError } = await supabase.from("screen_playlists").insert({
-        screen_id: params.id,
-        playlist_id: playlist_id,
-        is_active: true,
-      })
-
-      if (insertError) {
-        console.error("Error creating playlist assignment:", insertError)
-        return NextResponse.json({ error: "Failed to assign playlist" }, { status: 500 })
-      }
     }
 
     const { data: updatedScreen, error: fetchError } = await supabase
@@ -190,8 +144,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ screen })
     }
 
-    // Removed the filter that was only showing is_active playlists
-
     return NextResponse.json({ screen: updatedScreen })
   } catch (error) {
     console.error("Error updating screen:", error)
@@ -207,7 +159,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Database connection failed" }, { status: 500 })
     }
 
-    // Check authentication
     const {
       data: { user },
       error: authError,
