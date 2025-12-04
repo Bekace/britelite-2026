@@ -28,6 +28,7 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
 
     let content: any[] = []
 
+    // Fetch direct media assignments
     const { data: screenMedia } = await supabase
       .from("screen_media")
       .select(`
@@ -36,44 +37,57 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       .eq("screen_id", screen.id)
 
     if (screenMedia && screenMedia.length > 0) {
-      content = screenMedia.map((sm: any) => ({
+      const mediaContent = screenMedia.map((sm: any) => ({
         id: sm.media.id,
         media: sm.media,
-        duration_override: 5,
+        duration_override: 10,
+        transition_type: "fade",
+        transition_duration: 0.8,
       }))
+      content.push(...mediaContent)
     }
 
-    if (content.length === 0) {
-      const { data: screenPlaylists } = await supabase
-        .from("screen_playlists")
-        .select(`
-          playlist:playlists!inner(
+    // Fetch playlist assignments
+    const { data: screenPlaylists } = await supabase
+      .from("screen_playlists")
+      .select(`
+        playlist:playlists!inner(
+          *,
+          playlist_items(
             *,
-            playlist_items(
-              *,
-              media:media!inner(*)
-            )
+            media:media!inner(*)
           )
-        `)
-        .eq("screen_id", screen.id)
-        .eq("is_active", true)
+        )
+      `)
+      .eq("screen_id", screen.id)
+      .eq("is_active", true)
 
-      if (screenPlaylists && screenPlaylists.length > 0) {
-        screenPlaylists.forEach((sp: any) => {
-          if (sp.playlist?.playlist_items) {
-            const playlistContent = sp.playlist.playlist_items.sort((a: any, b: any) => a.position - b.position)
-            content.push(...playlistContent)
+    if (screenPlaylists && screenPlaylists.length > 0) {
+      screenPlaylists.forEach((sp: any) => {
+        if (sp.playlist?.playlist_items) {
+          const playlistContent = sp.playlist.playlist_items
+            .sort((a: any, b: any) => a.position - b.position)
+            .map((item: any) => ({
+              ...item,
+              duration_override: item.duration_override || sp.playlist.default_duration || 10,
+              transition_type: item.transition_type || sp.playlist.transition_type || "fade",
+              transition_duration: item.transition_duration || sp.playlist.transition_duration || 0.8,
+            }))
+          content.push(...playlistContent)
 
-            // Apply first playlist settings
-            if (content.length === playlistContent.length && sp.playlist.background_color) {
-              screen.background_color = sp.playlist.background_color
-              screen.scale_image = sp.playlist.scale_image || "fit"
-              screen.scale_video = sp.playlist.scale_video || "fit"
-              screen.shuffle = sp.playlist.shuffle || false
-            }
+          // Apply first playlist settings to screen
+          if (sp.playlist.background_color) {
+            screen.background_color = screen.background_color || sp.playlist.background_color
+            screen.scale_image = screen.scale_image || sp.playlist.scale_image || "fit"
+            screen.scale_video = screen.scale_video || sp.playlist.scale_video || "fit"
+            screen.shuffle = sp.playlist.shuffle || false
           }
-        })
-      }
+        }
+      })
+    }
+
+    if (screen.shuffle && content.length > 1) {
+      content = content.sort(() => Math.random() - 0.5)
     }
 
     return NextResponse.json(
