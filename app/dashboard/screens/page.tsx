@@ -967,7 +967,7 @@ export default function ScreensPage() {
 
     if (screen.screen_playlists) {
       screen.screen_playlists.forEach((sp: any) => {
-        if (sp.is_active && sp.playlist_id) {
+        if (sp.playlist_id) {
           selectedIds.push(sp.playlist_id)
         }
       })
