@@ -8,5 +8,6 @@ export const transformScreenData = (screen: any) => {
     playlists: activePlaylist || null,
     playlist_id: activePlaylist?.id || null,
     media_id: screen.media_id || null,
+    screen_playlists: screen.screen_playlists || [],
   }
 }
