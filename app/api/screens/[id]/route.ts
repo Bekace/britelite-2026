@@ -38,14 +38,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Screen not found" }, { status: 404 })
     }
 
-    if (screen.screen_playlists) {
-      screen.screen_playlists = screen.screen_playlists.filter((sp: any) => sp.is_active)
-      // If there's an active playlist, set it as the main playlist reference
-      if (screen.screen_playlists.length > 0) {
-        screen.playlists = screen.screen_playlists[0].playlists
-        screen.playlist_id = screen.screen_playlists[0].playlist_id
-      }
-    }
+    // No longer filtering by is_active since edit dialog needs all assignments
 
     return NextResponse.json({ screen })
   } catch (error) {
@@ -84,14 +77,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     if (selectedContentIds && Array.isArray(selectedContentIds) && selectedContentIds.length > 0) {
-      // Deactivate all existing assignments
-      await supabase.from("screen_playlists").update({ is_active: false }).eq("screen_id", params.id)
+      // First, delete ALL existing screen_playlist assignments
+      await supabase.from("screen_playlists").delete().eq("screen_id", params.id)
 
       // Clear single media reference
       updateData.media_id = null
       updateData.content_type = "playlist"
 
-      // Check if IDs are playlists or media
+      // Check which IDs are playlists vs media
       const { data: playlists } = await supabase
         .from("playlists")
         .select("id")
@@ -101,27 +94,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       const playlistIds = playlists?.map((p) => p.id) || []
       const mediaIds = selectedContentIds.filter((id) => !playlistIds.includes(id))
 
-      // Assign playlists
-      for (const playlistId of playlistIds) {
-        const { data: existing } = await supabase
-          .from("screen_playlists")
-          .select("id")
-          .eq("screen_id", params.id)
-          .eq("playlist_id", playlistId)
-          .maybeSingle()
+      // Insert new playlist assignments (all active)
+      if (playlistIds.length > 0) {
+        const playlistAssignments = playlistIds.map((playlistId) => ({
+          screen_id: params.id,
+          playlist_id: playlistId,
+          is_active: true,
+        }))
 
-        if (existing) {
-          await supabase.from("screen_playlists").update({ is_active: true }).eq("id", existing.id)
-        } else {
-          await supabase.from("screen_playlists").insert({
-            screen_id: params.id,
-            playlist_id: playlistId,
-            is_active: true,
-          })
-        }
+        await supabase.from("screen_playlists").insert(playlistAssignments)
       }
 
-      // Handle media assets - assign first one to media_id (fallback for single asset)
+      // Handle media assets - assign first one to media_id
       if (mediaIds.length > 0) {
         updateData.media_id = mediaIds[0]
         updateData.content_type = "asset"
@@ -163,56 +147,27 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     if (media_id && updateData.media_id !== undefined) {
-      const { error: deactivateError } = await supabase
-        .from("screen_playlists")
-        .update({ is_active: false })
-        .eq("screen_id", params.id)
+      const { error: deactivateError } = await supabase.from("screen_playlists").delete().eq("screen_id", params.id)
 
       if (deactivateError) {
-        console.error("Error deactivating existing playlists:", deactivateError)
+        console.error("Error removing existing playlists:", deactivateError)
       }
     }
 
     if (playlist_id) {
       await supabase.from("screens").update({ media_id: null }).eq("id", params.id)
 
-      const { error: deactivateError } = await supabase
-        .from("screen_playlists")
-        .update({ is_active: false })
-        .eq("screen_id", params.id)
+      await supabase.from("screen_playlists").delete().eq("screen_id", params.id)
 
-      if (deactivateError) {
-        console.error("Error deactivating existing playlists:", deactivateError)
-      }
+      const { error: insertError } = await supabase.from("screen_playlists").insert({
+        screen_id: params.id,
+        playlist_id: playlist_id,
+        is_active: true,
+      })
 
-      const { data: existingAssignment } = await supabase
-        .from("screen_playlists")
-        .select("id")
-        .eq("screen_id", params.id)
-        .eq("playlist_id", playlist_id)
-        .maybeSingle()
-
-      if (existingAssignment) {
-        const { error: updateError } = await supabase
-          .from("screen_playlists")
-          .update({ is_active: true })
-          .eq("id", existingAssignment.id)
-
-        if (updateError) {
-          console.error("Error updating existing assignment:", updateError)
-          return NextResponse.json({ error: "Failed to activate playlist assignment" }, { status: 500 })
-        }
-      } else {
-        const { error: insertError } = await supabase.from("screen_playlists").insert({
-          screen_id: params.id,
-          playlist_id: playlist_id,
-          is_active: true,
-        })
-
-        if (insertError) {
-          console.error("Error creating playlist assignment:", insertError)
-          return NextResponse.json({ error: "Failed to assign playlist" }, { status: 500 })
-        }
+      if (insertError) {
+        console.error("Error creating playlist assignment:", insertError)
+        return NextResponse.json({ error: "Failed to assign playlist" }, { status: 500 })
       }
     }
 
@@ -235,13 +190,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ screen })
     }
 
-    if (updatedScreen.screen_playlists) {
-      updatedScreen.screen_playlists = updatedScreen.screen_playlists.filter((sp: any) => sp.is_active)
-      if (updatedScreen.screen_playlists.length > 0) {
-        updatedScreen.playlists = updatedScreen.screen_playlists[0].playlists
-        updatedScreen.playlist_id = updatedScreen.screen_playlists[0].playlist_id
-      }
-    }
+    // Removed the filter that was only showing is_active playlists
 
     return NextResponse.json({ screen: updatedScreen })
   } catch (error) {
