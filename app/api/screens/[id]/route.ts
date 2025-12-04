@@ -26,6 +26,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           is_active,
           playlists(id, name, description)
         ),
+        screen_media!left(
+          media_id,
+          media(id, name, mime_type, file_path)
+        ),
         media(id, name, mime_type, file_path)
       `)
       .eq("id", params.id)
@@ -36,8 +40,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       console.error("Database error:", error)
       return NextResponse.json({ error: "Screen not found" }, { status: 404 })
     }
-
-    // No longer filtering by is_active since edit dialog needs all assignments
 
     return NextResponse.json({ screen })
   } catch (error) {
@@ -74,8 +76,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     if (selectedContentIds && Array.isArray(selectedContentIds)) {
-      // Delete ALL existing screen_playlist assignments
       await supabase.from("screen_playlists").delete().eq("screen_id", params.id)
+      await supabase.from("screen_media").delete().eq("screen_id", params.id)
 
       if (selectedContentIds.length === 0) {
         updateData.media_id = null
@@ -96,19 +98,26 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             playlist_id: playlistId,
             is_active: true,
           }))
-
           await supabase.from("screen_playlists").insert(playlistAssignments)
-
-          if (mediaIds.length === 0) {
-            updateData.content_type = "playlist"
-            updateData.media_id = null
-          }
         }
 
         if (mediaIds.length > 0) {
-          updateData.media_id = mediaIds[0]
+          const mediaAssignments = mediaIds.map((mediaId) => ({
+            screen_id: params.id,
+            media_id: mediaId,
+          }))
+          await supabase.from("screen_media").insert(mediaAssignments)
+        }
+
+        if (playlistIds.length > 0 && mediaIds.length > 0) {
+          updateData.content_type = "mixed"
+        } else if (playlistIds.length > 0) {
+          updateData.content_type = "playlist"
+        } else if (mediaIds.length > 0) {
           updateData.content_type = "asset"
         }
+
+        updateData.media_id = mediaIds.length > 0 ? mediaIds[0] : null
       }
     }
 
@@ -134,6 +143,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
           playlist_id,
           is_active,
           playlists(id, name, description)
+        ),
+        screen_media!left(
+          media_id,
+          media(id, name, mime_type, file_path)
         )
       `)
       .eq("id", params.id)
@@ -167,7 +180,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Delete screen
     const { error } = await supabase.from("screens").delete().eq("id", params.id).eq("user_id", user.id)
 
     if (error) {

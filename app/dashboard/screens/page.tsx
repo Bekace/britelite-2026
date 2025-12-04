@@ -57,16 +57,18 @@ const ScreenPreviewModal = ({
 interface Screen {
   id: string
   name: string
+  description?: string
+  screen_code: string
+  status: string
   location: string
   resolution: string
   orientation: string
-  screen_code: string
-  status: "online" | "offline" | "paired" | "unpaired"
   last_seen: string | null
   created_at: string
-  playlists?: { id: string; name: string }[] // Ensure playlists is an array
+  playlists?: { id: string; name: string }[]
   media_id?: string
-  screen_playlists?: { playlist_id: string; is_active: boolean }[] // Added for editing
+  screen_playlists?: { playlist_id: string; is_active: boolean }[]
+  screen_media?: { media_id: string; media?: { id: string; name: string } }[] // Added screen_media
 }
 
 interface Playlist {
@@ -958,13 +960,14 @@ export default function ScreensPage() {
   const openEditDialog = (screen: Screen) => {
     console.log("[v0] openEditDialog - screen:", screen)
     console.log("[v0] openEditDialog - screen.screen_playlists:", screen.screen_playlists)
+    console.log("[v0] openEditDialog - screen.screen_media:", screen.screen_media)
     console.log("[v0] openEditDialog - screen.media_id:", screen.media_id)
 
     setEditingScreen(screen)
 
-    // Populate selected content IDs from screen_playlists and media_id
     const selectedIds: string[] = []
 
+    // Add all playlists from screen_playlists
     if (screen.screen_playlists) {
       screen.screen_playlists.forEach((sp: any) => {
         if (sp.playlist_id) {
@@ -973,7 +976,17 @@ export default function ScreensPage() {
       })
     }
 
-    if (screen.media_id) {
+    // Add all media from screen_media junction table
+    if (screen.screen_media) {
+      screen.screen_media.forEach((sm: any) => {
+        if (sm.media_id) {
+          selectedIds.push(sm.media_id)
+        }
+      })
+    }
+
+    // Fallback: if no screen_media but has media_id, add it
+    if (!screen.screen_media?.length && screen.media_id) {
       selectedIds.push(screen.media_id)
     }
 

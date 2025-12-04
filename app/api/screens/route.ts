@@ -9,7 +9,6 @@ export async function GET() {
       return NextResponse.json({ error: "Supabase not configured" }, { status: 500 })
     }
 
-    // Check authentication
     const {
       data: { user },
       error: authError,
@@ -26,6 +25,10 @@ export async function GET() {
           playlist_id,
           is_active,
           playlists(id, name)
+        ),
+        screen_media(
+          media_id,
+          media(id, name, mime_type, file_path)
         )
       `)
       .eq("user_id", user.id)
@@ -51,7 +54,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Supabase not configured" }, { status: 500 })
     }
 
-    // Check authentication
     const {
       data: { user },
       error: authError,

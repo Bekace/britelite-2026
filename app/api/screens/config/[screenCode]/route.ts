@@ -28,18 +28,19 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
 
     let content: any[] = []
 
-    if (screen.media_id) {
-      const { data: media } = await supabase.from("media").select("*").eq("id", screen.media_id).single()
+    const { data: screenMedia } = await supabase
+      .from("screen_media")
+      .select(`
+        media:media!inner(*)
+      `)
+      .eq("screen_id", screen.id)
 
-      if (media) {
-        content = [
-          {
-            id: media.id,
-            media: media,
-            duration_override: 5,
-          },
-        ]
-      }
+    if (screenMedia && screenMedia.length > 0) {
+      content = screenMedia.map((sm: any) => ({
+        id: sm.media.id,
+        media: sm.media,
+        duration_override: 5,
+      }))
     }
 
     if (content.length === 0) {
@@ -57,15 +58,21 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         .eq("screen_id", screen.id)
         .eq("is_active", true)
 
-      if (screenPlaylists?.[0]?.playlist?.playlist_items) {
-        const playlist = screenPlaylists[0].playlist
-        content = playlist.playlist_items.sort((a: any, b: any) => a.position - b.position)
+      if (screenPlaylists && screenPlaylists.length > 0) {
+        screenPlaylists.forEach((sp: any) => {
+          if (sp.playlist?.playlist_items) {
+            const playlistContent = sp.playlist.playlist_items.sort((a: any, b: any) => a.position - b.position)
+            content.push(...playlistContent)
 
-        // Apply playlist settings to screen
-        if (playlist.background_color) screen.background_color = playlist.background_color
-        screen.scale_image = playlist.scale_image || "fit"
-        screen.scale_video = playlist.scale_video || "fit"
-        screen.shuffle = playlist.shuffle || false
+            // Apply first playlist settings
+            if (content.length === playlistContent.length && sp.playlist.background_color) {
+              screen.background_color = sp.playlist.background_color
+              screen.scale_image = sp.playlist.scale_image || "fit"
+              screen.scale_video = sp.playlist.scale_video || "fit"
+              screen.shuffle = sp.playlist.shuffle || false
+            }
+          }
+        })
       }
     }
 
