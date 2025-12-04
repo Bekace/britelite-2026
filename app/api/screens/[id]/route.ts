@@ -108,7 +108,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
           .select("id")
           .eq("screen_id", params.id)
           .eq("playlist_id", playlistId)
-          .single()
+          .maybeSingle()
 
         if (existing) {
           await supabase.from("screen_playlists").update({ is_active: true }).eq("id", existing.id)
@@ -190,7 +190,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         .select("id")
         .eq("screen_id", params.id)
         .eq("playlist_id", playlist_id)
-        .single()
+        .maybeSingle()
 
       if (existingAssignment) {
         const { error: updateError } = await supabase
