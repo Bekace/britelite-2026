@@ -7,9 +7,50 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Smartphone, Tv, CheckCircle, Wifi, RotateCw, ImageIcon, PlayCircle, CheckCircle2, Circle } from "lucide-react"
+import {
+  Smartphone,
+  Tv,
+  CheckCircle,
+  Wifi,
+  RotateCw,
+  ImageIcon,
+  PlayCircle,
+  CheckCircle2,
+  Circle,
+  Eye,
+} from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { transformScreenData } from "@/utils/transformScreenData"
+
+// Placeholder for the ScreenPreviewModal component
+// In a real application, this would be imported from a separate file
+const ScreenPreviewModal = ({
+  screen,
+  isOpen,
+  onClose,
+}: { screen: Screen | null; isOpen: boolean; onClose: () => void }) => {
+  if (!isOpen || !screen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <CardContent className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Preview: {screen.name}</h2>
+            <Button variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+          {/* Placeholder for actual preview content */}
+          <div className="text-center py-20">
+            <p className="text-gray-600">This is a preview of screen '{screen.name}'.</p>
+            <p className="text-gray-600">Content and layout would be rendered here.</p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
 
 interface Screen {
   id: string
@@ -75,6 +116,8 @@ export default function ScreensPage() {
   const [newPairingCode, setNewPairingCode] = useState("")
   const [isCreatingScreen, setIsCreatingScreen] = useState(false)
   const [editingContentType, setEditingContentType] = useState<"playlist" | "asset">("playlist")
+  const [previewingScreen, setPreviewingScreen] = useState<Screen | null>(null)
+  const [editingSelectedContentIds, setEditingSelectedContentIds] = useState<string[]>([])
 
   const [wizardState, setWizardState] = useState<WizardState>({
     step: 1,
@@ -831,7 +874,10 @@ export default function ScreensPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(editingScreen),
+        body: JSON.stringify({
+          ...editingScreen,
+          selectedContentIds: editingSelectedContentIds,
+        }),
       })
 
       if (response.ok) {
@@ -840,6 +886,7 @@ export default function ScreensPage() {
         const transformedScreen = transformScreenData(data.screen)
         setScreens((prev) => prev.map((screen) => (screen.id === editingScreen.id ? transformedScreen : screen)))
         setEditingScreen(null)
+        setEditingSelectedContentIds([])
         toast({
           title: "Success",
           description: "Screen updated successfully",
@@ -1006,8 +1053,34 @@ export default function ScreensPage() {
                 </div>
 
                 <div className="flex gap-2 mt-4">
-                  <Button variant="outline" size="sm" onClick={() => setEditingScreen(screen)} className="flex-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingScreen(screen)
+                      // Initialize editingSelectedContentIds with the screen's current playlists/media
+                      const currentContentIds = screen.playlists ? screen.playlists.map((p) => p.id) : []
+                      // If there's a media_id, add it too, assuming it's treated as a single asset
+                      if (screen.media_id && !currentContentIds.includes(screen.media_id)) {
+                        currentContentIds.push(screen.media_id)
+                      }
+                      setEditingSelectedContentIds(currentContentIds)
+                    }}
+                    className="flex-1"
+                  >
                     Edit
+                  </Button>
+                  {/* Add preview button to screen cards */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setPreviewingScreen(screen)
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Preview
                   </Button>
                   <Button
                     variant="outline"
@@ -1086,7 +1159,7 @@ export default function ScreensPage() {
         </div>
       )}
 
-      {/* Edit Dialog */}
+      {/* Replace edit dialog with multi-select version */}
       {editingScreen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1148,46 +1221,100 @@ export default function ScreensPage() {
                   </Select>
                 </div>
 
-                <div>
-                  <Label>Content Type</Label>
-                  <div className="flex gap-2 mt-2">
-                    <Button
-                      variant={editingContentType === "playlist" ? "default" : "outline"}
-                      onClick={() => setEditingContentType("playlist")}
-                      className="flex-1"
-                    >
-                      Playlist
-                    </Button>
-                    <Button
-                      variant={editingContentType === "asset" ? "default" : "outline"}
-                      onClick={() => setEditingContentType("asset")}
-                      className="flex-1"
-                    >
-                      Asset
-                    </Button>
-                  </div>
-                </div>
+                <div className="space-y-4 border-t pt-4">
+                  <Label>Assigned Content</Label>
 
-                {editingContentType === "playlist" && (
-                  <div>
-                    <Label>Assigned Playlists</Label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {editingScreen.playlists && Array.isArray(editingScreen.playlists) ? (
-                        editingScreen.playlists.map((playlist: any) => (
-                          <div key={playlist.id} className="px-3 py-1 bg-cyan-100 text-cyan-700 rounded-full text-sm">
-                            {playlist.name}
+                  {/* Playlists Section */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <PlayCircle className="h-4 w-4 text-cyan-500" />
+                      Playlists
+                    </h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-2">
+                      {playlists.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-2">No playlists available</p>
+                      ) : (
+                        playlists.map((playlist) => (
+                          <div
+                            key={playlist.id}
+                            className={`p-2 rounded cursor-pointer transition-colors ${
+                              editingSelectedContentIds.includes(playlist.id)
+                                ? "bg-cyan-50 ring-1 ring-cyan-500"
+                                : "hover:bg-gray-50"
+                            }`}
+                            onClick={() => {
+                              setEditingSelectedContentIds((prev) =>
+                                prev.includes(playlist.id)
+                                  ? prev.filter((id) => id !== playlist.id)
+                                  : [...prev, playlist.id],
+                              )
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              {editingSelectedContentIds.includes(playlist.id) ? (
+                                <CheckCircle2 className="h-4 w-4 text-cyan-500" />
+                              ) : (
+                                <Circle className="h-4 w-4 text-gray-300" />
+                              )}
+                              <span className="text-sm font-medium">{playlist.name}</span>
+                            </div>
                           </div>
                         ))
-                      ) : (
-                        <p className="text-sm text-gray-500">No playlists assigned</p>
                       )}
                     </div>
                   </div>
-                )}
+
+                  {/* Media Assets Section */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4 text-cyan-500" />
+                      Media Assets
+                    </h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-2">
+                      {mediaItems.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-2">No media assets available</p>
+                      ) : (
+                        mediaItems.map((media) => (
+                          <div
+                            key={media.id}
+                            className={`p-2 rounded cursor-pointer transition-colors ${
+                              editingSelectedContentIds.includes(media.id)
+                                ? "bg-cyan-50 ring-1 ring-cyan-500"
+                                : "hover:bg-gray-50"
+                            }`}
+                            onClick={() => {
+                              setEditingSelectedContentIds((prev) =>
+                                prev.includes(media.id) ? prev.filter((id) => id !== media.id) : [...prev, media.id],
+                              )
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              {editingSelectedContentIds.includes(media.id) ? (
+                                <CheckCircle2 className="h-4 w-4 text-cyan-500" />
+                              ) : (
+                                <Circle className="h-4 w-4 text-gray-300" />
+                              )}
+                              <div>
+                                <span className="text-sm font-medium">{media.name}</span>
+                                <p className="text-xs text-gray-500">{media.mime_type}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-between gap-3 mt-6">
-                <Button variant="outline" onClick={() => setEditingScreen(null)}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEditingScreen(null)
+                    setEditingSelectedContentIds([])
+                  }}
+                >
                   Cancel
                 </Button>
                 <Button onClick={handleUpdateScreen} disabled={updating} className="bg-cyan-500 hover:bg-cyan-600">
@@ -1198,6 +1325,13 @@ export default function ScreensPage() {
           </Card>
         </div>
       )}
+
+      {/* Add ScreenPreviewModal component at the end before closing tag */}
+      <ScreenPreviewModal
+        screen={previewingScreen}
+        isOpen={!!previewingScreen}
+        onClose={() => setPreviewingScreen(null)}
+      />
     </div>
   )
 }
