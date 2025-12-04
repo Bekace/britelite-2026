@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Smartphone, Tv, CheckCircle, Wifi, RotateCw, ImageIcon, PlayCircle, Calendar, Check } from "lucide-react"
+import { Smartphone, Tv, CheckCircle, Wifi, RotateCw, ImageIcon, PlayCircle, CheckCircle2, Circle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { transformScreenData } from "@/utils/transformScreenData"
 
@@ -21,13 +21,14 @@ interface Screen {
   status: "online" | "offline" | "paired" | "unpaired"
   last_seen: string | null
   created_at: string
-  playlists?: { id: string; name: string }
+  playlists?: { id: string; name: string }[] // Ensure playlists is an array
   media_id?: string
 }
 
 interface Playlist {
   id: string
   name: string
+  description?: string // Added for potentially richer display
 }
 
 interface MediaItem {
@@ -42,7 +43,6 @@ interface WizardState {
   pairingCode: string
   isPaired: boolean
   pairedDevice: any
-  contentType: "playlist" | "asset" | "schedule" | ""
   selectedContentIds: string[]
   name: string
   description: string
@@ -81,7 +81,6 @@ export default function ScreensPage() {
     pairingCode: "",
     isPaired: false,
     pairedDevice: null,
-    contentType: "",
     selectedContentIds: [],
     name: "",
     description: "",
@@ -223,7 +222,6 @@ export default function ScreensPage() {
       pairingCode: "",
       isPaired: false,
       pairedDevice: null,
-      contentType: "",
       selectedContentIds: [],
       name: "",
       description: "",
@@ -265,7 +263,6 @@ export default function ScreensPage() {
     setCreating(true)
 
     try {
-      // Create the screen first
       const screenResponse = await fetch("/api/screens", {
         method: "POST",
         headers: {
@@ -276,7 +273,7 @@ export default function ScreensPage() {
           description: wizardState.description,
           location: wizardState.location,
           orientation: wizardState.orientation,
-          content_type: wizardState.selectedContentIds ? wizardState.contentType : "none",
+          content_type: wizardState.selectedContentIds.length > 0 ? "playlist" : "none", // Assuming selectedContentIds are playlists for simplicity here
         }),
       })
 
@@ -304,24 +301,34 @@ export default function ScreensPage() {
         throw new Error(pairData.error || "Failed to pair device")
       }
 
-      if (wizardState.selectedContentIds) {
-        const contentResponse = await fetch(`/api/screens/${screenData.screen.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            content_type: wizardState.contentType,
-            ...(wizardState.contentType === "playlist"
-              ? { playlist_id: wizardState.selectedContentIds }
-              : { media_id: wizardState.selectedContentIds }),
-          }),
-        })
+      if (wizardState.selectedContentIds.length > 0) {
+        // Assign all selected content items
+        for (const contentId of wizardState.selectedContentIds) {
+          // Check if it's a playlist or media item
+          const isPlaylist = playlists.some((p) => p.id === contentId)
 
-        const contentData = await contentResponse.json()
-
-        if (!contentResponse.ok) {
-          throw new Error(contentData.error || "Failed to assign content to screen")
+          if (isPlaylist) {
+            await fetch(`/api/screens/${screenData.screen.id}/playlists`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                playlistId: contentId, // Corrected field name
+              }),
+            })
+          } else {
+            // It's a media item - update screen's media_id
+            await fetch(`/api/screens/${screenData.screen.id}`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                media_id: contentId,
+              }),
+            })
+          }
         }
       }
 
@@ -331,28 +338,7 @@ export default function ScreensPage() {
       })
 
       // Reset wizard and close modal
-      setWizardState({
-        step: 1,
-        name: "",
-        description: "",
-        location: "",
-        orientation: "landscape",
-        pairingCode: "",
-        isPaired: false,
-        pairedDevice: null,
-        selectedContentIds: [],
-        contentType: "",
-        advancedOptions: {
-          locationEnabled: false,
-          backgroundType: "color",
-          defaultColor: "#000000",
-          syncPlay: false,
-          showDownloadingStatus: true,
-          preloadAssets: false,
-          showOfflineIndicator: true,
-          mute: false,
-        },
-      })
+      resetWizard()
       setIsCreateDialogOpen(false)
       fetchScreens()
     } catch (error) {
@@ -366,6 +352,9 @@ export default function ScreensPage() {
     }
   }
 
+  // createScreen function seems to be a duplicate or older version of handleCreateScreen and might not be needed or should be removed/merged.
+  // Based on the updates, handleCreateScreen is the one being modified and used.
+  // I'll keep it here for now but it's worth reviewing if this function is necessary.
   const createScreen = async () => {
     try {
       setIsCreatingScreen(true)
@@ -393,12 +382,9 @@ export default function ScreensPage() {
         location: wizardState.location,
         resolution: wizardState.resolution,
         orientation: wizardState.orientation,
-        content_type: wizardState.contentType || "none",
-        ...(wizardState.contentType === "playlist" && wizardState.selectedContentIds.length > 0
-          ? { playlist_ids: wizardState.selectedContentIds }
-          : {}),
-        ...(wizardState.contentType === "asset" && wizardState.selectedContentIds.length > 0
-          ? { media_ids: wizardState.selectedContentIds }
+        content_type: wizardState.selectedContentIds.length > 0 ? "playlist" : "none", // This logic might need adjustment if media items are also selected
+        ...(wizardState.selectedContentIds.length > 0
+          ? { playlist_ids: wizardState.selectedContentIds } // Assuming selected are playlists for this older function
           : {}),
       }
 
@@ -414,7 +400,8 @@ export default function ScreensPage() {
         throw new Error(screenError || "Failed to create screen")
       }
 
-      if (wizardState.contentType === "playlist" && wizardState.selectedContentIds.length > 0) {
+      // This part seems to be for assigning playlists specifically, might need to be updated for mixed content
+      if (wizardState.selectedContentIds.length > 0) {
         for (const playlistId of wizardState.selectedContentIds) {
           await fetch(`/api/screens/${createdScreen.id}/playlists`, {
             method: "POST",
@@ -422,14 +409,6 @@ export default function ScreensPage() {
             body: JSON.stringify({ playlist_id: playlistId, is_active: true }),
           })
         }
-      }
-
-      if (wizardState.contentType === "asset" && wizardState.selectedContentIds.length > 0) {
-        await fetch(`/api/screens/${createdScreen.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ media_ids: wizardState.selectedContentIds }),
-        })
       }
 
       toast({
@@ -514,143 +493,111 @@ export default function ScreensPage() {
   const renderStep2 = () => (
     <div className="space-y-4">
       <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold mb-2">Select Content Type</h3>
-        <p className="text-gray-600">Choose what type of content this screen will display.</p>
+        <h3 className="text-lg font-semibold mb-2">Select Content</h3>
+        <p className="text-gray-600">Choose playlists and/or media assets to display on this screen.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3">
-        <Card
-          className={`cursor-pointer transition-colors ${wizardState.contentType === "playlist" ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
-          onClick={() => setWizardState((prev) => ({ ...prev, contentType: "playlist", selectedContentIds: [] }))}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <PlayCircle className="h-8 w-8 text-cyan-500" />
-              <div>
-                <h4 className="font-semibold">Playlist</h4>
-                <p className="text-sm text-gray-600">Display a sequence of media items</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="space-y-6">
+        {/* Playlists Section */}
+        <div className="space-y-3">
+          <h4 className="font-semibold flex items-center gap-2">
+            <PlayCircle className="h-5 w-5 text-cyan-500" />
+            Playlists
+          </h4>
+          <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+            {playlists.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">No playlists available</p>
+            ) : (
+              playlists.map((playlist) => (
+                <Card
+                  key={playlist.id}
+                  className={`cursor-pointer transition-colors ${
+                    wizardState.selectedContentIds.includes(playlist.id)
+                      ? "ring-2 ring-cyan-500 bg-cyan-50"
+                      : "hover:bg-gray-50"
+                  }`}
+                  onClick={() => {
+                    setWizardState((prev) => ({
+                      ...prev,
+                      selectedContentIds: prev.selectedContentIds.includes(playlist.id)
+                        ? prev.selectedContentIds.filter((id) => id !== playlist.id)
+                        : [...prev.selectedContentIds, playlist.id],
+                    }))
+                  }}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {wizardState.selectedContentIds.includes(playlist.id) ? (
+                          <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-gray-300" />
+                        )}
+                        <div>
+                          <h4 className="font-medium">{playlist.name}</h4>
+                          {playlist.description && <p className="text-sm text-gray-600">{playlist.description}</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </div>
 
-        <Card
-          className={`cursor-pointer transition-colors ${wizardState.contentType === "asset" ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
-          onClick={() => setWizardState((prev) => ({ ...prev, contentType: "asset", selectedContentIds: [] }))}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <ImageIcon className="h-8 w-8 text-cyan-500" />
-              <div>
-                <h4 className="font-semibold">Asset</h4>
-                <p className="text-sm text-gray-600">Display a single media item</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card
-          className={`cursor-pointer transition-colors opacity-50 ${wizardState.contentType === "schedule" ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
-          onClick={() => setWizardState((prev) => ({ ...prev, contentType: "schedule", selectedContentIds: [] }))}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Calendar className="h-8 w-8 text-gray-400" />
-              <div>
-                <h4 className="font-semibold text-gray-400">Schedule</h4>
-                <p className="text-sm text-gray-400">Time-based content scheduling (Coming Soon)</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Media Assets Section */}
+        <div className="space-y-3">
+          <h4 className="font-semibold flex items-center gap-2">
+            <ImageIcon className="h-5 w-5 text-cyan-500" />
+            Media Assets
+          </h4>
+          <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+            {mediaItems.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">No media assets available</p>
+            ) : (
+              mediaItems.map((media) => (
+                <Card
+                  key={media.id}
+                  className={`cursor-pointer transition-colors ${
+                    wizardState.selectedContentIds.includes(media.id)
+                      ? "ring-2 ring-cyan-500 bg-cyan-50"
+                      : "hover:bg-gray-50"
+                  }`}
+                  onClick={() => {
+                    setWizardState((prev) => ({
+                      ...prev,
+                      selectedContentIds: prev.selectedContentIds.includes(media.id)
+                        ? prev.selectedContentIds.filter((id) => id !== media.id)
+                        : [...prev.selectedContentIds, media.id],
+                    }))
+                  }}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {wizardState.selectedContentIds.includes(media.id) ? (
+                          <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-gray-300" />
+                        )}
+                        <div>
+                          <h4 className="font-medium">{media.name}</h4>
+                          <p className="text-xs text-gray-500">{media.mime_type}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
 
   const renderStep3 = () => (
-    <div className="space-y-4">
-      <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold mb-2">Select Content</h3>
-        <p className="text-gray-600">Choose the {wizardState.contentType} to display on this screen.</p>
-      </div>
-
-      {wizardState.contentType === "playlist" && (
-        <div className="space-y-3 max-h-64 overflow-y-auto">
-          <p className="text-sm text-gray-600 mb-2">Select one or more playlists:</p>
-          {playlists.map((playlist) => (
-            <Card
-              key={playlist.id}
-              className={`cursor-pointer transition-colors ${wizardState.selectedContentIds.includes(playlist.id) ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
-              onClick={() =>
-                setWizardState((prev) => {
-                  const isSelected = prev.selectedContentIds.includes(playlist.id)
-                  return {
-                    ...prev,
-                    selectedContentIds: isSelected
-                      ? prev.selectedContentIds.filter((id) => id !== playlist.id)
-                      : [...prev.selectedContentIds, playlist.id],
-                  }
-                })
-              }
-            >
-              <CardContent className="p-3">
-                <div className="flex items-center gap-3">
-                  <PlayCircle className="h-6 w-6 text-cyan-500" />
-                  <div className="flex-1">
-                    <h4 className="font-medium">{playlist.name}</h4>
-                  </div>
-                  {wizardState.selectedContentIds.includes(playlist.id) && <Check className="h-5 w-5 text-cyan-500" />}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {wizardState.contentType === "asset" && (
-        <div className="space-y-3 max-h-64 overflow-y-auto">
-          <p className="text-sm text-gray-600 mb-2">Select one or more media assets:</p>
-          {mediaItems.map((media) => (
-            <Card
-              key={media.id}
-              className={`cursor-pointer transition-colors ${wizardState.selectedContentIds.includes(media.id) ? "ring-2 ring-cyan-500 bg-cyan-50" : "hover:bg-gray-50"}`}
-              onClick={() =>
-                setWizardState((prev) => {
-                  const isSelected = prev.selectedContentIds.includes(media.id)
-                  return {
-                    ...prev,
-                    selectedContentIds: isSelected
-                      ? prev.selectedContentIds.filter((id) => id !== media.id)
-                      : [...prev.selectedContentIds, media.id],
-                  }
-                })
-              }
-            >
-              <CardContent className="p-3">
-                <div className="flex items-center gap-3">
-                  <ImageIcon className="h-6 w-6 text-cyan-500" />
-                  <div className="flex-1">
-                    <h4 className="font-medium">{media.name}</h4>
-                    <p className="text-sm text-gray-600">{media.mime_type}</p>
-                  </div>
-                  {wizardState.selectedContentIds.includes(media.id) && <Check className="h-5 w-5 text-cyan-500" />}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {wizardState.contentType === "schedule" && (
-        <div className="text-center py-8">
-          <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-500">Schedule functionality will be available soon.</p>
-        </div>
-      )}
-    </div>
-  )
-
-  const renderStep4 = () => (
     <div className="space-y-4">
       <div className="text-center mb-6">
         <RotateCw className="h-12 w-12 mx-auto text-cyan-500 mb-4" />
@@ -727,7 +674,7 @@ export default function ScreensPage() {
     </div>
   )
 
-  const renderStep5 = () => (
+  const renderStep4 = () => (
     <div className="space-y-4">
       <div className="text-center mb-6">
         <h3 className="text-lg font-semibold mb-2">Advanced Options</h3>
@@ -1085,13 +1032,12 @@ export default function ScreensPage() {
               <div className="mb-6">
                 <h2 className="text-2xl font-bold">
                   {wizardState.step === 1 && "Connect Device"}
-                  {wizardState.step === 2 && "Select Content Type"}
-                  {wizardState.step === 3 && "Choose Content"}
-                  {wizardState.step === 4 && "Configure Screen"}
-                  {wizardState.step === 5 && "Advanced Settings"}
+                  {wizardState.step === 2 && "Select Content"}
+                  {wizardState.step === 3 && "Configure Screen"}
+                  {wizardState.step === 4 && "Advanced Settings"}
                 </h2>
                 <div className="flex gap-2 mt-4">
-                  {[1, 2, 3, 4, 5].map((step) => (
+                  {[1, 2, 3, 4].map((step) => (
                     <div
                       key={step}
                       className={`h-2 flex-1 rounded ${step <= wizardState.step ? "bg-cyan-500" : "bg-gray-200"}`}
@@ -1104,7 +1050,6 @@ export default function ScreensPage() {
               {wizardState.step === 2 && renderStep2()}
               {wizardState.step === 3 && renderStep3()}
               {wizardState.step === 4 && renderStep4()}
-              {wizardState.step === 5 && renderStep5()}
 
               <div className="flex justify-between gap-3 mt-6">
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
@@ -1116,25 +1061,22 @@ export default function ScreensPage() {
                       Back
                     </Button>
                   )}
-                  {wizardState.step < 5 && (
+                  {wizardState.step < 4 && (
                     <Button
                       onClick={nextStep}
-                      disabled={
-                        (wizardState.step === 1 && !wizardState.isPaired) ||
-                        (wizardState.step === 2 && !wizardState.contentType)
-                      }
+                      disabled={wizardState.step === 1 && !wizardState.isPaired}
                       className="bg-cyan-500 hover:bg-cyan-600"
                     >
                       Next
                     </Button>
                   )}
-                  {wizardState.step === 5 && (
+                  {wizardState.step === 4 && (
                     <Button
-                      onClick={createScreen}
-                      disabled={isCreatingScreen || !wizardState.name.trim()}
+                      onClick={handleCreateScreen}
+                      disabled={creating || !wizardState.name.trim()}
                       className="bg-cyan-500 hover:bg-cyan-600"
                     >
-                      {isCreatingScreen ? "Creating..." : "Create Screen"}
+                      {creating ? "Creating..." : "Create Screen"}
                     </Button>
                   )}
                 </div>
