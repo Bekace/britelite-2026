@@ -43,15 +43,15 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         console.log(`[v0] Processing direct media:`, {
           id: sm.media?.id,
           name: sm.media?.name,
-          content_type: sm.media?.content_type,
-          file_url: sm.media?.file_url,
+          mime_type: sm.media?.mime_type,
+          file_path: sm.media?.file_path,
         })
         return {
           id: sm.media.id,
           name: sm.media.name,
-          type: sm.media.content_type,
-          url: sm.media.file_url,
-          thumbnail: sm.media.thumbnail_url,
+          type: sm.media.mime_type,
+          url: sm.media.file_path,
+          thumbnail: sm.media.thumbnail_path,
           media: sm.media,
           duration_override: 10,
           transition_type: "fade",
@@ -86,15 +86,15 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
               console.log(`[v0] Processing playlist item:`, {
                 id: item.media?.id,
                 name: item.media?.name,
-                content_type: item.media?.content_type,
-                file_url: item.media?.file_url,
+                mime_type: item.media?.mime_type,
+                file_path: item.media?.file_path,
               })
               return {
                 id: item.media.id,
                 name: item.media.name,
-                type: item.media.content_type,
-                url: item.media.file_url,
-                thumbnail: item.media.thumbnail_url,
+                type: item.media.mime_type,
+                url: item.media.file_path,
+                thumbnail: item.media.thumbnail_path,
                 media: item.media,
                 duration_override: item.duration_override || sp.playlist.default_duration || 10,
                 transition_type: item.transition_type || sp.playlist.transition_type || "fade",
