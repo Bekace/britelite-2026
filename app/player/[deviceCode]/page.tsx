@@ -69,6 +69,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [pendingUpdate, setPendingUpdate] = useState<ScreenConfig | null>(null)
   const [updateProgress, setUpdateProgress] = useState(0)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
+  const [hasPendingUpdate, setHasPendingUpdate] = useState(false)
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -277,129 +278,45 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     }
   }
 
-  const checkForUpdates = async () => {
-    if (!config) {
-      console.log("[v0] Polling: No config yet, skipping check")
-      return
-    }
-
-    try {
-      console.log("[v0] Polling: Checking for updates...")
-      console.log("[v0] Polling: Current lastUpdatedAt:", lastUpdatedAt)
-
-      const isScreenCode = params.deviceCode.startsWith("SCR-")
-      const apiEndpoint = isScreenCode
-        ? `/api/screens/config/${params.deviceCode}`
-        : `/api/devices/config/${params.deviceCode}`
-
-      const response = await fetch(apiEndpoint, {
-        cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-        },
-      })
-
-      if (!response.ok) {
-        console.log("[v0] Polling: Response not OK, status:", response.status)
-        return
-      }
-
-      const data = await response.json()
-
-      const newUpdatedAt = (data.screen as any).updated_at
-      console.log("[v0] Polling: Fetched new timestamp:", newUpdatedAt)
-
-      if (lastUpdatedAt && newUpdatedAt && newUpdatedAt !== lastUpdatedAt) {
-        console.log("[v0] Content update detected via timestamp change")
-        console.log("[v0] Old timestamp:", lastUpdatedAt)
-        console.log("[v0] New timestamp:", newUpdatedAt)
-
-        let newConfigData
-        if (isScreenCode) {
-          newConfigData = {
-            device: {
-              id: `screen-${data.screen.id}`,
-              device_code: params.deviceCode,
-              is_paired: true,
-              screen_id: data.screen.id,
-            },
-            screen: {
-              id: data.screen.id,
-              name: data.screen.name,
-              orientation: data.screen.orientation || "landscape",
-              status: data.screen.status || "active",
-              playlist: {
-                id: `default-${data.screen.id}`,
-                name: "Default Playlist",
-                background_color: data.screen.background_color || "#000000",
-                scale_image: data.screen.scale_image || "fit",
-                scale_video: data.screen.scale_video || "fit",
-                scale_document: "fit",
-                shuffle: data.screen.shuffle || false,
-                default_transition: "fade",
-              },
-              content: data.screen.content || [],
-            },
-          }
-        } else {
-          newConfigData = data
-        }
-
-        setLastUpdatedAt(newUpdatedAt)
-        setPendingUpdate(newConfigData)
-        setUpdateProgress(0)
-        return
-      } else {
-        console.log("[v0] Polling: No update detected (timestamps match or missing)")
-      }
-
-      let newConfigData
-      if (isScreenCode) {
-        newConfigData = {
-          device: {
-            id: `screen-${data.screen.id}`,
-            device_code: params.deviceCode,
-            is_paired: true,
-            screen_id: data.screen.id,
-          },
-          screen: {
-            id: data.screen.id,
-            name: data.screen.name,
-            orientation: data.screen.orientation || "landscape",
-            status: data.screen.status || "active",
-            playlist: {
-              id: `default-${data.screen.id}`,
-              name: "Default Playlist",
-              background_color: data.screen.background_color || "#000000",
-              scale_image: data.screen.scale_image || "fit",
-              scale_video: data.screen.scale_video || "fit",
-              scale_document: "fit",
-              shuffle: data.screen.shuffle || false,
-              default_transition: "fade",
-            },
-            content: data.screen.content || [],
-          },
-        }
-      } else {
-        newConfigData = data
-      }
-
-      const currentContentHash = JSON.stringify(config.screen.content)
-      const newContentHash = JSON.stringify(newConfigData.screen.content)
-
-      if (currentContentHash !== newContentHash) {
-        console.log("[v0] Content update detected via hash comparison")
-        setPendingUpdate(newConfigData)
-        setUpdateProgress(0)
-      }
-    } catch (error) {
-      console.error("[v0] Polling error:", error)
-    }
-  }
-
   useEffect(() => {
     fetchConfig()
+
+    const checkForUpdates = async () => {
+      if (!config) {
+        console.log("[v0] Polling: No config yet, skipping check")
+        return
+      }
+
+      try {
+        console.log("[v0] Polling: Checking for updates...")
+        console.log("[v0] Polling: Current lastUpdatedAt:", lastUpdatedAt)
+
+        const isScreenCode = params.deviceCode.startsWith("SCR-")
+        const apiEndpoint = isScreenCode
+          ? `/api/screens/config/${params.deviceCode}`
+          : `/api/devices/config/${params.deviceCode}`
+
+        const response = await fetch(apiEndpoint, {
+          cache: "no-store",
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          const newUpdatedAt = data.screen?.updated_at
+
+          console.log("[v0] Polling: New updated_at from API:", newUpdatedAt)
+
+          if (newUpdatedAt && lastUpdatedAt && newUpdatedAt !== lastUpdatedAt) {
+            console.log("[v0] Polling: Update detected! Queueing refresh...")
+            setHasPendingUpdate(true)
+          } else {
+            console.log("[v0] Polling: No updates detected")
+          }
+        }
+      } catch (error) {
+        console.error("[v0] Polling: Error checking for updates:", error)
+      }
+    }
 
     const isScreenCode = params.deviceCode.startsWith("SCR-")
     let heartbeatInterval: NodeJS.Timeout | null = null
@@ -409,7 +326,10 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       heartbeatInterval = setInterval(sendHeartbeat, 30000)
     }
 
-    pollingInterval = setInterval(checkForUpdates, 15000)
+    setTimeout(() => {
+      pollingInterval = setInterval(checkForUpdates, 15000)
+      console.log("[v0] Polling: Interval started (every 15 seconds)")
+    }, 5000)
 
     return () => {
       if (heartbeatInterval) {
@@ -419,7 +339,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         clearInterval(pollingInterval)
       }
     }
-  }, [params.deviceCode])
+  }, [params.deviceCode, config, lastUpdatedAt])
 
   useEffect(() => {
     const contentToUse = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
