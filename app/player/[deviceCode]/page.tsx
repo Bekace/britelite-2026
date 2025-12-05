@@ -29,15 +29,15 @@ interface MediaItem {
 interface ScreenConfig {
   device: {
     id: string
-    device_code: string
-    is_paired: boolean
-    screen_id: string
+    code: string
+    name: string
+    orientation: string
+    resolution: string
   }
   screen: {
     id: string
     name: string
-    orientation: string
-    status: string
+    content: MediaItem[]
     playlist: {
       id: string
       name: string
@@ -48,7 +48,7 @@ interface ScreenConfig {
       shuffle?: boolean
       default_transition?: string
     } | null
-    content: MediaItem[]
+    updated_at: string
   }
 }
 
@@ -59,9 +59,7 @@ interface PlayerPageProps {
 export default function PlayerPage({ params }: PlayerPageProps) {
   const [config, setConfig] = useState<ScreenConfig | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [retryCount, setRetryCount] = useState(0)
-  const [maxRetries] = useState(3)
+  const [error, setError] = useState<string | null>(null)
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const [shuffledContent, setShuffledContent] = useState<MediaItem[]>([])
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true)
@@ -73,6 +71,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const [updateProgress, setUpdateProgress] = useState(0)
   const lastUpdatedAtRef = useRef<string | null>(null)
   const [hasPendingUpdate, setHasPendingUpdate] = useState(false)
+  const configRef = useRef<ScreenConfig | null>(null)
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -139,109 +138,57 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const fetchConfig = async () => {
     try {
+      console.log("[v0] Fetching config for:", params.deviceCode)
       const isScreenCode = params.deviceCode.startsWith("SCR-")
+      console.log("[v0] Is screen code:", isScreenCode)
+
       const apiEndpoint = isScreenCode
         ? `/api/screens/config/${params.deviceCode}`
         : `/api/devices/config/${params.deviceCode}`
 
-      console.log("[v0] Fetching config for:", params.deviceCode)
-      console.log("[v0] Is screen code:", isScreenCode)
       console.log("[v0] API endpoint:", apiEndpoint)
 
       const response = await fetch(apiEndpoint, {
         cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-        },
       })
 
       console.log("[v0] Response status:", response.status)
       console.log("[v0] Response ok:", response.ok)
 
       if (!response.ok) {
-        const errorData = await response.json()
-        console.log("[v0] Error response:", errorData)
-        throw new Error(errorData.error || "Failed to fetch configuration")
+        const errorText = await response.text()
+        console.error("[v0] API error response:", errorText)
+        throw new Error(`Failed to fetch config: ${response.status}`)
       }
 
       const data = await response.json()
       console.log("[v0] API response data:", data)
 
-      let configData
-      if (isScreenCode) {
-        console.log("[v0] Processing screen data:", data.screen)
-        configData = {
-          device: {
-            id: `screen-${data.screen.id}`,
-            device_code: params.deviceCode,
-            is_paired: true,
-            screen_id: data.screen.id,
-          },
-          screen: {
-            id: data.screen.id,
-            name: data.screen.name,
-            orientation: data.screen.orientation || "landscape",
-            status: data.screen.status || "active",
-            playlist: {
-              id: `default-${data.screen.id}`,
-              name: "Default Playlist",
-              background_color: data.screen.background_color || "#000000",
-              scale_image: data.screen.scale_image || "fit",
-              scale_video: data.screen.scale_video || "fit",
-              scale_document: "fit",
-              shuffle: data.screen.shuffle || false,
-              default_transition: "fade",
-            },
-            content: data.screen.content || [],
-          },
-        }
-        console.log("[v0] Mapped config data:", configData)
-      } else {
-        configData = data
+      const mappedConfig: ScreenConfig = {
+        device: {
+          id: data.screen.id,
+          code: params.deviceCode,
+          name: data.screen.name,
+          orientation: data.screen.orientation,
+          resolution: data.screen.resolution,
+        },
+        screen: {
+          id: data.screen.id,
+          name: data.screen.name,
+          content: data.screen.content || [],
+          playlist: data.screen.playlist || null,
+          updated_at: data.screen.updated_at,
+        },
       }
 
-      setConfig(configData)
-      setError("")
-      setRetryCount(0)
-      setLoading(false)
+      console.log("[v0] Mapped config data:", mappedConfig)
 
-      if ((data.screen as any).updated_at) {
-        lastUpdatedAtRef.current = (data.screen as any).updated_at
-      }
-
-      if (configData.screen.content && configData.screen.playlist?.shuffle) {
-        setShuffledContent(shuffleArray(configData.screen.content))
-      } else {
-        setShuffledContent(configData.screen.content || [])
-      }
-
-      if (configData.screen.id) {
-        console.log("[v0] Analytics enabled by default for testing, screenId:", configData.screen.id)
-        // fetchAnalyticsSettings(configData.screen.id)
-      }
-
-      if (!isScreenCode) {
-        sendHeartbeat()
-      }
+      setConfig(mappedConfig)
+      configRef.current = mappedConfig
+      setHasPendingUpdate(false)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to load configuration"
-      setError(errorMessage)
-
-      if (retryCount < maxRetries) {
-        const nextRetryCount = retryCount + 1
-        setRetryCount(nextRetryCount)
-
-        if (nextRetryCount < maxRetries && !errorMessage.includes("not found")) {
-          setTimeout(() => {
-            fetchConfig()
-          }, Math.pow(2, retryCount) * 1000)
-        } else {
-          setLoading(false)
-        }
-      } else {
-        setLoading(false)
-      }
+      console.error("[v0] Error fetching config:", err)
+      setError(err instanceof Error ? err.message : "Failed to load configuration")
     }
   }
 
@@ -285,7 +232,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     fetchConfig()
 
     const checkForUpdates = async () => {
-      if (!config) {
+      if (!configRef.current) {
         console.log("[v0] Polling: No config yet, skipping check")
         return
       }
@@ -363,9 +310,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [config])
 
   const handleRetry = () => {
-    setRetryCount(0)
     setLoading(true)
-    setError("")
+    setError(null)
     fetchConfig()
   }
 
@@ -558,21 +504,15 @@ export default function PlayerPage({ params }: PlayerPageProps) {
             <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
             <h2 className="text-xl font-semibold text-destructive">Connection Failed</h2>
             <p className="text-muted-foreground">Screen configuration not found</p>
-            {retryCount > 0 && <p className="text-sm text-muted-foreground">Failed after {retryCount} attempts</p>}
-            <div className="space-y-2">
-              {retryCount < maxRetries ? (
-                <Button onClick={handleRetry} className="w-full">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Retry Connection ({maxRetries - retryCount} attempts left)
-                </Button>
-              ) : (
-                <p className="text-sm text-destructive">Maximum retry attempts reached</p>
-              )}
-              <Button onClick={handleBackToSetup} variant="outline" className="w-full bg-transparent">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Setup
-              </Button>
-            </div>
+            {error && <p className="text-sm text-muted-foreground">{error}</p>}
+            <Button onClick={handleRetry} className="w-full">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry Connection
+            </Button>
+            <Button onClick={handleBackToSetup} variant="outline" className="w-full bg-transparent">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Setup
+            </Button>
           </CardContent>
         </Card>
       </div>
