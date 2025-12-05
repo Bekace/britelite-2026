@@ -164,6 +164,21 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       const data = await response.json()
       console.log("[v0] API response data:", data)
 
+      if (data.screen?.content) {
+        console.log("[v0] Content array length:", data.screen.content.length)
+        console.log("[v0] Content items:", data.screen.content)
+        data.screen.content.forEach((item: any, index: number) => {
+          console.log(`[v0] Content item ${index}:`, {
+            id: item.id,
+            type: item.media?.type,
+            name: item.media?.name,
+            url: item.media?.url,
+          })
+        })
+      } else {
+        console.log("[v0] No content array in response!")
+      }
+
       const mappedConfig: ScreenConfig = {
         device: {
           id: data.screen.id,
@@ -185,6 +200,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
       setConfig(mappedConfig)
       configRef.current = mappedConfig
+
+      if (mappedConfig.screen?.updated_at) {
+        lastUpdatedAtRef.current = mappedConfig.screen.updated_at
+      }
+
       setLoading(false)
       setHasPendingUpdate(false)
     } catch (err) {
@@ -580,6 +600,18 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const { screen } = config
   const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : screen.content || []
   const currentMedia = contentToDisplay[currentMediaIndex]
+
+  console.log("[v0] Rendering player with:", {
+    totalContent: contentToDisplay.length,
+    currentIndex: currentMediaIndex,
+    currentMedia: currentMedia
+      ? {
+          id: currentMedia.id,
+          type: currentMedia.media?.type,
+          name: currentMedia.media?.name,
+        }
+      : null,
+  })
 
   console.log("[v0] Player page render - Analytics component conditions:", {
     hasScreenId: !!config?.screen.id,
