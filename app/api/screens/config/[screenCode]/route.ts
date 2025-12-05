@@ -39,6 +39,10 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
     if (screenMedia && screenMedia.length > 0) {
       const mediaContent = screenMedia.map((sm: any) => ({
         id: sm.media.id,
+        name: sm.media.name,
+        type: sm.media.content_type,
+        url: sm.media.file_url,
+        thumbnail: sm.media.thumbnail_url,
         media: sm.media,
         duration_override: 10,
         transition_type: "fade",
@@ -67,7 +71,12 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
           const playlistContent = sp.playlist.playlist_items
             .sort((a: any, b: any) => a.position - b.position)
             .map((item: any) => ({
-              ...item,
+              id: item.media.id,
+              name: item.media.name,
+              type: item.media.content_type,
+              url: item.media.file_url,
+              thumbnail: item.media.thumbnail_url,
+              media: item.media,
               duration_override: item.duration_override || sp.playlist.default_duration || 10,
               transition_type: item.transition_type || sp.playlist.transition_type || "fade",
               transition_duration: item.transition_duration || sp.playlist.transition_duration || 0.8,
