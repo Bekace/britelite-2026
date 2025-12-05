@@ -1,7 +1,6 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import type React from "react"
-
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, AlertCircle, RefreshCw, ArrowLeft, Settings } from "lucide-react"
@@ -53,7 +52,11 @@ interface ScreenConfig {
   }
 }
 
-export default function ContentPlayerPage({ params }: { params: { deviceCode: string } }) {
+interface PlayerPageProps {
+  params: { deviceCode: string }
+}
+
+export default function PlayerPage({ params }: PlayerPageProps) {
   const [config, setConfig] = useState<ScreenConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -68,7 +71,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [showRightPanel, setShowRightPanel] = useState(false)
   const [pendingUpdate, setPendingUpdate] = useState<ScreenConfig | null>(null)
   const [updateProgress, setUpdateProgress] = useState(0)
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
+  const lastUpdatedAtRef = useRef<string | null>(null)
   const [hasPendingUpdate, setHasPendingUpdate] = useState(false)
 
   const { isTVMode } = useTVNavigation({
@@ -204,7 +207,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       setLoading(false)
 
       if ((data.screen as any).updated_at) {
-        setLastUpdatedAt((data.screen as any).updated_at)
+        lastUpdatedAtRef.current = (data.screen as any).updated_at
       }
 
       if (configData.screen.content && configData.screen.playlist?.shuffle) {
@@ -289,7 +292,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
       try {
         console.log("[v0] Polling: Checking for updates...")
-        console.log("[v0] Polling: Current lastUpdatedAt:", lastUpdatedAt)
+        console.log("[v0] Polling: Current lastUpdatedAt:", lastUpdatedAtRef.current)
 
         const isScreenCode = params.deviceCode.startsWith("SCR-")
         const apiEndpoint = isScreenCode
@@ -306,12 +309,12 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
           console.log("[v0] Polling: New updated_at from API:", newUpdatedAt)
 
-          if (newUpdatedAt && lastUpdatedAt && newUpdatedAt !== lastUpdatedAt) {
+          if (newUpdatedAt && lastUpdatedAtRef.current && newUpdatedAt !== lastUpdatedAtRef.current) {
             console.log("[v0] Polling: Update detected! Queueing refresh...")
             setHasPendingUpdate(true)
-          } else {
-            console.log("[v0] Polling: No updates detected")
           }
+
+          lastUpdatedAtRef.current = newUpdatedAt
         }
       } catch (error) {
         console.error("[v0] Polling: Error checking for updates:", error)
@@ -328,7 +331,6 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
     setTimeout(() => {
       pollingInterval = setInterval(checkForUpdates, 15000)
-      console.log("[v0] Polling: Interval started (every 15 seconds)")
     }, 5000)
 
     return () => {
@@ -339,63 +341,26 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         clearInterval(pollingInterval)
       }
     }
-  }, [params.deviceCode, config, lastUpdatedAt])
+  }, [params.deviceCode])
 
   useEffect(() => {
-    const contentToUse = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+    if (!config) return
 
-    if (contentToUse.length === 0) {
-      setCurrentMediaIndex(0)
-      return
+    if (config.screen?.updated_at) {
+      lastUpdatedAtRef.current = config.screen.updated_at
     }
 
-    if (contentToUse.length === 1) {
-      return
+    if (config.screen.content && config.screen.playlist?.shuffle) {
+      setShuffledContent(shuffleArray(config.screen.content))
+    } else {
+      setShuffledContent(config.screen.content || [])
     }
 
-    const currentMedia = contentToUse[currentMediaIndex]
-    if (!currentMedia) {
-      setCurrentMediaIndex(0)
-      return
+    if (config.screen.id) {
+      console.log("[v0] Analytics enabled by default for testing, screenId:", config.screen.id)
+      // fetchAnalyticsSettings(config.screen.id)
     }
-
-    const duration = (currentMedia.duration_override || currentMedia.media.duration || 10) * 1000
-
-    if (pendingUpdate) {
-      const progressInterval = setInterval(() => {
-        setUpdateProgress((prev) => Math.min(prev + 100 / (duration / 100), 100))
-      }, 100)
-
-      const timer = setTimeout(() => {
-        clearInterval(progressInterval)
-        // Apply pending update when media finishes
-        console.log("[v0] Applying pending content update")
-        setConfig(pendingUpdate)
-        if (pendingUpdate.screen.content && pendingUpdate.screen.playlist?.shuffle) {
-          setShuffledContent(shuffleArray(pendingUpdate.screen.content))
-        } else {
-          setShuffledContent(pendingUpdate.screen.content || [])
-        }
-        setPendingUpdate(null)
-        setUpdateProgress(0)
-        setCurrentMediaIndex(0)
-      }, duration)
-
-      return () => {
-        clearTimeout(timer)
-        clearInterval(progressInterval)
-      }
-    }
-
-    const timer = setTimeout(() => {
-      setCurrentMediaIndex((prev) => {
-        const nextIndex = prev + 1
-        return nextIndex >= contentToUse.length ? 0 : nextIndex
-      })
-    }, duration)
-
-    return () => clearTimeout(timer)
-  }, [currentMediaIndex, shuffledContent, config?.screen.content, pendingUpdate])
+  }, [config])
 
   const handleRetry = () => {
     setRetryCount(0)
@@ -565,6 +530,10 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
     } else if (e.clientX < windowWidth - rightPanelWidth) {
       setShowRightPanel(false)
     }
+  }
+
+  const setLastUpdatedAt = (updatedAt: string | null) => {
+    lastUpdatedAtRef.current = updatedAt
   }
 
   if (loading) {
