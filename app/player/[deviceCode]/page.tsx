@@ -185,10 +185,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
       setConfig(mappedConfig)
       configRef.current = mappedConfig
+      setLoading(false)
       setHasPendingUpdate(false)
     } catch (err) {
       console.error("[v0] Error fetching config:", err)
       setError(err instanceof Error ? err.message : "Failed to load configuration")
+      setLoading(false)
     }
   }
 
@@ -308,6 +310,26 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       // fetchAnalyticsSettings(config.screen.id)
     }
   }, [config])
+
+  useEffect(() => {
+    if (hasPendingUpdate) {
+      console.log("[v0] Pending update detected, will refresh when media finishes")
+      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
+
+      // Check if we're at the end of a media cycle to apply the update
+      const handleMediaEnd = () => {
+        console.log("[v0] Applying pending update now...")
+        fetchConfig()
+      }
+
+      // Queue the update to happen when current media index changes
+      const timer = setTimeout(() => {
+        handleMediaEnd()
+      }, 1000) // Small delay to allow current media transition
+
+      return () => clearTimeout(timer)
+    }
+  }, [hasPendingUpdate, currentMediaIndex])
 
   const handleRetry = () => {
     setLoading(true)
