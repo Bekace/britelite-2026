@@ -278,9 +278,15 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   }
 
   const checkForUpdates = async () => {
-    if (!config) return
+    if (!config) {
+      console.log("[v0] Polling: No config yet, skipping check")
+      return
+    }
 
     try {
+      console.log("[v0] Polling: Checking for updates...")
+      console.log("[v0] Polling: Current lastUpdatedAt:", lastUpdatedAt)
+
       const isScreenCode = params.deviceCode.startsWith("SCR-")
       const apiEndpoint = isScreenCode
         ? `/api/screens/config/${params.deviceCode}`
@@ -294,11 +300,16 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         },
       })
 
-      if (!response.ok) return
+      if (!response.ok) {
+        console.log("[v0] Polling: Response not OK, status:", response.status)
+        return
+      }
 
       const data = await response.json()
 
       const newUpdatedAt = (data.screen as any).updated_at
+      console.log("[v0] Polling: Fetched new timestamp:", newUpdatedAt)
+
       if (lastUpdatedAt && newUpdatedAt && newUpdatedAt !== lastUpdatedAt) {
         console.log("[v0] Content update detected via timestamp change")
         console.log("[v0] Old timestamp:", lastUpdatedAt)
@@ -339,6 +350,8 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         setPendingUpdate(newConfigData)
         setUpdateProgress(0)
         return
+      } else {
+        console.log("[v0] Polling: No update detected (timestamps match or missing)")
       }
 
       let newConfigData
@@ -380,8 +393,8 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         setPendingUpdate(newConfigData)
         setUpdateProgress(0)
       }
-    } catch (err) {
-      console.log("[v0] Update check failed:", err)
+    } catch (error) {
+      console.error("[v0] Polling error:", error)
     }
   }
 
