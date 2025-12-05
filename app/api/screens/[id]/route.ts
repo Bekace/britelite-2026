@@ -67,6 +67,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const requestData = await request.json()
     const { name, location, resolution, orientation, selectedContentIds } = requestData
 
+    console.log("[v0] Screen update request:")
+    console.log(`[v0] - Screen ID: ${params.id}`)
+    console.log(`[v0] - Selected content IDs:`, selectedContentIds)
+
     const updateData: any = {
       name,
       location,
@@ -76,8 +80,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     if (selectedContentIds && Array.isArray(selectedContentIds)) {
-      await supabase.from("screen_playlists").delete().eq("screen_id", params.id)
-      await supabase.from("screen_media").delete().eq("screen_id", params.id)
+      const { error: deletePlaylistsError } = await supabase
+        .from("screen_playlists")
+        .delete()
+        .eq("screen_id", params.id)
+      const { error: deleteMediaError } = await supabase.from("screen_media").delete().eq("screen_id", params.id)
+
+      console.log("[v0] - Deleted existing assignments")
+      if (deletePlaylistsError) console.error("[v0] - Error deleting playlists:", deletePlaylistsError)
+      if (deleteMediaError) console.error("[v0] - Error deleting media:", deleteMediaError)
 
       if (selectedContentIds.length === 0) {
         updateData.media_id = null
@@ -92,13 +103,24 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         const playlistIds = playlists?.map((p) => p.id) || []
         const mediaIds = selectedContentIds.filter((id) => !playlistIds.includes(id))
 
+        console.log(`[v0] - Detected ${playlistIds.length} playlists`)
+        console.log(`[v0] - Detected ${mediaIds.length} media assets`)
+        console.log(`[v0] - Playlist IDs:`, playlistIds)
+        console.log(`[v0] - Media IDs:`, mediaIds)
+
         if (playlistIds.length > 0) {
           const playlistAssignments = playlistIds.map((playlistId) => ({
             screen_id: params.id,
             playlist_id: playlistId,
             is_active: true,
           }))
-          await supabase.from("screen_playlists").insert(playlistAssignments)
+          const { data: insertedPlaylists, error: playlistInsertError } = await supabase
+            .from("screen_playlists")
+            .insert(playlistAssignments)
+            .select()
+
+          console.log(`[v0] - Inserted ${insertedPlaylists?.length || 0} playlist assignments`)
+          if (playlistInsertError) console.error("[v0] - Error inserting playlists:", playlistInsertError)
         }
 
         if (mediaIds.length > 0) {
@@ -106,7 +128,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             screen_id: params.id,
             media_id: mediaId,
           }))
-          await supabase.from("screen_media").insert(mediaAssignments)
+          const { data: insertedMedia, error: mediaInsertError } = await supabase
+            .from("screen_media")
+            .insert(mediaAssignments)
+            .select()
+
+          console.log(`[v0] - Inserted ${insertedMedia?.length || 0} media assignments`)
+          if (mediaInsertError) console.error("[v0] - Error inserting media:", mediaInsertError)
         }
 
         if (playlistIds.length > 0 && mediaIds.length > 0) {
