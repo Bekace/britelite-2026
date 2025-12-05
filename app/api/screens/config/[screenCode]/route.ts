@@ -60,7 +60,6 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         )
       `)
       .eq("screen_id", screen.id)
-      .eq("is_active", true)
 
     if (screenPlaylists && screenPlaylists.length > 0) {
       screenPlaylists.forEach((sp: any) => {
@@ -83,6 +82,15 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
             screen.shuffle = sp.playlist.shuffle || false
           }
         }
+      })
+    }
+
+    console.log(`[v0] Screen ${screenCode}: Found ${content.length} content items`)
+    console.log(`[v0] - Direct media: ${screenMedia?.length || 0}`)
+    console.log(`[v0] - Playlists: ${screenPlaylists?.length || 0}`)
+    if (screenPlaylists && screenPlaylists.length > 0) {
+      screenPlaylists.forEach((sp: any, index: number) => {
+        console.log(`[v0]   - Playlist ${index + 1}: ${sp.playlist?.playlist_items?.length || 0} items`)
       })
     }
 
