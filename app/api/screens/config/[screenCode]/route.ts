@@ -36,18 +36,28 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       `)
       .eq("screen_id", screen.id)
 
+    console.log(`[v0] Raw screenMedia from DB:`, JSON.stringify(screenMedia, null, 2))
+
     if (screenMedia && screenMedia.length > 0) {
-      const mediaContent = screenMedia.map((sm: any) => ({
-        id: sm.media.id,
-        name: sm.media.name,
-        type: sm.media.content_type,
-        url: sm.media.file_url,
-        thumbnail: sm.media.thumbnail_url,
-        media: sm.media,
-        duration_override: 10,
-        transition_type: "fade",
-        transition_duration: 0.8,
-      }))
+      const mediaContent = screenMedia.map((sm: any) => {
+        console.log(`[v0] Processing direct media:`, {
+          id: sm.media?.id,
+          name: sm.media?.name,
+          content_type: sm.media?.content_type,
+          file_url: sm.media?.file_url,
+        })
+        return {
+          id: sm.media.id,
+          name: sm.media.name,
+          type: sm.media.content_type,
+          url: sm.media.file_url,
+          thumbnail: sm.media.thumbnail_url,
+          media: sm.media,
+          duration_override: 10,
+          transition_type: "fade",
+          transition_duration: 0.8,
+        }
+      })
       content.push(...mediaContent)
     }
 
@@ -65,22 +75,32 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       `)
       .eq("screen_id", screen.id)
 
+    console.log(`[v0] Raw screenPlaylists from DB:`, JSON.stringify(screenPlaylists, null, 2))
+
     if (screenPlaylists && screenPlaylists.length > 0) {
       screenPlaylists.forEach((sp: any) => {
         if (sp.playlist?.playlist_items) {
           const playlistContent = sp.playlist.playlist_items
             .sort((a: any, b: any) => a.position - b.position)
-            .map((item: any) => ({
-              id: item.media.id,
-              name: item.media.name,
-              type: item.media.content_type,
-              url: item.media.file_url,
-              thumbnail: item.media.thumbnail_url,
-              media: item.media,
-              duration_override: item.duration_override || sp.playlist.default_duration || 10,
-              transition_type: item.transition_type || sp.playlist.transition_type || "fade",
-              transition_duration: item.transition_duration || sp.playlist.transition_duration || 0.8,
-            }))
+            .map((item: any) => {
+              console.log(`[v0] Processing playlist item:`, {
+                id: item.media?.id,
+                name: item.media?.name,
+                content_type: item.media?.content_type,
+                file_url: item.media?.file_url,
+              })
+              return {
+                id: item.media.id,
+                name: item.media.name,
+                type: item.media.content_type,
+                url: item.media.file_url,
+                thumbnail: item.media.thumbnail_url,
+                media: item.media,
+                duration_override: item.duration_override || sp.playlist.default_duration || 10,
+                transition_type: item.transition_type || sp.playlist.transition_type || "fade",
+                transition_duration: item.transition_duration || sp.playlist.transition_duration || 0.8,
+              }
+            })
           content.push(...playlistContent)
 
           // Apply first playlist settings to screen
