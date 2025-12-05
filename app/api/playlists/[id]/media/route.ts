@@ -66,6 +66,18 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: "Failed to add media to playlist" }, { status: 500 })
     }
 
+    await supabase.from("playlists").update({ updated_at: new Date().toISOString() }).eq("id", params.id)
+
+    const { data: screenPlaylists } = await supabase
+      .from("screen_playlists")
+      .select("screen_id")
+      .eq("playlist_id", params.id)
+
+    if (screenPlaylists && screenPlaylists.length > 0) {
+      const screenIds = screenPlaylists.map((sp) => sp.screen_id)
+      await supabase.from("screens").update({ updated_at: new Date().toISOString() }).in("id", screenIds)
+    }
+
     return NextResponse.json({ playlistItem })
   } catch (error) {
     console.error("Error adding media to playlist:", error)
@@ -136,6 +148,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Failed to update playlist item" }, { status: 500 })
     }
 
+    await supabase.from("playlists").update({ updated_at: new Date().toISOString() }).eq("id", params.id)
+
+    const { data: screenPlaylists } = await supabase
+      .from("screen_playlists")
+      .select("screen_id")
+      .eq("playlist_id", params.id)
+
+    if (screenPlaylists && screenPlaylists.length > 0) {
+      const screenIds = screenPlaylists.map((sp) => sp.screen_id)
+      await supabase.from("screens").update({ updated_at: new Date().toISOString() }).in("id", screenIds)
+    }
+
     return NextResponse.json({ playlistItem: updatedItem })
   } catch (error) {
     console.error("Error updating playlist item:", error)
@@ -188,6 +212,18 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     if (deleteError) {
       console.error("Database error:", deleteError)
       return NextResponse.json({ error: "Failed to delete playlist item" }, { status: 500 })
+    }
+
+    await supabase.from("playlists").update({ updated_at: new Date().toISOString() }).eq("id", params.id)
+
+    const { data: screenPlaylists } = await supabase
+      .from("screen_playlists")
+      .select("screen_id")
+      .eq("playlist_id", params.id)
+
+    if (screenPlaylists && screenPlaylists.length > 0) {
+      const screenIds = screenPlaylists.map((sp) => sp.screen_id)
+      await supabase.from("screens").update({ updated_at: new Date().toISOString() }).in("id", screenIds)
     }
 
     return NextResponse.json({ success: true })
