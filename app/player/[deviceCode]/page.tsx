@@ -68,6 +68,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
   const [showRightPanel, setShowRightPanel] = useState(false)
   const [pendingUpdate, setPendingUpdate] = useState<ScreenConfig | null>(null)
   const [updateProgress, setUpdateProgress] = useState(0)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null)
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -201,6 +202,10 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       setRetryCount(0)
       setLoading(false)
 
+      if ((data.screen as any).updated_at) {
+        setLastUpdatedAt((data.screen as any).updated_at)
+      }
+
       if (configData.screen.content && configData.screen.playlist?.shuffle) {
         setShuffledContent(shuffleArray(configData.screen.content))
       } else {
@@ -293,6 +298,49 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
 
       const data = await response.json()
 
+      const newUpdatedAt = (data.screen as any).updated_at
+      if (lastUpdatedAt && newUpdatedAt && newUpdatedAt !== lastUpdatedAt) {
+        console.log("[v0] Content update detected via timestamp change")
+        console.log("[v0] Old timestamp:", lastUpdatedAt)
+        console.log("[v0] New timestamp:", newUpdatedAt)
+
+        let newConfigData
+        if (isScreenCode) {
+          newConfigData = {
+            device: {
+              id: `screen-${data.screen.id}`,
+              device_code: params.deviceCode,
+              is_paired: true,
+              screen_id: data.screen.id,
+            },
+            screen: {
+              id: data.screen.id,
+              name: data.screen.name,
+              orientation: data.screen.orientation || "landscape",
+              status: data.screen.status || "active",
+              playlist: {
+                id: `default-${data.screen.id}`,
+                name: "Default Playlist",
+                background_color: data.screen.background_color || "#000000",
+                scale_image: data.screen.scale_image || "fit",
+                scale_video: data.screen.scale_video || "fit",
+                scale_document: "fit",
+                shuffle: data.screen.shuffle || false,
+                default_transition: "fade",
+              },
+              content: data.screen.content || [],
+            },
+          }
+        } else {
+          newConfigData = data
+        }
+
+        setLastUpdatedAt(newUpdatedAt)
+        setPendingUpdate(newConfigData)
+        setUpdateProgress(0)
+        return
+      }
+
       let newConfigData
       if (isScreenCode) {
         newConfigData = {
@@ -324,12 +372,11 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
         newConfigData = data
       }
 
-      // Check if content has changed
       const currentContentHash = JSON.stringify(config.screen.content)
       const newContentHash = JSON.stringify(newConfigData.screen.content)
 
       if (currentContentHash !== newContentHash) {
-        console.log("[v0] Content update detected, queuing for next media transition")
+        console.log("[v0] Content update detected via hash comparison")
         setPendingUpdate(newConfigData)
         setUpdateProgress(0)
       }
@@ -349,8 +396,7 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
       heartbeatInterval = setInterval(sendHeartbeat, 30000)
     }
 
-    // Poll for updates every 30 seconds
-    pollingInterval = setInterval(checkForUpdates, 30000)
+    pollingInterval = setInterval(checkForUpdates, 15000)
 
     return () => {
       if (heartbeatInterval) {
@@ -698,7 +744,6 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
           TV Mode
         </div>
       )}
-
       <div
         className={`fixed left-0 top-0 h-full w-64 bg-black/80 backdrop-blur-sm border-r border-white/20 z-50 transition-transform duration-300 ease-in-out ${
           showLeftPanel ? "translate-x-0" : "-translate-x-full"
@@ -716,7 +761,6 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
           </Button>
         </div>
       </div>
-
       <div
         className={`fixed right-0 top-0 h-full w-96 bg-black/80 backdrop-blur-sm border-l border-white/20 z-50 transition-transform duration-300 ease-in-out ${
           showRightPanel ? "translate-x-0" : "translate-x-full"
@@ -737,7 +781,6 @@ export default function ContentPlayerPage({ params }: { params: { deviceCode: st
           )}
         </div>
       </div>
-
       {contentToDisplay && contentToDisplay.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
           {currentMedia && (

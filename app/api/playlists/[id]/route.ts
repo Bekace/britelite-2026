@@ -58,10 +58,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const { name, description } = await request.json()
 
-    // Update playlist
     const { data: playlist, error: updateError } = await supabase
       .from("playlists")
-      .update({ name, description })
+      .update({
+        name,
+        description,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", params.id)
       .select()
       .single()
@@ -69,6 +72,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (updateError) {
       console.error("Database error:", updateError)
       return NextResponse.json({ error: "Failed to update playlist" }, { status: 500 })
+    }
+
+    const { data: screenPlaylists } = await supabase
+      .from("screen_playlists")
+      .select("screen_id")
+      .eq("playlist_id", params.id)
+
+    if (screenPlaylists && screenPlaylists.length > 0) {
+      const screenIds = screenPlaylists.map((sp) => sp.screen_id)
+      await supabase.from("screens").update({ updated_at: new Date().toISOString() }).in("id", screenIds)
     }
 
     return NextResponse.json({ playlist })
@@ -86,7 +99,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
     }
 
-    // Check authentication
     const {
       data: { user },
       error: authError,
@@ -98,7 +110,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const { background_color, scale_image, scale_video, scale_document, shuffle, default_transition } =
       await request.json()
 
-    // Build update object with only provided fields
     const updateData: any = {}
     if (background_color !== undefined) updateData.background_color = background_color
     if (scale_image !== undefined) updateData.scale_image = scale_image
@@ -107,7 +118,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (shuffle !== undefined) updateData.shuffle = shuffle
     if (default_transition !== undefined) updateData.default_transition = default_transition
 
-    // Update playlist with new settings
+    updateData.updated_at = new Date().toISOString()
+
     const { data: playlist, error: updateError } = await supabase
       .from("playlists")
       .update(updateData)
@@ -119,6 +131,16 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (updateError) {
       console.error("Database error:", updateError)
       return NextResponse.json({ error: "Failed to update playlist settings" }, { status: 500 })
+    }
+
+    const { data: screenPlaylists } = await supabase
+      .from("screen_playlists")
+      .select("screen_id")
+      .eq("playlist_id", params.id)
+
+    if (screenPlaylists && screenPlaylists.length > 0) {
+      const screenIds = screenPlaylists.map((sp) => sp.screen_id)
+      await supabase.from("screens").update({ updated_at: new Date().toISOString() }).in("id", screenIds)
     }
 
     return NextResponse.json({ playlist })
