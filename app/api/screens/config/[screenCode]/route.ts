@@ -23,48 +23,46 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       .single()
 
     if (screenError || !screen) {
+      console.error(`[v0] Screen not found:`, screenError)
       return NextResponse.json({ error: "Screen not found" }, { status: 404 })
     }
+
+    console.log(`[v0] Screen ${screenCode}: content_type = ${screen.content_type}`)
 
     let content: any[] = []
 
     if (screen.content_type === "asset") {
-      // Fetch direct media assignments
-      const { data: screenMedia } = await supabase
-        .from("screen_media")
-        .select(`
-          id,
-          media_id,
-          screen_id,
-          media (*)
-        `)
-        .eq("screen_id", screen.id)
+      // Fetch direct media assignments using raw SQL
+      const { data: mediaItems, error: mediaError } = await supabase.rpc("get_screen_media", {
+        p_screen_id: screen.id,
+      })
 
-      console.log(`[v0] Raw screenMedia from DB:`, JSON.stringify(screenMedia, null, 2))
+      // Fallback to regular query if RPC doesn't exist
+      if (mediaError) {
+        console.log(`[v0] RPC not available, using regular query`)
+        const { data: screenMedia } = await supabase
+          .from("screen_media")
+          .select("id, media_id, screen_id")
+          .eq("screen_id", screen.id)
 
-      if (screenMedia && screenMedia.length > 0) {
-        const mediaContent = screenMedia
-          .filter((sm: any) => sm.media) // Filter out items without media
-          .map((sm: any) => {
-            console.log(`[v0] Processing direct media:`, {
-              id: sm.media?.id,
-              name: sm.media?.name,
-              mime_type: sm.media?.mime_type,
-              file_path: sm.media?.file_path,
-            })
-            return {
-              id: sm.media.id,
-              name: sm.media.name,
-              type: sm.media.mime_type,
-              url: sm.media.file_path,
-              thumbnail: sm.media.thumbnail_path,
-              media: sm.media,
+        if (screenMedia && screenMedia.length > 0) {
+          const mediaIds = screenMedia.map((sm) => sm.media_id)
+          const { data: mediaData } = await supabase.from("media").select("*").in("id", mediaIds)
+
+          if (mediaData) {
+            content = mediaData.map((media: any) => ({
+              id: media.id,
+              name: media.name,
+              type: media.mime_type,
+              url: media.file_path,
+              thumbnail: media.thumbnail_path,
+              media: media,
               duration_override: 10,
               transition_type: "fade",
               transition_duration: 0.8,
-            }
-          })
-        content.push(...mediaContent)
+            }))
+          }
+        }
       }
     } else if (screen.content_type === "playlist") {
       const { data: screenPlaylists } = await supabase
@@ -72,65 +70,79 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         .select("playlist_id")
         .eq("screen_id", screen.id)
 
-      console.log(`[v0] Found ${screenPlaylists?.length || 0} playlist assignments`)
+      console.log(`[v0] Found ${screenPlaylists?.length || 0} playlist assignments for screen ${screen.id}`)
 
       if (screenPlaylists && screenPlaylists.length > 0) {
         const playlistId = screenPlaylists[0].playlist_id
+        console.log(`[v0] Fetching items for playlist ${playlistId}`)
 
+        // First get playlist item IDs and their media IDs
         const { data: playlistItems, error: itemsError } = await supabase
           .from("playlist_items")
-          .select(`
-            id,
-            position,
-            duration_override,
-            transition_type,
-            transition_duration,
-            media_id,
-            media (
-              id,
-              name,
-              mime_type,
-              file_path,
-              thumbnail_path
-            )
-          `)
+          .select("id, position, duration_override, transition_type, transition_duration, media_id")
           .eq("playlist_id", playlistId)
           .order("position")
 
-        console.log(`[v0] Raw playlist items from DB:`, JSON.stringify(playlistItems, null, 2))
+        console.log(`[v0] Found ${playlistItems?.length || 0} playlist items`)
 
         if (itemsError) {
           console.error(`[v0] Error fetching playlist items:`, itemsError)
         }
 
         if (playlistItems && playlistItems.length > 0) {
-          const playlistContent = playlistItems
-            .filter((item: any) => item.media) // Filter out items without media
-            .map((item: any) => {
-              console.log(`[v0] Processing playlist item:`, {
-                id: item.media?.id,
-                name: item.media?.name,
-                mime_type: item.media?.mime_type,
-                file_path: item.media?.file_path,
+          // Then fetch the media data separately
+          const mediaIds = playlistItems.map((item) => item.media_id).filter(Boolean)
+          console.log(`[v0] Fetching media for IDs:`, mediaIds)
+
+          const { data: mediaData, error: mediaError } = await supabase.from("media").select("*").in("id", mediaIds)
+
+          console.log(`[v0] Found ${mediaData?.length || 0} media items`)
+
+          if (mediaError) {
+            console.error(`[v0] Error fetching media:`, mediaError)
+          }
+
+          if (mediaData) {
+            // Create a map for quick media lookup
+            const mediaMap = new Map(mediaData.map((m) => [m.id, m]))
+
+            // Combine playlist items with their media data
+            content = playlistItems
+              .map((item: any) => {
+                const media = mediaMap.get(item.media_id)
+                if (!media) {
+                  console.log(`[v0] No media found for item ${item.id} with media_id ${item.media_id}`)
+                  return null
+                }
+
+                console.log(`[v0] Adding item: ${media.name} (${media.mime_type})`)
+
+                return {
+                  id: media.id,
+                  name: media.name,
+                  type: media.mime_type,
+                  url: media.file_path,
+                  thumbnail: media.thumbnail_path,
+                  media: media,
+                  duration_override: item.duration_override || 10,
+                  transition_type: item.transition_type || "fade",
+                  transition_duration: item.transition_duration || 0.8,
+                }
               })
-              return {
-                id: item.media.id,
-                name: item.media.name,
-                type: item.media.mime_type,
-                url: item.media.file_path,
-                thumbnail: item.media.thumbnail_path,
-                media: item.media,
-                duration_override: item.duration_override || 10,
-                transition_type: item.transition_type || "fade",
-                transition_duration: item.transition_duration || 0.8,
-              }
-            })
-          content.push(...playlistContent)
+              .filter(Boolean) // Remove nulls
+          }
         }
       }
     }
 
-    console.log(`[v0] Screen ${screenCode}: Found ${content.length} content items (type: ${screen.content_type})`)
+    console.log(
+      `[v0] Final content array for ${screenCode}:`,
+      JSON.stringify(
+        content.map((c) => ({ name: c.name, type: c.type })),
+        null,
+        2,
+      ),
+    )
 
     if (screen.shuffle && content.length > 1) {
       content = content.sort(() => Math.random() - 0.5)
@@ -150,6 +162,7 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       },
     )
   } catch (error) {
+    console.error(`[v0] Config API error:`, error)
     return NextResponse.json({ error: "Server error" }, { status: 500 })
   }
 }
