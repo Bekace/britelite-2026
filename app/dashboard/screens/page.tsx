@@ -1338,7 +1338,7 @@ export default function ScreensPage() {
                               ) : (
                                 <Circle className="h-5 w-5 text-gray-300" />
                               )}
-                              <span className="text-sm font-medium text-primary">{playlist.name}</span>
+                              <span className="text-sm font-medium text-popover">{playlist.name}</span>
                             </div>
                           </div>
                         ))
