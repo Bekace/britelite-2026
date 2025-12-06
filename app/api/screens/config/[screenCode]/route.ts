@@ -30,6 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
     console.log(`[v0] Screen ${screenCode}: content_type = ${screen.content_type}`)
 
     let content: any[] = []
+    let mostRecentUpdate = screen.updated_at
 
     if (screen.content_type === "asset") {
       // Fetch direct media assignments using raw SQL
@@ -76,10 +77,20 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         const playlistId = screenPlaylists[0].playlist_id
         console.log(`[v0] Fetching items for playlist ${playlistId}`)
 
+        const { data: playlistData } = await supabase
+          .from("playlists")
+          .select("updated_at")
+          .eq("id", playlistId)
+          .single()
+
+        if (playlistData?.updated_at && playlistData.updated_at > mostRecentUpdate) {
+          mostRecentUpdate = playlistData.updated_at
+        }
+
         // First get playlist item IDs and their media IDs
         const { data: playlistItems, error: itemsError } = await supabase
           .from("playlist_items")
-          .select("id, position, duration_override, transition_type, transition_duration, media_id")
+          .select("id, position, duration_override, transition_type, transition_duration, media_id, updated_at")
           .eq("playlist_id", playlistId)
           .order("position")
 
@@ -90,17 +101,17 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         }
 
         if (playlistItems && playlistItems.length > 0) {
+          playlistItems.forEach((item) => {
+            if (item.updated_at && item.updated_at > mostRecentUpdate) {
+              mostRecentUpdate = item.updated_at
+            }
+          })
+
           // Then fetch the media data separately
           const mediaIds = playlistItems.map((item) => item.media_id).filter(Boolean)
-          console.log(`[v0] Fetching media for IDs:`, mediaIds)
-
-          const { data: mediaData, error: mediaError } = await supabase.from("media").select("*").in("id", mediaIds)
+          const { data: mediaData } = await supabase.from("media").select("*").in("id", mediaIds)
 
           console.log(`[v0] Found ${mediaData?.length || 0} media items`)
-
-          if (mediaError) {
-            console.error(`[v0] Error fetching media:`, mediaError)
-          }
 
           if (mediaData) {
             // Create a map for quick media lookup
@@ -152,6 +163,7 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       {
         screen: {
           ...screen,
+          updated_at: mostRecentUpdate,
           content,
         },
       },
