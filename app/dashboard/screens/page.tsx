@@ -1332,7 +1332,7 @@ export default function ScreensPage() {
                               )
                             }}
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 text-popover">
                               {editingSelectedContentIds.includes(playlist.id) ? (
                                 <CheckCircle2 className="h-5 w-5 text-cyan-500" />
                               ) : (
