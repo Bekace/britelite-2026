@@ -1391,7 +1391,7 @@ export default function ScreensPage() {
             </div>
 
             {/* Fixed Footer */}
-            <div className="p-6 border-t shrink-0 bg-gray-50/50">
+            <div className="p-6 border-t shrink-0 bg-background">
               <div className="flex justify-end gap-3">
                 <Button
                   variant="outline"
