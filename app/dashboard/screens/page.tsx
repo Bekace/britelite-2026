@@ -72,6 +72,7 @@ interface Screen {
   media_id?: string
   screen_playlists?: { playlist_id: string; is_active: boolean }[]
   screen_media?: { media_id: string; media?: { id: string; name: string } }[] // Added screen_media
+  content_type?: "playlist" | "asset" | "none" // Added content_type
 }
 
 interface Playlist {
@@ -873,7 +874,8 @@ export default function ScreensPage() {
   const handleUpdateScreen = async () => {
     if (!editingScreen) return
 
-    console.log("[v0] handleUpdateScreen - editingSelectedContentIds:", editingSelectedContentIds)
+    console.log("[v0] handleUpdateScreen - content type:", editingContentType)
+    console.log("[v0] handleUpdateScreen - selectedContentIds:", editingSelectedContentIds)
 
     setUpdating(true)
     try {
@@ -886,6 +888,7 @@ export default function ScreensPage() {
         },
         body: JSON.stringify({
           ...editingScreen,
+          content_type: editingContentType,
           selectedContentIds: editingSelectedContentIds,
         }),
       })
@@ -967,6 +970,17 @@ export default function ScreensPage() {
     console.log("[v0] openEditDialog - screen.media_id:", screen.media_id)
 
     setEditingScreen(screen)
+
+    // Determine the initial content_type based on existing assignments
+    if (screen.screen_playlists && screen.screen_playlists.length > 0) {
+      setEditingContentType("playlist")
+    } else if (screen.screen_media && screen.screen_media.length > 0) {
+      setEditingContentType("asset")
+    } else if (screen.media_id) {
+      setEditingContentType("asset")
+    } else {
+      setEditingContentType("playlist") // Default to playlist if unsure
+    }
 
     const selectedIds: string[] = []
 
@@ -1306,86 +1320,108 @@ export default function ScreensPage() {
                 <div className="space-y-4 border-t pt-4">
                   <Label className="text-base font-semibold">Assigned Content</Label>
 
-                  {/* Playlists Section */}
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold flex items-center gap-2">
-                      <PlayCircle className="h-4 w-4 text-cyan-500" />
+                  {/* Content Type Selection */}
+                  <div className="flex gap-4">
+                    <Button
+                      variant={editingContentType === "playlist" ? "default" : "outline"}
+                      className={editingContentType === "playlist" ? "bg-cyan-500 hover:bg-cyan-600" : ""}
+                      onClick={() => setEditingContentType("playlist")}
+                    >
                       Playlists
-                    </h4>
-                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
-                      {playlists.length === 0 ? (
-                        <p className="text-sm text-gray-500 text-center py-4">No playlists available</p>
-                      ) : (
-                        playlists.map((playlist) => (
-                          <div
-                            key={playlist.id}
-                            className={`p-3 rounded-lg cursor-pointer transition-all bg-[rgba(142,142,148,1)] ${
-                              editingSelectedContentIds.includes(playlist.id)
-                                ? "bg-cyan-50 ring-2 ring-cyan-500"
-                                : "bg-white hover:bg-gray-50"
-                            }`}
-                            onClick={() => {
-                              setEditingSelectedContentIds((prev) =>
-                                prev.includes(playlist.id)
-                                  ? prev.filter((id) => id !== playlist.id)
-                                  : [...prev, playlist.id],
-                              )
-                            }}
-                          >
-                            <div className="flex items-center gap-3 text-popover">
-                              {editingSelectedContentIds.includes(playlist.id) ? (
-                                <CheckCircle2 className="h-5 w-5 text-cyan-500" />
-                              ) : (
-                                <Circle className="h-5 w-5 text-gray-300" />
-                              )}
-                              <span className="text-sm font-medium text-popover">{playlist.name}</span>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
+                    </Button>
+                    <Button
+                      variant={editingContentType === "asset" ? "default" : "outline"}
+                      className={editingContentType === "asset" ? "bg-cyan-500 hover:bg-cyan-600" : ""}
+                      onClick={() => setEditingContentType("asset")}
+                    >
+                      Media Assets
+                    </Button>
                   </div>
 
-                  {/* Media Assets Section */}
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4 text-cyan-500" />
-                      Media Assets
-                    </h4>
-                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
-                      {mediaItems.length === 0 ? (
-                        <p className="text-sm text-gray-500 text-center py-4">No media assets available</p>
-                      ) : (
-                        mediaItems.map((media) => (
-                          <div
-                            key={media.id}
-                            className={`p-3 rounded-lg cursor-pointer transition-all ${
-                              editingSelectedContentIds.includes(media.id)
-                                ? "bg-cyan-50 ring-2 ring-cyan-500"
-                                : "bg-white hover:bg-gray-50"
-                            }`}
-                            onClick={() => {
-                              setEditingSelectedContentIds((prev) =>
-                                prev.includes(media.id) ? prev.filter((id) => id !== media.id) : [...prev, media.id],
-                              )
-                            }}
-                          >
-                            <div className="flex items-center gap-3">
-                              {editingSelectedContentIds.includes(media.id) ? (
-                                <CheckCircle2 className="h-5 w-5 text-cyan-500" />
-                              ) : (
-                                <Circle className="h-5 w-5 text-gray-300" />
-                              )}
-                              <div>
-                                <span className="text-sm font-medium block">{media.name}</span>
-                                <p className="text-xs text-gray-500">{media.mime_type}</p>
+                  {/* Playlists Section */}
+                  {editingContentType === "playlist" && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <PlayCircle className="h-4 w-4 text-cyan-500" />
+                        Playlists
+                      </h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
+                        {playlists.length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">No playlists available</p>
+                        ) : (
+                          playlists.map((playlist) => (
+                            <div
+                              key={playlist.id}
+                              className={`p-3 rounded-lg cursor-pointer transition-all bg-[rgba(142,142,148,1)] ${
+                                editingSelectedContentIds.includes(playlist.id)
+                                  ? "bg-cyan-50 ring-2 ring-cyan-500"
+                                  : "bg-white hover:bg-gray-50"
+                              }`}
+                              onClick={() => {
+                                setEditingSelectedContentIds((prev) =>
+                                  prev.includes(playlist.id)
+                                    ? prev.filter((id) => id !== playlist.id)
+                                    : [...prev, playlist.id],
+                                )
+                              }}
+                            >
+                              <div className="flex items-center gap-3 text-popover">
+                                {editingSelectedContentIds.includes(playlist.id) ? (
+                                  <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                                ) : (
+                                  <Circle className="h-5 w-5 text-gray-300" />
+                                )}
+                                <span className="text-sm font-medium text-popover">{playlist.name}</span>
                               </div>
                             </div>
-                          </div>
-                        ))
-                      )}
+                          ))
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Media Assets Section */}
+                  {editingContentType === "asset" && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <ImageIcon className="h-4 w-4 text-cyan-500" />
+                        Media Assets
+                      </h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
+                        {mediaItems.length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">No media assets available</p>
+                        ) : (
+                          mediaItems.map((media) => (
+                            <div
+                              key={media.id}
+                              className={`p-3 rounded-lg cursor-pointer transition-all ${
+                                editingSelectedContentIds.includes(media.id)
+                                  ? "bg-cyan-50 ring-2 ring-cyan-500"
+                                  : "bg-white hover:bg-gray-50"
+                              }`}
+                              onClick={() => {
+                                setEditingSelectedContentIds((prev) =>
+                                  prev.includes(media.id) ? prev.filter((id) => id !== media.id) : [...prev, media.id],
+                                )
+                              }}
+                            >
+                              <div className="flex items-center gap-3">
+                                {editingSelectedContentIds.includes(media.id) ? (
+                                  <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                                ) : (
+                                  <Circle className="h-5 w-5 text-gray-300" />
+                                )}
+                                <div>
+                                  <span className="text-sm font-medium block">{media.name}</span>
+                                  <p className="text-xs text-gray-500">{media.mime_type}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
