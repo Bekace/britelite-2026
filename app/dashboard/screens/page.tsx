@@ -1319,7 +1319,7 @@ export default function ScreensPage() {
                         playlists.map((playlist) => (
                           <div
                             key={playlist.id}
-                            className={`p-3 rounded-lg cursor-pointer transition-all ${
+                            className={`p-3 rounded-lg cursor-pointer transition-all bg-[rgba(142,142,148,1)] ${
                               editingSelectedContentIds.includes(playlist.id)
                                 ? "bg-cyan-50 ring-2 ring-cyan-500"
                                 : "bg-white hover:bg-gray-50"
@@ -1338,7 +1338,7 @@ export default function ScreensPage() {
                               ) : (
                                 <Circle className="h-5 w-5 text-gray-300" />
                               )}
-                              <span className="text-sm font-medium">{playlist.name}</span>
+                              <span className="text-sm font-medium text-primary">{playlist.name}</span>
                             </div>
                           </div>
                         ))
