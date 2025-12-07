@@ -602,6 +602,7 @@ export default function MediaLibraryPage() {
               maxStorage={uploadLimits.maxStorage}
               storageUnit={uploadLimits.storageUnit}
               usagePercentage={uploadLimits.storageUsagePercentage}
+              planName={uploadLimits.planName}
             />
           )}
 

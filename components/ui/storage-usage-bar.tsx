@@ -6,6 +6,7 @@ interface StorageUsageBarProps {
   maxStorage: number
   storageUnit: string
   usagePercentage: number
+  planName?: string
   className?: string
 }
 
@@ -14,6 +15,7 @@ export function StorageUsageBar({
   maxStorage,
   storageUnit,
   usagePercentage,
+  planName = "Free",
   className,
 }: StorageUsageBarProps) {
   const getUsageColor = (percentage: number) => {
@@ -36,10 +38,19 @@ export function StorageUsageBar({
     return `${currentFormatted.toFixed(2)} GB / ${maxStorageGB.toFixed(0)} GB`
   }
 
+  const formatPercentageDisplay = () => {
+    if (maxStorage === -1) return "Unlimited storage on your current plan"
+
+    const maxStorageGB = maxStorage / (1024 * 1024 * 1024)
+    const percentage = Math.round(usagePercentage)
+
+    return `You are using ${percentage}% of ${maxStorageGB.toFixed(0)}GB on your ${planName} plan`
+  }
+
   return (
     <div className={`space-y-3 ${className}`}>
       <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-600">Storage Usage</span>
+        <span className="text-sm text-muted-foreground">{formatPercentageDisplay()}</span>
         <Badge
           variant={getBadgeVariant(usagePercentage)}
           className={`
