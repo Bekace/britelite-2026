@@ -373,13 +373,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
       rotationTimerRef.current = setTimeout(() => {
         console.log(`[v0] Auto-advancing from ${currentMedia.media.name}`)
-        if (isYouTubeVideo(currentMedia.media) && youtubePlayerRef.current) {
-          try {
-            youtubePlayerRef.current.stopVideo()
-          } catch (e) {
-            console.error("[v0] Error stopping YouTube video:", e)
-          }
-        }
         advanceToNextMedia()
       }, duration)
     }
@@ -391,8 +384,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }, [currentMediaIndex, shuffledContent, config])
 
-  // Load YouTube IFrame API
   useEffect(() => {
+    // Load YouTube IFrame API
     if (!window.YT) {
       const tag = document.createElement("script")
       tag.src = "https://www.youtube.com/iframe_api"
