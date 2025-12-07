@@ -126,40 +126,54 @@ export async function POST(request: NextRequest) {
       })
       console.log("[v0] Blob uploaded:", blob.url)
     } catch (blobError: any) {
-      console.error("[v0] Vercel Blob error:", blobError)
+      console.error("[v0] Vercel Blob upload failed:", blobError)
 
-      // Try to get error message from various error formats
-      let errorMessage = "Unknown error"
+      // Handle various error formats from Vercel Blob
+      let errorMessage = "Unknown storage error"
+      let statusCode = 500
 
-      if (blobError?.message) {
-        errorMessage = blobError.message
-      } else if (typeof blobError === "string") {
-        errorMessage = blobError
-      } else if (blobError?.toString) {
-        errorMessage = blobError.toString()
+      // Check if it's an HTTP error with status
+      if (blobError?.status === 413 || blobError?.statusCode === 413) {
+        errorMessage = "File is too large for Vercel Blob storage"
+        statusCode = 413
+      }
+      // Check error message string
+      else if (blobError?.message && typeof blobError.message === "string") {
+        const msg = blobError.message.toLowerCase()
+        if (msg.includes("request entity too large") || msg.includes("413") || msg.includes("payload too large")) {
+          errorMessage = "File is too large for Vercel Blob storage"
+          statusCode = 413
+        } else {
+          errorMessage = blobError.message
+        }
+      }
+      // Handle string errors
+      else if (typeof blobError === "string") {
+        const msg = blobError.toLowerCase()
+        if (msg.includes("request entity too large") || msg.includes("413") || msg.includes("payload too large")) {
+          errorMessage = "File is too large for Vercel Blob storage"
+          statusCode = 413
+        } else {
+          errorMessage = blobError
+        }
       }
 
-      // Check if it's a size limit error
-      if (
-        errorMessage.toLowerCase().includes("request entity too large") ||
-        errorMessage.includes("413") ||
-        errorMessage.toLowerCase().includes("payload too large")
-      ) {
-        console.log("[v0] Vercel Blob size limit exceeded")
+      // Return appropriate error response
+      if (statusCode === 413) {
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
         return NextResponse.json(
           {
-            error: `File is too large for Vercel Blob storage. The free tier has a ~4.5MB per-file limit. Please upgrade your Vercel account or contact support.`,
+            error: `File too large (${fileSizeMB} MB). Vercel Blob free tier has a ~4.5MB per-file limit. Please upgrade your Vercel account or use a smaller file.`,
           },
           { status: 413 },
         )
       }
 
-      // Generic blob error
       return NextResponse.json(
         {
-          error: `File upload to storage failed: ${errorMessage}`,
+          error: `Storage upload failed: ${errorMessage}`,
         },
-        { status: 500 },
+        { status: statusCode },
       )
     }
 
