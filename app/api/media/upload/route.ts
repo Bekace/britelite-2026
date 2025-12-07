@@ -127,19 +127,37 @@ export async function POST(request: NextRequest) {
       console.log("[v0] Blob uploaded:", blob.url)
     } catch (blobError: any) {
       console.error("[v0] Vercel Blob error:", blobError)
-      // Handle Vercel Blob specific errors
-      const errorMessage = blobError?.message || String(blobError)
-      if (errorMessage.includes("Request Entity Too Large") || errorMessage.includes("413")) {
+
+      // Try to get error message from various error formats
+      let errorMessage = "Unknown error"
+
+      if (blobError?.message) {
+        errorMessage = blobError.message
+      } else if (typeof blobError === "string") {
+        errorMessage = blobError
+      } else if (blobError?.toString) {
+        errorMessage = blobError.toString()
+      }
+
+      // Check if it's a size limit error
+      if (
+        errorMessage.toLowerCase().includes("request entity too large") ||
+        errorMessage.includes("413") ||
+        errorMessage.toLowerCase().includes("payload too large")
+      ) {
+        console.log("[v0] Vercel Blob size limit exceeded")
         return NextResponse.json(
           {
-            error: `File upload failed: File size exceeds Vercel Blob limits. Please contact support to increase your storage limits.`,
+            error: `File is too large for Vercel Blob storage. The free tier has a ~4.5MB per-file limit. Please upgrade your Vercel account or contact support.`,
           },
           { status: 413 },
         )
       }
+
+      // Generic blob error
       return NextResponse.json(
         {
-          error: `File upload failed: ${errorMessage}`,
+          error: `File upload to storage failed: ${errorMessage}`,
         },
         { status: 500 },
       )
