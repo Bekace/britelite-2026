@@ -52,19 +52,17 @@ export function useUploadLimits(): UploadLimits & {
         const maxFileSize = data.maxFileSize || 52428800
         const planName = data.planName || "Free"
 
-        const bytesPerUnit =
-          storageUnit === "GB" ? 1024 * 1024 * 1024 : storageUnit === "TB" ? 1024 * 1024 * 1024 * 1024 : 1024 * 1024
+        const GB = 1024 * 1024 * 1024
+        const currentStorageGB = currentStorageBytes / GB
+        const maxStorageGB = isUnlimited ? Number.MAX_SAFE_INTEGER : maxStorageBytes / GB
+        const remainingStorageGB = isUnlimited ? Number.MAX_SAFE_INTEGER : Math.max(0, maxStorageGB - currentStorageGB)
+        const storageUsagePercentage = isUnlimited ? 0 : (currentStorageGB / maxStorageGB) * 100
 
-        const currentStorageFormatted = currentStorageBytes / bytesPerUnit
-        const maxStorageFormatted = isUnlimited ? Number.MAX_SAFE_INTEGER : maxStorageBytes / bytesPerUnit
-        const remainingStorageFormatted = isUnlimited
-          ? Number.MAX_SAFE_INTEGER
-          : Math.max(0, maxStorageFormatted - currentStorageFormatted)
-        const storageUsagePercentage = isUnlimited ? 0 : (currentStorageFormatted / maxStorageFormatted) * 100
-
-        console.log("[v0] Calculated limits:", {
-          currentStorageFormatted,
-          maxStorageFormatted,
+        console.log("[v0] Calculated storage:", {
+          currentStorageBytes,
+          currentStorageGB,
+          maxStorageBytes,
+          maxStorageGB,
           storageUsagePercentage,
           maxFileSize,
           planName,
@@ -72,10 +70,10 @@ export function useUploadLimits(): UploadLimits & {
 
         setLimits({
           maxStorage: maxStorageBytes,
-          storageUnit,
+          storageUnit: "GB", // Always display in GB for consistency
           currentStorageBytes,
-          currentStorageFormatted,
-          remainingStorageFormatted,
+          currentStorageFormatted: currentStorageGB,
+          remainingStorageFormatted: remainingStorageGB,
           isAtLimit: !isUnlimited && currentStorageBytes >= maxStorageBytes,
           canUpload: (fileSizeBytes: number) => {
             if (isUnlimited) return fileSizeBytes <= maxFileSize

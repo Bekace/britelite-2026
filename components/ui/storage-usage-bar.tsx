@@ -31,20 +31,9 @@ export function StorageUsageBar({
   const formatStorageDisplay = () => {
     if (maxStorage === -1) return "Unlimited"
 
-    let maxStorageFormatted: number
-    if (storageUnit === "GB") {
-      maxStorageFormatted = maxStorage / (1024 * 1024 * 1024)
-    } else if (storageUnit === "MB") {
-      maxStorageFormatted = maxStorage / (1024 * 1024)
-    } else if (storageUnit === "KB") {
-      maxStorageFormatted = maxStorage / 1024
-    } else {
-      // For bytes
-      maxStorageFormatted = maxStorage
-    }
+    const maxStorageGB = maxStorage / (1024 * 1024 * 1024)
 
-    const maxFormatted = storageUnit === "bytes" ? maxStorageFormatted.toString() : maxStorageFormatted.toFixed(0)
-    return `${currentFormatted.toFixed(2)} ${storageUnit} / ${maxFormatted} ${storageUnit}`
+    return `${currentFormatted.toFixed(2)} GB / ${maxStorageGB.toFixed(0)} GB`
   }
 
   return (
