@@ -35,7 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         .select(
           `
           playlist_id,
-          playlists!inner (
+          playlists (
             id,
             name,
             updated_at,
@@ -45,7 +45,6 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
               duration_override,
               transition_type,
               transition_duration,
-              updated_at,
               media (
                 id,
                 name,
