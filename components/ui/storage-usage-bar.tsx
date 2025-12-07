@@ -35,6 +35,11 @@ export function StorageUsageBar({
 
     const maxStorageGB = maxStorage / (1024 * 1024 * 1024)
 
+    if (currentFormatted < 1) {
+      const currentMB = currentFormatted * 1024
+      return `${currentMB.toFixed(2)} MB / ${maxStorageGB.toFixed(0)} GB`
+    }
+
     return `${currentFormatted.toFixed(2)} GB / ${maxStorageGB.toFixed(0)} GB`
   }
 
@@ -42,7 +47,8 @@ export function StorageUsageBar({
     if (maxStorage === -1) return "Unlimited storage on your current plan"
 
     const maxStorageGB = maxStorage / (1024 * 1024 * 1024)
-    const percentage = Math.round(usagePercentage)
+
+    const percentage = usagePercentage < 1 ? usagePercentage.toFixed(2) : Math.round(usagePercentage).toString()
 
     return `You are using ${percentage}% of ${maxStorageGB.toFixed(0)}GB on your ${planName} plan`
   }
