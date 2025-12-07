@@ -275,18 +275,21 @@ export default function MediaLibraryPage() {
     const file = event.target.files?.[0]
     if (file) {
       if (file.size > uploadLimits.maxFileSize) {
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
+        const maxSizeMB = Math.round(uploadLimits.maxFileSize / (1024 * 1024))
         toast({
           title: "File Too Large",
-          description: `This file (${formatFileSize(file.size)}) exceeds the maximum file size of ${formatFileSize(uploadLimits.maxFileSize)} for your plan.`,
+          description: `This file (${fileSizeMB} MB) exceeds the maximum file size of ${maxSizeMB} MB for your ${uploadLimits.planName || ""} plan.`,
           variant: "destructive",
         })
         return
       }
 
       if (!uploadLimits.canUpload(file.size)) {
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
         toast({
           title: "Storage Limit Exceeded",
-          description: `This file (${formatFileSize(file.size)}) would exceed your storage limit. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining.`,
+          description: `This file (${fileSizeMB} MB) would exceed your storage limit. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining.`,
           variant: "destructive",
         })
         return
@@ -299,9 +302,10 @@ export default function MediaLibraryPage() {
     if (!selectedFile) return
 
     if (selectedFile.size > uploadLimits.maxFileSize) {
+      const maxSizeMB = Math.round(uploadLimits.maxFileSize / (1024 * 1024))
       toast({
         title: "File Too Large",
-        description: `Maximum file size is ${formatFileSize(uploadLimits.maxFileSize)} for your plan.`,
+        description: `Maximum file size is ${maxSizeMB} MB for your ${uploadLimits.planName || ""} plan. Please upgrade your plan for larger files.`,
         variant: "destructive",
       })
       return
@@ -310,7 +314,7 @@ export default function MediaLibraryPage() {
     if (!uploadLimits.canUpload(selectedFile.size)) {
       toast({
         title: "Storage Limit Exceeded",
-        description: `Cannot upload file. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining.`,
+        description: `Cannot upload file. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining out of ${uploadLimits.maxStorageFormatted} ${uploadLimits.storageUnit}.`,
         variant: "destructive",
       })
       return

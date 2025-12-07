@@ -35,7 +35,8 @@ export async function POST(request: NextRequest) {
         user_subscriptions!inner(
           status,
           subscription_plans(
-            max_media_storage
+            max_media_storage,
+            max_file_size
           )
         )
       `)
@@ -44,6 +45,19 @@ export async function POST(request: NextRequest) {
 
     const maxStorageBytes =
       userData?.user_subscriptions?.subscription_plans?.max_media_storage || 1 * 1024 * 1024 * 1024
+    const maxFileSize = userData?.user_subscriptions?.subscription_plans?.max_file_size || 10 * 1024 * 1024 // Default 10MB
+
+    if (file.size > maxFileSize) {
+      const maxFileSizeMB = Math.round(maxFileSize / (1024 * 1024))
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
+      return NextResponse.json(
+        {
+          error: `File size (${fileSizeMB} MB) exceeds your plan's maximum file size of ${maxFileSizeMB} MB.`,
+        },
+        { status: 413 },
+      )
+    }
+
     const isUnlimited = maxStorageBytes === -1
     const maxStorageGB = isUnlimited ? -1 : Math.round(maxStorageBytes / (1024 * 1024 * 1024))
 
