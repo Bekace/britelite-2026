@@ -274,10 +274,22 @@ export default function MediaLibraryPage() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
+      if (file.size > uploadLimits.maxFileSize) {
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
+        const maxSizeMB = Math.round(uploadLimits.maxFileSize / (1024 * 1024))
+        toast({
+          title: "File Too Large",
+          description: `This file (${fileSizeMB} MB) exceeds the maximum file size of ${maxSizeMB} MB for your ${uploadLimits.planName || ""} plan.`,
+          variant: "destructive",
+        })
+        return
+      }
+
       if (!uploadLimits.canUpload(file.size)) {
+        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
         toast({
           title: "Storage Limit Exceeded",
-          description: `This file (${formatFileSize(file.size)}) would exceed your storage limit. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining.`,
+          description: `This file (${fileSizeMB} MB) would exceed your storage limit. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining.`,
           variant: "destructive",
         })
         return
@@ -289,51 +301,87 @@ export default function MediaLibraryPage() {
   const handleUpload = async () => {
     if (!selectedFile) return
 
+    console.log("[v0] Starting upload for file:", selectedFile.name, selectedFile.size)
+
+    // Validate file size against plan limit
+    if (selectedFile.size > uploadLimits.maxFileSize) {
+      const fileSizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2)
+      const maxSizeMB = Math.round(uploadLimits.maxFileSize / (1024 * 1024))
+      const errorMessage = `This file (${fileSizeMB} MB) exceeds the maximum file size of ${maxSizeMB} MB for your ${uploadLimits.planName} plan.`
+      console.error("[v0] File too large:", errorMessage)
+      toast({
+        title: "File Too Large",
+        description: errorMessage,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate storage capacity
     if (!uploadLimits.canUpload(selectedFile.size)) {
+      const fileSizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2)
+      const errorMessage = `This file (${fileSizeMB} MB) would exceed your storage limit. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining.`
+      console.error("[v0] Storage limit exceeded:", errorMessage)
       toast({
         title: "Storage Limit Exceeded",
-        description: `Cannot upload file. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining.`,
+        description: errorMessage,
         variant: "destructive",
       })
       return
     }
 
     setUploading(true)
+
     try {
+      console.log("[v0] Creating FormData...")
       const formData = new FormData()
       formData.append("file", selectedFile)
-      if (tags) {
-        formData.append("tags", tags)
-      }
+      formData.append("tags", tags)
 
+      console.log("[v0] Sending upload request...")
       const response = await fetch("/api/media/upload", {
         method: "POST",
         body: formData,
       })
 
-      if (response.ok) {
-        const newMedia = await response.json()
-        setMedia((prev) => [newMedia, ...prev])
-        setSelectedFile(null)
-        setTags("")
-        await uploadLimits.refresh()
+      console.log("[v0] Upload response status:", response.status)
+
+      if (!response.ok) {
+        let errorData
+        try {
+          errorData = await response.json()
+          console.error("[v0] Upload error response:", errorData)
+        } catch (e) {
+          const errorText = await response.text()
+          console.error("[v0] Upload error (non-JSON):", errorText)
+          errorData = { error: errorText || response.statusText }
+        }
+
         toast({
-          title: "Success",
-          description: "Media uploaded successfully",
-        })
-      } else {
-        const error = await response.json()
-        toast({
-          title: "Error",
-          description: error.error || "Upload failed",
+          title: "Upload Failed",
+          description: errorData.error || `Failed to upload file (${response.status})`,
           variant: "destructive",
         })
+        return
       }
-    } catch (error) {
-      console.error("Upload error:", error)
+
+      const data = await response.json()
+      console.log("[v0] Upload successful:", data)
+
       toast({
-        title: "Error",
-        description: "Upload failed",
+        title: "Success",
+        description: "File uploaded successfully",
+      })
+
+      setSelectedFile(null)
+      setTags("")
+      await fetchMedia()
+      await uploadLimits.refresh()
+    } catch (error) {
+      console.error("[v0] Upload error:", error)
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       })
     } finally {
@@ -554,6 +602,7 @@ export default function MediaLibraryPage() {
               maxStorage={uploadLimits.maxStorage}
               storageUnit={uploadLimits.storageUnit}
               usagePercentage={uploadLimits.storageUsagePercentage}
+              planName={uploadLimits.planName}
             />
           )}
 
