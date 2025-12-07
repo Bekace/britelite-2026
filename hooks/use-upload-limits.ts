@@ -12,6 +12,7 @@ interface UploadLimits {
   canUpload: (fileSizeBytes: number) => boolean
   storageUsagePercentage: number
   isUnlimited: boolean
+  maxFileSize: number
 }
 
 export function useUploadLimits(): UploadLimits & {
@@ -29,6 +30,7 @@ export function useUploadLimits(): UploadLimits & {
     canUpload: () => false,
     storageUsagePercentage: 0,
     isUnlimited: false,
+    maxFileSize: 52428800, // 50MB default
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +45,7 @@ export function useUploadLimits(): UploadLimits & {
         const storageUnit = data.storageUnit || "MB"
         const currentStorageBytes = data.currentStorageBytes || 0
         const maxStorageBytes = data.maxStorage // API already returns bytes, don't multiply
+        const maxFileSize = data.maxFileSize || 52428800 // Default to 50MB
 
         const bytesPerUnit =
           storageUnit === "GB" ? 1024 * 1024 * 1024 : storageUnit === "TB" ? 1024 * 1024 * 1024 * 1024 : 1024 * 1024 // MB default
@@ -55,18 +58,19 @@ export function useUploadLimits(): UploadLimits & {
         const storageUsagePercentage = isUnlimited ? 0 : (currentStorageFormatted / maxStorageFormatted) * 100
 
         setLimits({
-          maxStorage: maxStorageBytes, // Keep as bytes for internal calculations
+          maxStorage: maxStorageBytes,
           storageUnit,
           currentStorageBytes,
           currentStorageFormatted,
           remainingStorageFormatted,
           isAtLimit: !isUnlimited && currentStorageBytes >= maxStorageBytes,
           canUpload: (fileSizeBytes: number) => {
-            if (isUnlimited) return true
-            return currentStorageBytes + fileSizeBytes <= maxStorageBytes
+            if (isUnlimited) return fileSizeBytes <= maxFileSize
+            return fileSizeBytes <= maxFileSize && currentStorageBytes + fileSizeBytes <= maxStorageBytes
           },
           storageUsagePercentage: Math.min(100, storageUsagePercentage),
           isUnlimited,
+          maxFileSize,
         })
         setError(null)
       } else {
@@ -77,16 +81,16 @@ export function useUploadLimits(): UploadLimits & {
     } finally {
       setLoading(false)
     }
-  }, []) // Empty dependency array since this function doesn't depend on any props or state
+  }, [])
 
   useEffect(() => {
     fetchUploadLimits()
-  }, []) // Removed fetchUploadLimits from dependency array to prevent infinite loop
+  }, [])
 
   const refresh = useCallback(async () => {
     setLoading(true)
     await fetchUploadLimits()
-  }, []) // Removed fetchUploadLimits from dependency array to prevent circular dependency
+  }, [])
 
   return { ...limits, loading, error, refresh }
 }

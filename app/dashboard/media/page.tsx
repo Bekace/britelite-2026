@@ -274,6 +274,15 @@ export default function MediaLibraryPage() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
+      if (file.size > uploadLimits.maxFileSize) {
+        toast({
+          title: "File Too Large",
+          description: `This file (${formatFileSize(file.size)}) exceeds the maximum file size of ${formatFileSize(uploadLimits.maxFileSize)} for your plan.`,
+          variant: "destructive",
+        })
+        return
+      }
+
       if (!uploadLimits.canUpload(file.size)) {
         toast({
           title: "Storage Limit Exceeded",
@@ -288,6 +297,15 @@ export default function MediaLibraryPage() {
 
   const handleUpload = async () => {
     if (!selectedFile) return
+
+    if (selectedFile.size > uploadLimits.maxFileSize) {
+      toast({
+        title: "File Too Large",
+        description: `Maximum file size is ${formatFileSize(uploadLimits.maxFileSize)} for your plan.`,
+        variant: "destructive",
+      })
+      return
+    }
 
     if (!uploadLimits.canUpload(selectedFile.size)) {
       toast({

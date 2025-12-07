@@ -24,7 +24,8 @@ export async function GET() {
         plan_id,
         subscription_plans (
           max_media_storage,
-          storage_unit
+          storage_unit,
+          max_file_size
         )
       `)
       .eq("user_id", user.id)
@@ -36,20 +37,22 @@ export async function GET() {
 
     let maxStorage = 3145728 // Default 3 MB in bytes
     let storageUnit = "MB"
+    let maxFileSize = 52428800 // Default 50MB in bytes
 
     if (subscriptionData && !subscriptionError && subscriptionData.subscription_plans) {
       // User has an active subscription with valid plan
       const plan = subscriptionData.subscription_plans
       maxStorage = Number.parseInt(plan.max_media_storage)
       storageUnit = plan.storage_unit || "MB"
-      console.log("[v0] Using subscription plan storage:", { maxStorage, storageUnit })
+      maxFileSize = plan.max_file_size || 52428800
+      console.log("[v0] Using subscription plan storage:", { maxStorage, storageUnit, maxFileSize })
     } else {
       // User has no active subscription or broken plan reference - fetch Free plan
       console.log("[v0] No active subscription found, fetching Free plan")
 
       const { data: freePlan, error: freePlanError } = await supabase
         .from("subscription_plans")
-        .select("max_media_storage, storage_unit, name")
+        .select("max_media_storage, storage_unit, name, max_file_size")
         .eq("price", 0)
         .eq("is_active", true)
         .maybeSingle()
@@ -59,13 +62,14 @@ export async function GET() {
       if (freePlan && !freePlanError) {
         maxStorage = Number.parseInt(freePlan.max_media_storage)
         storageUnit = freePlan.storage_unit || "MB"
-        console.log("[v0] Using Free plan storage:", { maxStorage, storageUnit })
+        maxFileSize = freePlan.max_file_size || 52428800
+        console.log("[v0] Using Free plan storage:", { maxStorage, storageUnit, maxFileSize })
       } else {
         console.log("[v0] Free plan not found, using hardcoded defaults")
       }
     }
 
-    console.log("[v0] Final storage limits:", { maxStorage, storageUnit })
+    console.log("[v0] Final storage limits:", { maxStorage, storageUnit, maxFileSize })
 
     // Calculate current storage usage
     const { data: mediaData, error: mediaError } = await supabase
@@ -87,6 +91,7 @@ export async function GET() {
       maxStorage,
       storageUnit,
       currentStorageBytes,
+      maxFileSize,
     })
   } catch (error) {
     console.log("[v0] API error:", error)
