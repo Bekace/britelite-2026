@@ -117,13 +117,33 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Validation passed, uploading to Vercel Blob...")
 
-    // Upload to Vercel Blob with organized path
-    const filename = `${user.id}/${Date.now()}-${file.name}`
-    const blob = await put(filename, file, {
-      access: "public",
-    })
-
-    console.log("[v0] Blob uploaded:", blob.url)
+    let blob
+    try {
+      // Upload to Vercel Blob with organized path
+      const filename = `${user.id}/${Date.now()}-${file.name}`
+      blob = await put(filename, file, {
+        access: "public",
+      })
+      console.log("[v0] Blob uploaded:", blob.url)
+    } catch (blobError: any) {
+      console.error("[v0] Vercel Blob error:", blobError)
+      // Handle Vercel Blob specific errors
+      const errorMessage = blobError?.message || String(blobError)
+      if (errorMessage.includes("Request Entity Too Large") || errorMessage.includes("413")) {
+        return NextResponse.json(
+          {
+            error: `File upload failed: File size exceeds Vercel Blob limits. Please contact support to increase your storage limits.`,
+          },
+          { status: 413 },
+        )
+      }
+      return NextResponse.json(
+        {
+          error: `File upload failed: ${errorMessage}`,
+        },
+        { status: 500 },
+      )
+    }
 
     // Save metadata to Supabase
     const { data: insertedMediaData, error: dbError } = await supabase
