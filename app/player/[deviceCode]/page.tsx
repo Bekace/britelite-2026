@@ -72,6 +72,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const lastUpdatedAtRef = useRef<string | null>(null)
   const [hasPendingUpdate, setHasPendingUpdate] = useState(false)
   const configRef = useRef<ScreenConfig | null>(null)
+  const rotationTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -351,6 +352,37 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }, [hasPendingUpdate, currentMediaIndex])
 
+  useEffect(() => {
+    // Clear any existing timer
+    if (rotationTimerRef.current) {
+      clearTimeout(rotationTimerRef.current)
+    }
+
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+    const currentMedia = contentToDisplay[currentMediaIndex]
+
+    if (!currentMedia) return
+
+    // Only set timer for non-video content (videos handle their own rotation via onEnded)
+    const isVideo = currentMedia.media.mime_type.startsWith("video/") || isYouTubeVideo(currentMedia.media)
+
+    if (!isVideo) {
+      const duration = getEffectiveDuration(currentMedia)
+      console.log(`[v0] Setting rotation timer for ${currentMedia.media.name}: ${duration}ms`)
+
+      rotationTimerRef.current = setTimeout(() => {
+        console.log(`[v0] Auto-advancing from ${currentMedia.media.name}`)
+        advanceToNextMedia()
+      }, duration)
+    }
+
+    return () => {
+      if (rotationTimerRef.current) {
+        clearTimeout(rotationTimerRef.current)
+      }
+    }
+  }, [currentMediaIndex, shuffledContent, config])
+
   const handleRetry = () => {
     setLoading(true)
     setError(null)
@@ -522,6 +554,26 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const setLastUpdatedAt = (updatedAt: string | null) => {
     lastUpdatedAtRef.current = updatedAt
+  }
+
+  const getEffectiveDuration = (item: MediaItem): number => {
+    // Use duration_override if set, otherwise use media.duration, default to 10 seconds
+    if (item.duration_override && item.duration_override > 0) {
+      return item.duration_override * 1000 // Convert to milliseconds
+    }
+    if (item.media.duration && item.media.duration > 0) {
+      return item.media.duration * 1000 // Convert to milliseconds
+    }
+    // Default duration for images and static content (10 seconds)
+    return 10000
+  }
+
+  const advanceToNextMedia = () => {
+    setCurrentMediaIndex((prev) => {
+      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
+      const nextIndex = prev + 1
+      return nextIndex >= contentLength ? 0 : nextIndex
+    })
   }
 
   if (loading) {
@@ -707,12 +759,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                   autoPlay
                   muted
                   playsInline
-                  onEnded={() => {
-                    setCurrentMediaIndex((prev) => {
-                      const nextIndex = prev + 1
-                      return nextIndex >= contentToDisplay.length ? 0 : nextIndex
-                    })
-                  }}
+                  onEnded={advanceToNextMedia}
                 />
               ) : isGoogleSlides(currentMedia.media) ? (
                 <iframe
