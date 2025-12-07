@@ -61,6 +61,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
+  const [isPlaying, setIsPlaying] = useState(true)
   const [shuffledContent, setShuffledContent] = useState<MediaItem[]>([])
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true)
   const router = useRouter()
@@ -73,6 +74,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const [hasPendingUpdate, setHasPendingUpdate] = useState(false)
   const configRef = useRef<ScreenConfig | null>(null)
   const rotationTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const youtubePlayerRef = useRef<any>(null)
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -363,15 +365,21 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     if (!currentMedia) return
 
-    // Only set timer for non-video content (videos handle their own rotation via onEnded)
-    const isVideo = currentMedia.media.mime_type.startsWith("video/") || isYouTubeVideo(currentMedia.media)
+    const isRegularVideo = currentMedia.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
 
-    if (!isVideo) {
+    if (!isRegularVideo) {
       const duration = getEffectiveDuration(currentMedia)
       console.log(`[v0] Setting rotation timer for ${currentMedia.media.name}: ${duration}ms`)
 
       rotationTimerRef.current = setTimeout(() => {
         console.log(`[v0] Auto-advancing from ${currentMedia.media.name}`)
+        if (isYouTubeVideo(currentMedia.media) && youtubePlayerRef.current) {
+          try {
+            youtubePlayerRef.current.stopVideo()
+          } catch (e) {
+            console.error("[v0] Error stopping YouTube video:", e)
+          }
+        }
         advanceToNextMedia()
       }, duration)
     }
@@ -382,6 +390,32 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }
     }
   }, [currentMediaIndex, shuffledContent, config])
+
+  // Load YouTube IFrame API
+  useEffect(() => {
+    if (!window.YT) {
+      const tag = document.createElement("script")
+      tag.src = "https://www.youtube.com/iframe_api"
+      const firstScriptTag = document.getElementsByTagName("script")[0]
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
+    }
+  }, [])
+
+  const onYouTubeIframeAPIReady = (iframeId: string) => {
+    if (window.YT && window.YT.Player) {
+      try {
+        youtubePlayerRef.current = new window.YT.Player(iframeId, {
+          events: {
+            onReady: (event: any) => {
+              event.target.playVideo()
+            },
+          },
+        })
+      } catch (e) {
+        console.error("[v0] Error initializing YouTube player:", e)
+      }
+    }
+  }
 
   const handleRetry = () => {
     setLoading(true)
@@ -745,12 +779,18 @@ export default function PlayerPage({ params }: PlayerPageProps) {
               ) : isYouTubeVideo(currentMedia.media) ? (
                 <iframe
                   key={currentMedia.id}
+                  id={`youtube-player-${currentMedia.id}`}
                   src={getYouTubeUrlWithAutoplay(currentMedia.media.file_path)}
                   className="w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
                   title={currentMedia.media.name}
+                  onLoad={() => {
+                    setTimeout(() => {
+                      onYouTubeIframeAPIReady(`youtube-player-${currentMedia.id}`)
+                    }, 1000)
+                  }}
                 />
               ) : currentMedia.media.mime_type.startsWith("video/") ? (
                 <video
