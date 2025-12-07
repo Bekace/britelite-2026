@@ -66,12 +66,22 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
         }
       }
     } else if (screen.content_type === "playlist") {
-      const { data: screenPlaylists } = await supabase
+      const { data: screenPlaylists, error: spError } = await supabase
         .from("screen_playlists")
         .select("playlist_id")
         .eq("screen_id", screen.id)
 
+      if (spError) {
+        console.error(`[v0] Error fetching screen_playlists:`, spError)
+      }
+
       console.log(`[v0] Found ${screenPlaylists?.length || 0} playlist assignments for screen ${screen.id}`)
+      if (screenPlaylists && screenPlaylists.length > 0) {
+        console.log(
+          `[v0] Playlist IDs:`,
+          screenPlaylists.map((sp) => sp.playlist_id),
+        )
+      }
 
       if (screenPlaylists && screenPlaylists.length > 0) {
         const playlistId = screenPlaylists[0].playlist_id
@@ -95,6 +105,12 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
           .order("position")
 
         console.log(`[v0] Found ${playlistItems?.length || 0} playlist items`)
+        if (playlistItems && playlistItems.length > 0) {
+          console.log(
+            `[v0] Media IDs from playlist items:`,
+            playlistItems.map((item) => item.media_id),
+          )
+        }
 
         if (itemsError) {
           console.error(`[v0] Error fetching playlist items:`, itemsError)
@@ -109,7 +125,13 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
 
           // Then fetch the media data separately
           const mediaIds = playlistItems.map((item) => item.media_id).filter(Boolean)
-          const { data: mediaData } = await supabase.from("media").select("*").in("id", mediaIds)
+          console.log(`[v0] Querying media with IDs:`, mediaIds)
+
+          const { data: mediaData, error: mediaError } = await supabase.from("media").select("*").in("id", mediaIds)
+
+          if (mediaError) {
+            console.error(`[v0] Error fetching media:`, mediaError)
+          }
 
           console.log(`[v0] Found ${mediaData?.length || 0} media items`)
 
@@ -146,6 +168,7 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       }
     }
 
+    console.log(`[v0] Content array length: ${content.length}`)
     console.log(
       `[v0] Final content array for ${screenCode}:`,
       JSON.stringify(
