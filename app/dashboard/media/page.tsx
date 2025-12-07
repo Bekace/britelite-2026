@@ -344,10 +344,17 @@ export default function MediaLibraryPage() {
           description: "Media uploaded successfully",
         })
       } else {
-        const error = await response.json()
+        let errorMessage = "Upload failed"
+        try {
+          const error = await response.json()
+          errorMessage = error.error || errorMessage
+        } catch {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage
+        }
         toast({
           title: "Error",
-          description: error.error || "Upload failed",
+          description: errorMessage,
           variant: "destructive",
         })
       }
