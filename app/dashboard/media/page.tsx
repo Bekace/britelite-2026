@@ -301,49 +301,42 @@ export default function MediaLibraryPage() {
   const handleUpload = async () => {
     if (!selectedFile) return
 
-    console.log(
-      "[v0] Starting upload - File:",
-      selectedFile.name,
-      "Size:",
-      selectedFile.size,
-      "Type:",
-      selectedFile.type,
-    )
-    console.log(
-      "[v0] Upload limits - Max file size:",
-      uploadLimits.maxFileSize,
-      "Can upload:",
-      uploadLimits.canUpload(selectedFile.size),
-    )
+    console.log("[v0] Starting upload for file:", selectedFile.name, selectedFile.size)
 
+    // Validate file size against plan limit
     if (selectedFile.size > uploadLimits.maxFileSize) {
+      const fileSizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2)
       const maxSizeMB = Math.round(uploadLimits.maxFileSize / (1024 * 1024))
-      console.log("[v0] File too large for plan")
+      const errorMessage = `This file (${fileSizeMB} MB) exceeds the maximum file size of ${maxSizeMB} MB for your ${uploadLimits.planName} plan.`
+      console.error("[v0] File too large:", errorMessage)
       toast({
         title: "File Too Large",
-        description: `Maximum file size is ${maxSizeMB} MB for your ${uploadLimits.planName || ""} plan. Please upgrade your plan for larger files.`,
+        description: errorMessage,
         variant: "destructive",
       })
       return
     }
 
+    // Validate storage capacity
     if (!uploadLimits.canUpload(selectedFile.size)) {
-      console.log("[v0] Storage limit exceeded")
+      const fileSizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2)
+      const errorMessage = `This file (${fileSizeMB} MB) would exceed your storage limit. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining.`
+      console.error("[v0] Storage limit exceeded:", errorMessage)
       toast({
         title: "Storage Limit Exceeded",
-        description: `Cannot upload file. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining out of ${uploadLimits.maxStorageFormatted} ${uploadLimits.storageUnit}.`,
+        description: errorMessage,
         variant: "destructive",
       })
       return
     }
 
     setUploading(true)
+
     try {
+      console.log("[v0] Creating FormData...")
       const formData = new FormData()
       formData.append("file", selectedFile)
-      if (tags) {
-        formData.append("tags", tags)
-      }
+      formData.append("tags", tags)
 
       console.log("[v0] Sending upload request...")
       const response = await fetch("/api/media/upload", {
@@ -353,37 +346,41 @@ export default function MediaLibraryPage() {
 
       console.log("[v0] Upload response status:", response.status)
 
-      if (response.ok) {
-        const newMedia = await response.json()
-        console.log("[v0] Upload successful:", newMedia.id)
-        setMedia((prev) => [newMedia, ...prev])
-        setSelectedFile(null)
-        setTags("")
-        await uploadLimits.refresh()
-        toast({
-          title: "Success",
-          description: "Media uploaded successfully",
-        })
-      } else {
-        let errorMessage = "Upload failed"
+      if (!response.ok) {
+        let errorData
         try {
-          const error = await response.json()
-          errorMessage = error.error || errorMessage
-          console.log("[v0] Upload error from API:", errorMessage)
-        } catch {
-          errorMessage = response.statusText || errorMessage
-          console.log("[v0] Upload error (non-JSON):", errorMessage)
+          errorData = await response.json()
+          console.error("[v0] Upload error response:", errorData)
+        } catch (e) {
+          const errorText = await response.text()
+          console.error("[v0] Upload error (non-JSON):", errorText)
+          errorData = { error: errorText || response.statusText }
         }
+
         toast({
           title: "Upload Failed",
-          description: errorMessage,
+          description: errorData.error || `Failed to upload file (${response.status})`,
           variant: "destructive",
         })
+        return
       }
-    } catch (error) {
-      console.error("[v0] Upload exception:", error)
+
+      const data = await response.json()
+      console.log("[v0] Upload successful:", data)
+
       toast({
-        title: "Upload Error",
+        title: "Success",
+        description: "File uploaded successfully",
+      })
+
+      setSelectedFile(null)
+      setTags("")
+      await fetchMedia()
+      await uploadLimits.refresh()
+    } catch (error) {
+      console.error("[v0] Upload error:", error)
+      toast({
+        title: "Upload Failed",
         description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       })
