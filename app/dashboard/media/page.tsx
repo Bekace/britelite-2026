@@ -301,8 +301,24 @@ export default function MediaLibraryPage() {
   const handleUpload = async () => {
     if (!selectedFile) return
 
+    console.log(
+      "[v0] Starting upload - File:",
+      selectedFile.name,
+      "Size:",
+      selectedFile.size,
+      "Type:",
+      selectedFile.type,
+    )
+    console.log(
+      "[v0] Upload limits - Max file size:",
+      uploadLimits.maxFileSize,
+      "Can upload:",
+      uploadLimits.canUpload(selectedFile.size),
+    )
+
     if (selectedFile.size > uploadLimits.maxFileSize) {
       const maxSizeMB = Math.round(uploadLimits.maxFileSize / (1024 * 1024))
+      console.log("[v0] File too large for plan")
       toast({
         title: "File Too Large",
         description: `Maximum file size is ${maxSizeMB} MB for your ${uploadLimits.planName || ""} plan. Please upgrade your plan for larger files.`,
@@ -312,6 +328,7 @@ export default function MediaLibraryPage() {
     }
 
     if (!uploadLimits.canUpload(selectedFile.size)) {
+      console.log("[v0] Storage limit exceeded")
       toast({
         title: "Storage Limit Exceeded",
         description: `Cannot upload file. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining out of ${uploadLimits.maxStorageFormatted} ${uploadLimits.storageUnit}.`,
@@ -328,13 +345,17 @@ export default function MediaLibraryPage() {
         formData.append("tags", tags)
       }
 
+      console.log("[v0] Sending upload request...")
       const response = await fetch("/api/media/upload", {
         method: "POST",
         body: formData,
       })
 
+      console.log("[v0] Upload response status:", response.status)
+
       if (response.ok) {
         const newMedia = await response.json()
+        console.log("[v0] Upload successful:", newMedia.id)
         setMedia((prev) => [newMedia, ...prev])
         setSelectedFile(null)
         setTags("")
@@ -348,21 +369,22 @@ export default function MediaLibraryPage() {
         try {
           const error = await response.json()
           errorMessage = error.error || errorMessage
+          console.log("[v0] Upload error from API:", errorMessage)
         } catch {
-          // If response is not JSON, use status text
           errorMessage = response.statusText || errorMessage
+          console.log("[v0] Upload error (non-JSON):", errorMessage)
         }
         toast({
-          title: "Error",
+          title: "Upload Failed",
           description: errorMessage,
           variant: "destructive",
         })
       }
     } catch (error) {
-      console.error("Upload error:", error)
+      console.error("[v0] Upload exception:", error)
       toast({
-        title: "Error",
-        description: "Upload failed",
+        title: "Upload Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
         variant: "destructive",
       })
     } finally {
