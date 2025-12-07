@@ -11,6 +11,7 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
     })
 
     const { screenCode } = params
+    console.log("[v0] Config API called for screen:", screenCode)
 
     if (!screenCode) {
       return NextResponse.json({ error: "Screen code is required" }, { status: 400 })
@@ -22,6 +23,8 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
       .eq("screen_code", screenCode)
       .single()
 
+    console.log("[v0] Screen query result:", { screen: screen?.id, error: screenError })
+
     if (screenError || !screen) {
       return NextResponse.json({ error: "Screen not found" }, { status: 404 })
     }
@@ -30,26 +33,27 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
     let mostRecentUpdate = screen.updated_at
 
     if (screen.content_type === "playlist") {
+      console.log("[v0] Screen has playlist content_type, fetching playlists...")
+
       const { data: playlistContent, error: playlistError } = await supabase.rpc("get_screen_playlist_content", {
         p_screen_id: screen.id,
       })
 
       if (playlistError || !playlistContent) {
-        const { data: screenPlaylists } = await supabase
+        const { data: screenPlaylists, error: spError } = await supabase
           .from("screen_playlists")
           .select("playlist_id, playlists(updated_at)")
           .eq("screen_id", screen.id)
           .limit(1)
           .single()
 
+        console.log("[v0] Screen playlists query:", { screenPlaylists, error: spError })
+
         if (screenPlaylists) {
           const playlistId = screenPlaylists.playlist_id
+          console.log("[v0] Fetching items for playlist:", playlistId)
 
-          if (screenPlaylists.playlists?.updated_at && screenPlaylists.playlists.updated_at > mostRecentUpdate) {
-            mostRecentUpdate = screenPlaylists.playlists.updated_at
-          }
-
-          const { data: items } = await supabase
+          const { data: items, error: itemsError } = await supabase
             .from("playlist_items")
             .select(
               `
@@ -71,6 +75,8 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
             .eq("playlist_id", playlistId)
             .order("position")
 
+          console.log("[v0] Playlist items query:", { itemsCount: items?.length, error: itemsError })
+
           if (items) {
             items.forEach((item) => {
               if (item.updated_at && item.updated_at > mostRecentUpdate) {
@@ -91,12 +97,16 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
                 transition_type: item.transition_type || "fade",
                 transition_duration: item.transition_duration || 0.8,
               }))
+
+            console.log("[v0] Final content array length:", content.length)
           }
         }
       } else {
+        console.log("[v0] Using RPC result")
         content = playlistContent
       }
     } else if (screen.content_type === "asset") {
+      console.log("[v0] Screen has asset content_type")
       const { data: screenMedia } = await supabase
         .from("screen_media")
         .select(
@@ -133,6 +143,8 @@ export async function GET(request: NextRequest, { params }: { params: { screenCo
     if (screen.shuffle && content.length > 1) {
       content = content.sort(() => Math.random() - 0.5)
     }
+
+    console.log("[v0] Returning response with content length:", content.length)
 
     return NextResponse.json(
       {
