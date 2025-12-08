@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
-import { getSignedUploadUrl } from "@/lib/gcs/rest-client"
+import { generateSignedUploadUrl } from "@/lib/gcs/rest-client"
 
 export async function POST(request: NextRequest) {
   try {
@@ -77,11 +77,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate upload URL
     const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
     const gcsFileName = `${user.id}/${Date.now()}-${fileName}`
 
-    const { uploadUrl, publicUrl } = await getSignedUploadUrl(bucketName, gcsFileName, fileType)
+    console.log("[v0] Generating signed URL for:", gcsFileName)
+
+    const uploadUrl = await generateSignedUploadUrl(bucketName, gcsFileName, fileType)
+    const publicUrl = `https://storage.googleapis.com/${bucketName}/${gcsFileName}`
+
+    console.log("[v0] Generated signed URL successfully")
 
     return NextResponse.json({
       uploadUrl,
