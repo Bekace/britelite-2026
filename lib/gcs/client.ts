@@ -1,28 +1,57 @@
-import { Storage } from "@google-cloud/storage"
+import { URL } from "url"
 
-let storageInstance: Storage | null = null
-let bucketInstance: ReturnType<Storage["bucket"]> | null = null
+let storageInstance: any | null = null
+let bucketInstance: any | null = null
+let Storage: any = null
 
-function initializeStorage() {
+async function loadGCSModule() {
+  if (Storage) {
+    return Storage
+  }
+
+  try {
+    const { Storage: StorageClass } = await import("@google-cloud/storage")
+    Storage = StorageClass
+    console.log("[v0] GCS module loaded successfully")
+    return Storage
+  } catch (error) {
+    console.error("[v0] Failed to load @google-cloud/storage module:", error)
+    throw new Error(
+      "Google Cloud Storage library could not be loaded. Please ensure @google-cloud/storage is installed.",
+    )
+  }
+}
+
+async function initializeStorage() {
   if (storageInstance) {
     return { storage: storageInstance, bucket: bucketInstance! }
   }
 
   try {
+    const StorageClass = await loadGCSModule()
+
     const credentialsJson = process.env.GCS_SERVICE_ACCOUNT_JSON
     if (!credentialsJson) {
       throw new Error("GCS_SERVICE_ACCOUNT_JSON environment variable is not set")
     }
 
-    const credentials = JSON.parse(credentialsJson)
-
-    if (!credentials.project_id || !credentials.private_key || !credentials.client_email) {
-      throw new Error("Invalid GCS credentials: missing required fields")
+    let credentials
+    try {
+      credentials = JSON.parse(credentialsJson)
+    } catch (parseError) {
+      throw new Error("Failed to parse GCS_SERVICE_ACCOUNT_JSON: Invalid JSON format")
     }
 
-    storageInstance = new Storage({
+    if (!credentials.project_id || !credentials.private_key || !credentials.client_email) {
+      throw new Error("Invalid GCS credentials: missing required fields (project_id, private_key, or client_email)")
+    }
+
+    storageInstance = new StorageClass({
       projectId: credentials.project_id,
-      credentials,
+      credentials: {
+        client_email: credentials.client_email,
+        private_key: credentials.private_key,
+      },
     })
 
     const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
@@ -37,13 +66,13 @@ function initializeStorage() {
   }
 }
 
-export const getStorage = () => {
-  const { storage } = initializeStorage()
+export const getStorage = async () => {
+  const { storage } = await initializeStorage()
   return storage
 }
 
-export const getBucket = () => {
-  const { bucket } = initializeStorage()
+export const getBucket = async () => {
+  const { bucket } = await initializeStorage()
   return bucket
 }
 
@@ -56,7 +85,7 @@ export const getBucket = () => {
  */
 export async function uploadFile(filePath: string, fileBuffer: Buffer, contentType: string): Promise<string> {
   try {
-    const bucket = getBucket()
+    const bucket = await getBucket()
     const file = bucket.file(filePath)
 
     console.log("[v0] Uploading file to GCS:", filePath, "Size:", fileBuffer.length, "bytes")
@@ -88,7 +117,7 @@ export async function uploadFile(filePath: string, fileBuffer: Buffer, contentTy
  */
 export async function deleteFile(filePath: string): Promise<void> {
   try {
-    const bucket = getBucket()
+    const bucket = await getBucket()
 
     // Extract the file path from URL if a full URL is provided
     let path = filePath

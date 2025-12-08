@@ -1,20 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
-
-let uploadFileFunction: typeof import("@/lib/gcs/client").uploadFile | null = null
-
-async function getUploadFunction() {
-  if (!uploadFileFunction) {
-    try {
-      const gcsModule = await import("@/lib/gcs/client")
-      uploadFileFunction = gcsModule.uploadFile
-    } catch (error) {
-      console.error("[v0] Failed to load GCS module:", error)
-      throw new Error("Google Cloud Storage is not properly configured")
-    }
-  }
-  return uploadFileFunction
-}
+import { Buffer } from "buffer"
 
 export async function POST(request: NextRequest) {
   try {
@@ -153,7 +139,7 @@ export async function POST(request: NextRequest) {
 
     let publicUrl: string
     try {
-      const uploadFile = await getUploadFunction()
+      const { uploadFile } = await import("@/lib/gcs/client")
 
       // Convert file to buffer for GCS upload
       const arrayBuffer = await file.arrayBuffer()
