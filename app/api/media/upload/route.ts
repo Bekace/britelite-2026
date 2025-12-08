@@ -1,6 +1,20 @@
-import { uploadFile } from "@/lib/gcs/client"
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
+
+let uploadFileFunction: typeof import("@/lib/gcs/client").uploadFile | null = null
+
+async function getUploadFunction() {
+  if (!uploadFileFunction) {
+    try {
+      const gcsModule = await import("@/lib/gcs/client")
+      uploadFileFunction = gcsModule.uploadFile
+    } catch (error) {
+      console.error("[v0] Failed to load GCS module:", error)
+      throw new Error("Google Cloud Storage is not properly configured")
+    }
+  }
+  return uploadFileFunction
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -139,6 +153,8 @@ export async function POST(request: NextRequest) {
 
     let publicUrl: string
     try {
+      const uploadFile = await getUploadFunction()
+
       // Convert file to buffer for GCS upload
       const arrayBuffer = await file.arrayBuffer()
       const fileBuffer = Buffer.from(arrayBuffer)
@@ -203,7 +219,13 @@ export async function POST(request: NextRequest) {
       created_at: insertedMediaData.created_at,
     })
   } catch (error) {
-    console.error("Upload error:", error)
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 })
+    console.error("[v0] Upload error:", error)
+    return NextResponse.json(
+      {
+        error: "Upload failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 },
+    )
   }
 }
