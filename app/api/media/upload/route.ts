@@ -152,6 +152,16 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Validation passed, uploading to Vercel Blob...")
 
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.error("[v0] BLOB_READ_WRITE_TOKEN is not configured")
+      return NextResponse.json(
+        {
+          error: "Storage is not properly configured. Please contact support.",
+        },
+        { status: 500 },
+      )
+    }
+
     let publicUrl: string
     try {
       const filename = `${user.id}/${Date.now()}-${file.name}`
@@ -159,30 +169,29 @@ export async function POST(request: NextRequest) {
       const arrayBuffer = await file.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
 
+      console.log("[v0] Uploading file to Blob:", filename, "Size:", buffer.length)
+
       const blob = await put(filename, buffer, {
         access: "public",
+        token: process.env.BLOB_READ_WRITE_TOKEN,
         contentType: file.type,
       })
+
       publicUrl = blob.url
       console.log("[v0] Blob uploaded successfully:", publicUrl)
     } catch (storageError: any) {
       console.error("[v0] Vercel Blob upload failed:", storageError)
-
-      let errorMessage = "Storage upload failed"
-
-      // Check if error is related to file size limits
-      if (
-        storageError.message?.includes("413") ||
-        storageError.message?.includes("too large") ||
-        storageError.message?.includes("Request Entity")
-      ) {
-        errorMessage =
-          "File is too large for Vercel Blob storage. Vercel Blob has a 4.5 MB limit on the free tier. Please upgrade your Vercel account or reduce the file size."
-      } else if (storageError.message) {
-        errorMessage = `Storage upload failed: ${storageError.message}`
-      }
-
-      return NextResponse.json({ error: errorMessage }, { status: 413 })
+      console.error("[v0] Error details:", {
+        message: storageError.message,
+        stack: storageError.stack,
+        cause: storageError.cause,
+      })
+      return NextResponse.json(
+        {
+          error: `Storage upload failed: ${storageError.message || "Unknown error"}`,
+        },
+        { status: 500 },
+      )
     }
 
     // Save metadata to Supabase
