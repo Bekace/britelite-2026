@@ -1,4 +1,4 @@
-import { del } from "@vercel/blob"
+import { deleteFile } from "@/lib/gcs/client"
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
@@ -44,12 +44,12 @@ export async function DELETE(request: NextRequest) {
       media.file_path.includes("docs.google.com")
 
     if (!isExternalMedia) {
-      // Only delete from blob storage if it's an actual blob URL
+      // Only delete from GCS if it's an actual GCS URL
       try {
-        await del(media.file_path)
-      } catch (blobError) {
-        console.error("Blob delete error (non-critical):", blobError)
-        // Continue with database deletion even if blob deletion fails
+        await deleteFile(media.file_path)
+      } catch (storageError) {
+        console.error("GCS delete error (non-critical):", storageError)
+        // Continue with database deletion even if GCS deletion fails
       }
     }
 
