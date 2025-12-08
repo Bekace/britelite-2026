@@ -243,7 +243,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const sendHeartbeat = async () => {
     try {
-      await fetch(`/api/devices/heartbeat/${params.deviceCode}`, {
+      const isScreenCode = params.deviceCode.startsWith("SCR-")
+      const heartbeatEndpoint = isScreenCode
+        ? `/api/screens/heartbeat/${params.deviceCode}`
+        : `/api/devices/heartbeat/${params.deviceCode}`
+
+      await fetch(heartbeatEndpoint, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ timestamp: new Date().toISOString() }),
@@ -293,13 +298,14 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }
     }
 
-    const isScreenCode = params.deviceCode.startsWith("SCR-")
     let heartbeatInterval: NodeJS.Timeout | null = null
     let pollingInterval: NodeJS.Timeout | null = null
 
-    if (!isScreenCode) {
-      heartbeatInterval = setInterval(sendHeartbeat, 30000)
-    }
+    // Send initial heartbeat immediately
+    sendHeartbeat()
+
+    // Send heartbeat every 30 seconds for all player instances
+    heartbeatInterval = setInterval(sendHeartbeat, 30000)
 
     setTimeout(() => {
       pollingInterval = setInterval(checkForUpdates, 15000)
