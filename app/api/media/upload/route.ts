@@ -3,6 +3,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { put } from "@vercel/blob"
 import { Buffer } from "buffer"
 
+const VERCEL_BLOB_SIZE_LIMIT = 4.5 * 1024 * 1024 // 4.5 MB for free tier
+
 export async function POST(request: NextRequest) {
   try {
     console.log("[v0] Upload route - Starting request processing")
@@ -159,6 +161,18 @@ export async function POST(request: NextRequest) {
           error: "Storage is not properly configured. Please contact support.",
         },
         { status: 500 },
+      )
+    }
+
+    if (file.size > VERCEL_BLOB_SIZE_LIMIT) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
+      const limitMB = (VERCEL_BLOB_SIZE_LIMIT / (1024 * 1024)).toFixed(1)
+      console.log("[v0] File exceeds Vercel Blob limit:", fileSizeMB, "MB >", limitMB, "MB")
+      return NextResponse.json(
+        {
+          error: `File size (${fileSizeMB} MB) exceeds Vercel Blob's limit of ${limitMB} MB. Please upgrade your Vercel plan for larger file uploads.`,
+        },
+        { status: 413 },
       )
     }
 
