@@ -22,6 +22,7 @@ import { StorageUsageBar } from "@/components/ui/storage-usage-bar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { SmartFileUploader } from "@/components/media/smart-file-uploader"
+import { SimpleUploader } from "@/components/media/simple-uploader"
 
 interface MediaItem {
   id: string
@@ -299,94 +300,6 @@ export default function MediaLibraryPage() {
     }
   }
 
-  const handleUpload = async () => {
-    if (!selectedFile) return
-
-    console.log("[v0] Starting direct GCS upload for file:", selectedFile.name, selectedFile.size)
-
-    setUploading(true)
-
-    try {
-      console.log("[v0] Getting signed upload URL...")
-      const urlResponse = await fetch("/api/media/get-upload-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          fileType: selectedFile.type,
-          tags,
-        }),
-      })
-
-      if (!urlResponse.ok) {
-        const errorData = await urlResponse.json().catch(() => ({ error: urlResponse.statusText }))
-        throw new Error(errorData.error || "Failed to get upload URL")
-      }
-
-      const { signedUrl, publicUrl, gcsFileName, bucketName } = await urlResponse.json()
-      console.log("[v0] Got signed URL, uploading directly to GCS...")
-
-      const uploadResponse = await fetch(signedUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": selectedFile.type,
-          "x-goog-content-length-range": "0,524288000",
-        },
-        body: selectedFile,
-      })
-
-      if (!uploadResponse.ok) {
-        const errorText = await uploadResponse.text()
-        console.error("[v0] GCS upload failed:", uploadResponse.status, errorText)
-        throw new Error(`GCS upload failed: ${uploadResponse.status}`)
-      }
-
-      console.log("[v0] GCS upload successful, confirming...")
-
-      const confirmResponse = await fetch("/api/media/confirm-upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          fileType: selectedFile.type,
-          publicUrl,
-          gcsFileName,
-          bucketName,
-          tags,
-        }),
-      })
-
-      if (!confirmResponse.ok) {
-        const errorData = await confirmResponse.json().catch(() => ({ error: confirmResponse.statusText }))
-        throw new Error(errorData.error || "Failed to confirm upload")
-      }
-
-      const data = await confirmResponse.json()
-      console.log("[v0] Upload complete:", data)
-
-      toast({
-        title: "Success",
-        description: "File uploaded successfully",
-      })
-
-      setSelectedFile(null)
-      setTags("")
-      await fetchMedia()
-      await uploadLimits.refresh()
-    } catch (error) {
-      console.error("[v0] Upload error:", error)
-      toast({
-        title: "Upload Failed",
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
-        variant: "destructive",
-      })
-    } finally {
-      setUploading(false)
-    }
-  }
-
   const handleImportUrl = async () => {
     if (!importUrl) {
       toast({
@@ -605,14 +518,10 @@ export default function MediaLibraryPage() {
           )}
 
           <Tabs defaultValue="upload" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="upload">
                 <Upload className="h-4 w-4 mr-2" />
                 Upload File
-              </TabsTrigger>
-              <TabsTrigger value="smart-upload">
-                <Upload className="h-4 w-4 mr-2" />
-                Smart Upload
               </TabsTrigger>
               <TabsTrigger value="import">
                 <LinkIcon className="h-4 w-4 mr-2" />
@@ -621,43 +530,24 @@ export default function MediaLibraryPage() {
             </TabsList>
 
             <TabsContent value="upload" className="space-y-4 mt-4">
-              <div className="flex items-center gap-4">
-                <Input
-                  type="file"
-                  accept="image/*,video/*"
-                  onChange={handleFileSelect}
-                  className="flex-1"
-                  disabled={uploadLimits.isAtLimit}
-                />
-                <Input
-                  placeholder="Tags (comma separated)"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  className="w-64"
-                />
-                <Button
-                  onClick={handleUpload}
-                  disabled={!selectedFile || uploading || uploadLimits.isAtLimit}
-                  className="bg-cyan-500 hover:bg-cyan-600"
-                >
-                  {uploading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                  Upload
-                </Button>
-              </div>
-              {selectedFile && (
-                <p className="text-sm text-gray-600">
-                  Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
-                </p>
-              )}
-              {uploadLimits.isAtLimit && (
-                <p className="text-sm text-red-600">
-                  Storage limit reached. Please delete some files or upgrade your plan to upload more content.
-                </p>
-              )}
+              <SimpleUploader
+                onUploadComplete={async (media) => {
+                  setMedia((prev) => [media as MediaItem, ...prev])
+                  await uploadLimits.refresh()
+                  toast({
+                    title: "Success",
+                    description: "File uploaded successfully",
+                  })
+                }}
+                onUploadError={(error) => {
+                  toast({
+                    title: "Upload Failed",
+                    description: error,
+                    variant: "destructive",
+                  })
+                }}
+                maxFileSizeMB={Math.round(uploadLimits.maxFileSize / (1024 * 1024))}
+              />
             </TabsContent>
 
             {/* Smart Upload Tab */}
