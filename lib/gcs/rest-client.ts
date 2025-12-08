@@ -46,30 +46,50 @@ async function generateJWT(credentials: GCSCredentials): Promise<string> {
   const payloadB64 = btoa(JSON.stringify(payload)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
   const message = `${headerB64}.${payloadB64}`
 
-  // Import private key
-  const privateKey = credentials.private_key.replace(/\\n/g, "\n")
+  let privateKey = credentials.private_key
+
+  // Handle various escape formats
+  privateKey = privateKey.replace(/\\n/g, "\n") // Handle \\n
+  privateKey = privateKey.replace(/\\\\n/g, "\n") // Handle \\\\n
+
+  // If the key doesn't have proper PEM headers, it might be base64 encoded or malformed
+  if (!privateKey.includes("-----BEGIN")) {
+    console.error("[v0] Private key does not contain PEM headers")
+    throw new Error("Invalid private key format - missing PEM headers")
+  }
+
   const pemContents = privateKey
     .replace("-----BEGIN PRIVATE KEY-----", "")
     .replace("-----END PRIVATE KEY-----", "")
-    .replace(/\s/g, "")
+    .replace(/[\r\n\s]/g, "") // Remove all whitespace including carriage returns
 
-  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0))
+  if (!pemContents || pemContents.length < 100) {
+    console.error("[v0] Private key content appears too short or empty")
+    throw new Error("Invalid private key - content too short")
+  }
 
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    binaryKey,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
-  )
+  try {
+    const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0))
 
-  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, encoder.encode(message))
-  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "")
+    const cryptoKey = await crypto.subtle.importKey(
+      "pkcs8",
+      binaryKey,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["sign"],
+    )
 
-  return `${message}.${signatureB64}`
+    const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, encoder.encode(message))
+    const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "")
+
+    return `${message}.${signatureB64}`
+  } catch (error) {
+    console.error("[v0] Failed to import/sign with private key:", error)
+    throw new Error(`Invalid keyData: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
 }
 
 // Get OAuth2 access token
