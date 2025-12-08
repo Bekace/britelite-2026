@@ -302,80 +302,69 @@ export default function MediaLibraryPage() {
   const handleUpload = async () => {
     if (!selectedFile) return
 
-    console.log("[v0] Starting upload for file:", selectedFile.name, selectedFile.size)
-
-    // Validate file size against plan limit
-    if (selectedFile.size > uploadLimits.maxFileSize) {
-      const fileSizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2)
-      const maxSizeMB = Math.round(uploadLimits.maxFileSize / (1024 * 1024))
-      const errorMessage = `This file (${fileSizeMB} MB) exceeds the maximum file size of ${maxSizeMB} MB for your ${uploadLimits.planName} plan.`
-      console.error("[v0] File too large:", errorMessage)
-      toast({
-        title: "File Too Large",
-        description: errorMessage,
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Validate storage capacity
-    if (!uploadLimits.canUpload(selectedFile.size)) {
-      const fileSizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2)
-      const errorMessage = `This file (${fileSizeMB} MB) would exceed your storage limit. You have ${uploadLimits.remainingStorageFormatted.toFixed(2)} ${uploadLimits.storageUnit} remaining.`
-      console.error("[v0] Storage limit exceeded:", errorMessage)
-      toast({
-        title: "Storage Limit Exceeded",
-        description: errorMessage,
-        variant: "destructive",
-      })
-      return
-    }
+    console.log("[v0] Starting direct GCS upload for file:", selectedFile.name, selectedFile.size)
 
     setUploading(true)
 
     try {
-      console.log("[v0] Creating FormData...")
-      const formData = new FormData()
-      formData.append("file", selectedFile)
-      formData.append("tags", tags)
-
-      console.log("[v0] Sending upload request...")
-      const response = await fetch("/api/media/upload", {
+      console.log("[v0] Getting signed upload URL...")
+      const urlResponse = await fetch("/api/media/get-upload-url", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: selectedFile.name,
+          fileSize: selectedFile.size,
+          fileType: selectedFile.type,
+          tags,
+        }),
       })
 
-      console.log("[v0] Upload response status:", response.status)
-
-      if (!response.ok) {
-        const contentType = response.headers.get("content-type")
-        let errorMessage = "Failed to upload file"
-
-        try {
-          if (contentType?.includes("application/json")) {
-            const errorData = await response.json()
-            console.error("[v0] Upload error response:", errorData)
-            errorMessage = errorData.error || errorMessage
-          } else {
-            const errorText = await response.text()
-            console.error("[v0] Upload error (non-JSON):", errorText)
-            errorMessage = errorText || response.statusText
-          }
-        } catch (e) {
-          console.error("[v0] Error parsing response:", e)
-          errorMessage = response.statusText
-        }
-
-        toast({
-          title: "Upload Failed",
-          description: errorMessage,
-          variant: "destructive",
-        })
-        return
+      if (!urlResponse.ok) {
+        const errorData = await urlResponse.json().catch(() => ({ error: urlResponse.statusText }))
+        throw new Error(errorData.error || "Failed to get upload URL")
       }
 
-      const data = await response.json()
-      console.log("[v0] Upload successful:", data)
+      const { signedUrl, publicUrl, gcsFileName, bucketName } = await urlResponse.json()
+      console.log("[v0] Got signed URL, uploading directly to GCS...")
+
+      const uploadResponse = await fetch(signedUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": selectedFile.type,
+          "x-goog-content-length-range": "0,524288000",
+        },
+        body: selectedFile,
+      })
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text()
+        console.error("[v0] GCS upload failed:", uploadResponse.status, errorText)
+        throw new Error(`GCS upload failed: ${uploadResponse.status}`)
+      }
+
+      console.log("[v0] GCS upload successful, confirming...")
+
+      const confirmResponse = await fetch("/api/media/confirm-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: selectedFile.name,
+          fileSize: selectedFile.size,
+          fileType: selectedFile.type,
+          publicUrl,
+          gcsFileName,
+          bucketName,
+          tags,
+        }),
+      })
+
+      if (!confirmResponse.ok) {
+        const errorData = await confirmResponse.json().catch(() => ({ error: confirmResponse.statusText }))
+        throw new Error(errorData.error || "Failed to confirm upload")
+      }
+
+      const data = await confirmResponse.json()
+      console.log("[v0] Upload complete:", data)
 
       toast({
         title: "Success",
