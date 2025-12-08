@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 import { put } from "@vercel/blob"
+import { Buffer } from "buffer"
 
 export async function POST(request: NextRequest) {
   try {
@@ -154,19 +155,34 @@ export async function POST(request: NextRequest) {
     let publicUrl: string
     try {
       const filename = `${user.id}/${Date.now()}-${file.name}`
-      const blob = await put(filename, file, {
+
+      const arrayBuffer = await file.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+
+      const blob = await put(filename, buffer, {
         access: "public",
+        contentType: file.type,
       })
       publicUrl = blob.url
       console.log("[v0] Blob uploaded successfully:", publicUrl)
     } catch (storageError: any) {
       console.error("[v0] Vercel Blob upload failed:", storageError)
-      return NextResponse.json(
-        {
-          error: `Storage upload failed: ${storageError.message || "Unknown error"}`,
-        },
-        { status: 500 },
-      )
+
+      let errorMessage = "Storage upload failed"
+
+      // Check if error is related to file size limits
+      if (
+        storageError.message?.includes("413") ||
+        storageError.message?.includes("too large") ||
+        storageError.message?.includes("Request Entity")
+      ) {
+        errorMessage =
+          "File is too large for Vercel Blob storage. Vercel Blob has a 4.5 MB limit on the free tier. Please upgrade your Vercel account or reduce the file size."
+      } else if (storageError.message) {
+        errorMessage = `Storage upload failed: ${storageError.message}`
+      }
+
+      return NextResponse.json({ error: errorMessage }, { status: 413 })
     }
 
     // Save metadata to Supabase
