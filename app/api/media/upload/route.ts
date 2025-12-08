@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
-import { put } from "@vercel/blob"
+import { uploadToGCS } from "@/lib/gcs/rest-client"
 import { Buffer } from "buffer"
 
 const VERCEL_BLOB_SIZE_LIMIT = 4.5 * 1024 * 1024 // 4.5 MB for free tier
@@ -152,53 +152,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log("[v0] Validation passed, uploading to Vercel Blob...")
-
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      console.error("[v0] BLOB_READ_WRITE_TOKEN is not configured")
-      return NextResponse.json(
-        {
-          error: "Storage is not properly configured. Please contact support.",
-        },
-        { status: 500 },
-      )
-    }
-
-    if (file.size > VERCEL_BLOB_SIZE_LIMIT) {
-      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2)
-      const limitMB = (VERCEL_BLOB_SIZE_LIMIT / (1024 * 1024)).toFixed(1)
-      console.log("[v0] File exceeds Vercel Blob limit:", fileSizeMB, "MB >", limitMB, "MB")
-      return NextResponse.json(
-        {
-          error: `File size (${fileSizeMB} MB) exceeds Vercel Blob's limit of ${limitMB} MB. Please upgrade your Vercel plan for larger file uploads.`,
-        },
-        { status: 413 },
-      )
-    }
+    console.log("[v0] Validation passed, uploading to Google Cloud Storage...")
 
     let publicUrl: string
     try {
+      const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
       const filename = `${user.id}/${Date.now()}-${file.name}`
 
       const arrayBuffer = await file.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
 
-      console.log("[v0] Uploading file to Blob:", filename, "Size:", buffer.length)
+      console.log("[v0] Uploading file to GCS:", filename, "Size:", buffer.length)
 
-      const blob = await put(filename, buffer, {
-        access: "public",
-        token: process.env.BLOB_READ_WRITE_TOKEN,
-        contentType: file.type,
-      })
+      publicUrl = await uploadToGCS(bucketName, filename, buffer, file.type)
 
-      publicUrl = blob.url
-      console.log("[v0] Blob uploaded successfully:", publicUrl)
+      console.log("[v0] GCS upload successful:", publicUrl)
     } catch (storageError: any) {
-      console.error("[v0] Vercel Blob upload failed:", storageError)
+      console.error("[v0] Google Cloud Storage upload failed:", storageError)
       console.error("[v0] Error details:", {
         message: storageError.message,
         stack: storageError.stack,
-        cause: storageError.cause,
       })
       return NextResponse.json(
         {

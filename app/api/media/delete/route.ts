@@ -1,4 +1,4 @@
-import { deleteFile } from "@/lib/gcs/client"
+import { deleteFromGCS } from "@/lib/gcs/rest-client"
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
@@ -44,9 +44,13 @@ export async function DELETE(request: NextRequest) {
       media.file_path.includes("docs.google.com")
 
     if (!isExternalMedia) {
-      // Only delete from GCS if it's an actual GCS URL
       try {
-        await deleteFile(media.file_path)
+        const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
+        // Extract filename from URL: https://storage.googleapis.com/bucket/filename
+        const url = new URL(media.file_path)
+        const filename = url.pathname.split("/").slice(2).join("/") // Remove leading /bucket/
+
+        await deleteFromGCS(bucketName, filename)
       } catch (storageError) {
         console.error("GCS delete error (non-critical):", storageError)
         // Continue with database deletion even if GCS deletion fails

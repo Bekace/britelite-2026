@@ -21,6 +21,7 @@ import { useUploadLimits } from "@/hooks/use-upload-limits"
 import { StorageUsageBar } from "@/components/ui/storage-usage-bar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
+import { SmartFileUploader } from "@/components/media/smart-file-uploader"
 
 interface MediaItem {
   id: string
@@ -615,10 +616,14 @@ export default function MediaLibraryPage() {
           )}
 
           <Tabs defaultValue="upload" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="upload">
                 <Upload className="h-4 w-4 mr-2" />
                 Upload File
+              </TabsTrigger>
+              <TabsTrigger value="smart-upload">
+                <Upload className="h-4 w-4 mr-2" />
+                Smart Upload
               </TabsTrigger>
               <TabsTrigger value="import">
                 <LinkIcon className="h-4 w-4 mr-2" />
@@ -664,6 +669,27 @@ export default function MediaLibraryPage() {
                   Storage limit reached. Please delete some files or upgrade your plan to upload more content.
                 </p>
               )}
+            </TabsContent>
+
+            {/* Smart Upload Tab */}
+            <TabsContent value="smart-upload" className="mt-4">
+              <SmartFileUploader
+                onUploadSuccess={async () => {
+                  await fetchMedia()
+                  await uploadLimits.refresh()
+                  toast({
+                    title: "Success",
+                    description: "File uploaded successfully",
+                  })
+                }}
+                onUploadError={(error) => {
+                  toast({
+                    title: "Upload Failed",
+                    description: error,
+                    variant: "destructive",
+                  })
+                }}
+              />
             </TabsContent>
 
             <TabsContent value="import" className="space-y-4 mt-4">
