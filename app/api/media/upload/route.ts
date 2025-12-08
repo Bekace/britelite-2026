@@ -29,6 +29,12 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Upload attempt - File:", file.name, "Size:", file.size, "Type:", file.type)
 
+    const { data: uploadSettings, error: settingsError } = await supabase.from("upload_settings").select("*").single()
+
+    if (settingsError) {
+      console.error("[v0] Failed to fetch upload settings:", settingsError)
+    }
+
     // Get user's storage limits
     const { data: userData, error: userError } = await supabase
       .from("profiles")
@@ -45,9 +51,17 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
       .single()
 
+    let maxFileSize: number
+    if (uploadSettings?.enforce_globally) {
+      maxFileSize = uploadSettings.max_file_size
+      console.log("[v0] Using global max file size:", maxFileSize)
+    } else {
+      maxFileSize = userData?.user_subscriptions?.subscription_plans?.max_file_size || 10 * 1024 * 1024
+      console.log("[v0] Using plan max file size:", maxFileSize)
+    }
+
     const maxStorageBytes =
       userData?.user_subscriptions?.subscription_plans?.max_media_storage || 1 * 1024 * 1024 * 1024
-    const maxFileSize = userData?.user_subscriptions?.subscription_plans?.max_file_size || 10 * 1024 * 1024
 
     console.log("[v0] Storage limits - Max file size:", maxFileSize, "Max storage:", maxStorageBytes)
 
@@ -57,7 +71,7 @@ export async function POST(request: NextRequest) {
       console.log("[v0] File too large:", fileSizeMB, "MB exceeds", maxFileSizeMB, "MB")
       return NextResponse.json(
         {
-          error: `File size (${fileSizeMB} MB) exceeds your plan's maximum file size of ${maxFileSizeMB} MB.`,
+          error: `File size (${fileSizeMB} MB) exceeds the maximum file size of ${maxFileSizeMB} MB.`,
         },
         { status: 413 },
       )
@@ -90,7 +104,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const allowedTypes = [
+    const allowedTypes = uploadSettings?.allowed_file_types || [
       "image/jpeg",
       "image/jpg",
       "image/png",
@@ -109,7 +123,7 @@ export async function POST(request: NextRequest) {
       console.log("[v0] Unsupported file type:", file.type)
       return NextResponse.json(
         {
-          error: `File type "${file.type}" is not supported. Allowed types: images (JPEG, PNG, GIF, WebP, SVG), videos (MP4, WebM, QuickTime), and PDFs.`,
+          error: `File type "${file.type}" is not supported. Please check the allowed file types in your upload settings.`,
         },
         { status: 400 },
       )
