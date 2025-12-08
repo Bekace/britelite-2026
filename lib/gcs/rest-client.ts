@@ -172,7 +172,11 @@ async function getAccessToken(): Promise<string> {
 export async function makeFilePublic(bucketName: string, fileName: string): Promise<void> {
   const accessToken = await getAccessToken()
 
-  const aclUrl = `https://storage.googleapis.com/storage/v1/b/${bucketName}/o/${encodeURIComponent(fileName)}/acl`
+  const encodedFileName = encodeURIComponent(fileName)
+  const aclUrl = `https://storage.googleapis.com/storage/v1/b/${bucketName}/o/${encodedFileName}/acl`
+
+  console.log("[v0] Making file public:", { bucketName, fileName, aclUrl })
+
   const response = await fetch(aclUrl, {
     method: "POST",
     headers: {
@@ -185,7 +189,10 @@ export async function makeFilePublic(bucketName: string, fileName: string): Prom
   if (!response.ok) {
     const error = await response.text()
     console.error("[v0] Failed to make file public:", error)
+    throw new Error(`Failed to make file public: ${error}`)
   }
+
+  console.log("[v0] File made public successfully")
 }
 
 // Delete file from GCS

@@ -25,12 +25,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Make the file public
+    console.log("[v0] Confirm upload - making file public:", { gcsFileName, bucketName })
+
     try {
       await makeFilePublic(bucketName, gcsFileName)
+      console.log("[v0] File is now public")
     } catch (error) {
       console.error("[v0] Failed to make file public:", error)
-      // Continue - file might still be accessible
+      return NextResponse.json(
+        {
+          error: `Failed to make file public: ${error instanceof Error ? error.message : "Unknown error"}`,
+        },
+        { status: 500 },
+      )
     }
 
     // Save metadata to database
