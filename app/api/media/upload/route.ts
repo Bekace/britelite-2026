@@ -35,10 +35,16 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Upload attempt - File:", file.name, "Size:", file.size, "Type:", file.type)
 
-    const { data: uploadSettings, error: settingsError } = await supabase.from("upload_settings").select("*").single()
+    const { data: uploadSettingsArray } = await supabase.from("upload_settings").select("*").limit(1)
+    const uploadSettings = uploadSettingsArray && uploadSettingsArray.length > 0 ? uploadSettingsArray[0] : null
 
-    if (settingsError) {
-      console.log("[v0] No upload settings found (using defaults):", settingsError.message)
+    if (!uploadSettings) {
+      console.log("[v0] No upload settings configured, using defaults")
+    } else {
+      console.log("[v0] Upload settings loaded:", {
+        enforce_globally: uploadSettings.enforce_globally,
+        max_file_size: uploadSettings.max_file_size,
+      })
     }
 
     // Get user's storage limits
@@ -57,13 +63,21 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
       .single()
 
+    if (userError) {
+      console.error("[v0] User data error:", userError)
+      return NextResponse.json({ error: "Failed to fetch user subscription data" }, { status: 500 })
+    }
+
     let maxFileSize: number
-    if (uploadSettings?.enforce_globally) {
+    if (uploadSettings?.enforce_globally && uploadSettings.max_file_size) {
       maxFileSize = uploadSettings.max_file_size
       console.log("[v0] Using global max file size:", maxFileSize)
-    } else {
-      maxFileSize = userData?.user_subscriptions?.subscription_plans?.max_file_size || 10 * 1024 * 1024
+    } else if (userData?.user_subscriptions?.subscription_plans?.max_file_size) {
+      maxFileSize = userData.user_subscriptions.subscription_plans.max_file_size
       console.log("[v0] Using plan max file size:", maxFileSize)
+    } else {
+      maxFileSize = 10 * 1024 * 1024 // Default 10MB
+      console.log("[v0] Using default max file size:", maxFileSize)
     }
 
     const maxStorageBytes =
@@ -93,7 +107,7 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.id)
 
     if (mediaError) {
-      console.error("Media data error:", mediaError)
+      console.error("[v0] Media data error:", mediaError)
       return NextResponse.json({ error: "Failed to check storage usage" }, { status: 500 })
     }
 
@@ -129,7 +143,7 @@ export async function POST(request: NextRequest) {
       console.log("[v0] Unsupported file type:", file.type)
       return NextResponse.json(
         {
-          error: `File type "${file.type}" is not supported. Please check the allowed file types in your upload settings.`,
+          error: `File type "${file.type}" is not supported. Allowed types: ${allowedTypes.join(", ")}`,
         },
         { status: 400 },
       )
@@ -148,7 +162,7 @@ export async function POST(request: NextRequest) {
       // Upload to Google Cloud Storage with organized path
       const filename = `${user.id}/${Date.now()}-${file.name}`
       publicUrl = await uploadFile(filename, fileBuffer, file.type)
-      console.log("[v0] GCS uploaded:", publicUrl)
+      console.log("[v0] GCS uploaded successfully:", publicUrl)
     } catch (storageError: any) {
       console.error("[v0] Google Cloud Storage upload failed:", storageError)
 
@@ -189,7 +203,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (dbError) {
-      console.error("Database error:", dbError)
+      console.error("[v0] Database error:", dbError)
       return NextResponse.json({ error: "Failed to save media metadata" }, { status: 500 })
     }
 
