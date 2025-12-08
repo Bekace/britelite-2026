@@ -4,6 +4,8 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("[v0] Upload route - Starting request processing")
+
     const supabase = await createClient()
 
     if (!supabase) {
@@ -16,14 +18,18 @@ export async function POST(request: NextRequest) {
       error: authError,
     } = await supabase.auth.getUser()
     if (authError || !user) {
+      console.log("[v0] Authentication failed:", authError)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    console.log("[v0] User authenticated:", user.id)
 
     const formData = await request.formData()
     const file = formData.get("file") as File
     const tags = formData.get("tags") as string
 
     if (!file) {
+      console.log("[v0] No file provided in request")
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
@@ -32,7 +38,7 @@ export async function POST(request: NextRequest) {
     const { data: uploadSettings, error: settingsError } = await supabase.from("upload_settings").select("*").single()
 
     if (settingsError) {
-      console.error("[v0] Failed to fetch upload settings:", settingsError)
+      console.log("[v0] No upload settings found (using defaults):", settingsError.message)
     }
 
     // Get user's storage limits
