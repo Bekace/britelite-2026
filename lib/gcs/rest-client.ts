@@ -7,13 +7,26 @@ interface GCSCredentials {
   client_email: string
 }
 
-// Parse credentials from environment
 function getCredentials(): GCSCredentials {
-  const credentialsJson = process.env.GCS_SERVICE_ACCOUNT_JSON
-  if (!credentialsJson) {
-    throw new Error("GCS_SERVICE_ACCOUNT_JSON environment variable is not set")
+  const projectId = process.env.GCS_PROJECT_ID || process.env.GCP_PROJECT_ID
+  const clientEmail = process.env.GCP_SERVICE_ACCOUNT_EMAIL
+  const privateKey = process.env.GCP_PRIVATE_KEY
+
+  if (!projectId) {
+    throw new Error("GCS_PROJECT_ID or GCP_PROJECT_ID environment variable is not set")
   }
-  return JSON.parse(credentialsJson)
+  if (!clientEmail) {
+    throw new Error("GCP_SERVICE_ACCOUNT_EMAIL environment variable is not set")
+  }
+  if (!privateKey) {
+    throw new Error("GCP_PRIVATE_KEY environment variable is not set")
+  }
+
+  return {
+    project_id: projectId,
+    client_email: clientEmail,
+    private_key: privateKey,
+  }
 }
 
 // Generate JWT for GCS authentication
