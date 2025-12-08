@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
-import { Buffer } from "buffer"
+import { put } from "@vercel/blob"
 
 export async function POST(request: NextRequest) {
   try {
@@ -149,42 +149,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log("[v0] Validation passed, uploading to Google Cloud Storage...")
+    console.log("[v0] Validation passed, uploading to Vercel Blob...")
 
     let publicUrl: string
     try {
-      const { uploadFile } = await import("@/lib/gcs/client")
-
-      // Convert file to buffer for GCS upload
-      const arrayBuffer = await file.arrayBuffer()
-      const fileBuffer = Buffer.from(arrayBuffer)
-
-      // Upload to Google Cloud Storage with organized path
       const filename = `${user.id}/${Date.now()}-${file.name}`
-      publicUrl = await uploadFile(filename, fileBuffer, file.type)
-      console.log("[v0] GCS uploaded successfully:", publicUrl)
+      const blob = await put(filename, file, {
+        access: "public",
+      })
+      publicUrl = blob.url
+      console.log("[v0] Blob uploaded successfully:", publicUrl)
     } catch (storageError: any) {
-      console.error("[v0] Google Cloud Storage upload failed:", storageError)
-
-      // Handle various error formats from GCS
-      let errorMessage = "Unknown storage error"
-      let statusCode = 500
-
-      if (storageError?.message && typeof storageError.message === "string") {
-        errorMessage = storageError.message
-
-        // Check for quota or size errors
-        if (storageError.message.includes("quota") || storageError.message.includes("limit")) {
-          statusCode = 413
-          errorMessage = "Storage quota exceeded"
-        }
-      }
-
+      console.error("[v0] Vercel Blob upload failed:", storageError)
       return NextResponse.json(
         {
-          error: `Storage upload failed: ${errorMessage}`,
+          error: `Storage upload failed: ${storageError.message || "Unknown error"}`,
         },
-        { status: statusCode },
+        { status: 500 },
       )
     }
 
