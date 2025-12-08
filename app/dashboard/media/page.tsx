@@ -347,19 +347,27 @@ export default function MediaLibraryPage() {
       console.log("[v0] Upload response status:", response.status)
 
       if (!response.ok) {
-        let errorData
+        const contentType = response.headers.get("content-type")
+        let errorMessage = "Failed to upload file"
+
         try {
-          errorData = await response.json()
-          console.error("[v0] Upload error response:", errorData)
+          if (contentType?.includes("application/json")) {
+            const errorData = await response.json()
+            console.error("[v0] Upload error response:", errorData)
+            errorMessage = errorData.error || errorMessage
+          } else {
+            const errorText = await response.text()
+            console.error("[v0] Upload error (non-JSON):", errorText)
+            errorMessage = errorText || response.statusText
+          }
         } catch (e) {
-          const errorText = await response.text()
-          console.error("[v0] Upload error (non-JSON):", errorText)
-          errorData = { error: errorText || response.statusText }
+          console.error("[v0] Error parsing response:", e)
+          errorMessage = response.statusText
         }
 
         toast({
           title: "Upload Failed",
-          description: errorData.error || `Failed to upload file (${response.status})`,
+          description: errorMessage,
           variant: "destructive",
         })
         return
