@@ -1,9 +1,7 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Upload, CheckCircle, AlertCircle, FileVideo, FileImage, FileText } from "lucide-react"
@@ -76,66 +74,63 @@ export function SimpleUploader({
     setError(null)
 
     try {
-      const supabase = createClient()
-
-      // Get current user
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser()
-
-      if (authError || !user) {
-        throw new Error("You must be logged in to upload files")
-      }
-
+      // Step 1: Get upload URL from server
       setProgress(10)
-
-      // Generate unique filename
-      const fileName = `${user.id}/${Date.now()}-${file.name}`
-
-      setProgress(20)
-
-      // Upload directly to Supabase Storage from client
-      const { data: uploadData, error: uploadError } = await supabase.storage.from("media").upload(fileName, file, {
-        contentType: file.type,
-        upsert: false,
+      const urlResponse = await fetch("/api/media/get-upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+        }),
       })
 
-      if (uploadError) {
-        console.error("[v0] Supabase storage upload error:", uploadError)
-        throw new Error(uploadError.message)
+      if (!urlResponse.ok) {
+        const data = await urlResponse.json()
+        throw new Error(data.error || "Failed to get upload URL")
       }
 
-      setProgress(70)
+      const { uploadUrl, publicUrl, gcsFileName, bucketName } = await urlResponse.json()
+      setProgress(20)
 
-      // Get public URL
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("media").getPublicUrl(fileName)
+      // Step 2: Upload directly to GCS using the resumable upload URL
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": file.type,
+          "Content-Length": file.size.toString(),
+        },
+        body: file,
+      })
+
+      if (!uploadResponse.ok) {
+        const errorText = await uploadResponse.text()
+        throw new Error(`Upload failed: ${errorText}`)
+      }
 
       setProgress(80)
 
-      // Save to database
-      const { data: mediaData, error: mediaError } = await supabase
-        .from("media")
-        .insert({
-          user_id: user.id,
-          name: file.name,
-          file_path: publicUrl,
-          file_size: file.size,
-          mime_type: file.type,
-          tags: [],
-        })
-        .select()
-        .single()
+      // Step 3: Confirm upload and save metadata
+      const confirmResponse = await fetch("/api/media/confirm-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          publicUrl,
+          gcsFileName,
+          bucketName,
+        }),
+      })
 
-      if (mediaError) {
-        console.error("[v0] Database insert error:", mediaError)
-        // Try to delete the uploaded file
-        await supabase.storage.from("media").remove([fileName])
-        throw new Error(mediaError.message)
+      if (!confirmResponse.ok) {
+        const data = await confirmResponse.json()
+        throw new Error(data.error || "Failed to confirm upload")
       }
 
+      const mediaData = await confirmResponse.json()
       setProgress(100)
       setStatus("success")
       setSelectedFile(null)

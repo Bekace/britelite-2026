@@ -25,19 +25,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    console.log("[v0] Confirming upload:", { fileName, gcsFileName })
-
     // Make the file public
     try {
       await makeFilePublic(bucketName, gcsFileName)
-      console.log("[v0] File made public:", gcsFileName)
     } catch (error) {
       console.error("[v0] Failed to make file public:", error)
-      // Continue anyway - file might still be accessible
+      // Continue - file might still be accessible
     }
 
-    // Save metadata to Supabase
-    const { data: insertedMediaData, error: dbError } = await supabase
+    // Save metadata to database
+    const { data: mediaData, error: dbError } = await supabase
       .from("media")
       .insert({
         user_id: user.id,
@@ -45,7 +42,7 @@ export async function POST(request: NextRequest) {
         file_path: publicUrl,
         file_size: fileSize,
         mime_type: fileType,
-        tags: tags ? (typeof tags === "string" ? tags.split(",").map((tag: string) => tag.trim()) : tags) : [],
+        tags: tags ? (typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()) : tags) : [],
       })
       .select()
       .single()
@@ -55,21 +52,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to save media metadata" }, { status: 500 })
     }
 
-    console.log("[v0] Upload confirmed:", insertedMediaData.id)
-
     return NextResponse.json({
-      id: insertedMediaData.id,
+      id: mediaData.id,
       name: fileName,
       mime_type: fileType,
       file_size: fileSize,
       file_path: publicUrl,
-      tags: insertedMediaData.tags,
-      created_at: insertedMediaData.created_at,
+      tags: mediaData.tags,
+      created_at: mediaData.created_at,
     })
   } catch (error) {
     console.error("[v0] Confirm upload error:", error)
     return NextResponse.json(
-      { error: "Failed to confirm upload", details: error instanceof Error ? error.message : "Unknown error" },
+      { error: error instanceof Error ? error.message : "Failed to confirm upload" },
       { status: 500 },
     )
   }
