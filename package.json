@@ -13,7 +13,6 @@
     "@dnd-kit/sortable": "latest",
     "@dnd-kit/utilities": "latest",
     "@emotion/is-prop-valid": "latest",
-    "@google-cloud/storage": "latest",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
