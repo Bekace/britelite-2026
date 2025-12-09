@@ -34,29 +34,34 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     // Get initial user
     const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      try {
+        console.log("[v0] useUser - starting getUser")
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
 
-      console.log("[v0] useUser - getUser result:", user?.id, user?.email)
+        console.log("[v0] useUser - getUser result:", user?.id, user?.email, "error:", userError)
 
-      setUser(user)
+        setUser(user)
 
-      if (user) {
-        // Get user profile with role
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("id, email, role")
-          .eq("id", user.id)
-          .single()
+        if (user) {
+          console.log("[v0] useUser - fetching profile for user:", user.id)
+          const { data: profile, error } = await supabase
+            .from("profiles")
+            .select("id, email, role")
+            .eq("id", user.id)
+            .single()
 
-        console.log("[v0] useUser - profile fetch result:", { profile, error })
-        console.log("[v0] useUser - profile role:", profile?.role)
+          console.log("[v0] useUser - profile fetch result:", JSON.stringify({ profile, error }))
 
-        setProfile(profile)
+          setProfile(profile)
+        }
+      } catch (err) {
+        console.error("[v0] useUser - getUser error:", err)
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
 
     getUser()
@@ -70,15 +75,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null)
 
       if (session?.user) {
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("id, email, role")
-          .eq("id", session.user.id)
-          .single()
+        try {
+          console.log("[v0] useUser - onAuthStateChange fetching profile for:", session.user.id)
+          const { data: profile, error } = await supabase
+            .from("profiles")
+            .select("id, email, role")
+            .eq("id", session.user.id)
+            .single()
 
-        console.log("[v0] useUser - onAuthStateChange profile:", { profile, error })
+          console.log("[v0] useUser - onAuthStateChange profile result:", JSON.stringify({ profile, error }))
 
-        setProfile(profile)
+          setProfile(profile)
+        } catch (err) {
+          console.error("[v0] useUser - onAuthStateChange profile error:", err)
+        }
       } else {
         setProfile(null)
       }
