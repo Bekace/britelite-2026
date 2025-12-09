@@ -24,16 +24,26 @@ const UserContext = createContext<UserContextType>({
   loading: true,
 })
 
-export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
+interface UserProviderProps {
+  children: React.ReactNode
+  initialUser?: User | null
+  initialProfile?: UserProfile | null
+}
+
+export function UserProvider({ children, initialUser = null, initialProfile = null }: UserProviderProps) {
+  const [user, setUser] = useState<User | null>(initialUser)
+  const [profile, setProfile] = useState<UserProfile | null>(initialProfile)
+  const [loading, setLoading] = useState(!initialUser)
 
   useEffect(() => {
     const supabase = createClient()
 
-    // Get initial user
     const getUser = async () => {
+      if (initialUser && initialProfile) {
+        // Already have data from server, skip initial fetch
+        return
+      }
+
       try {
         const {
           data: { user },
@@ -77,7 +87,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [initialUser, initialProfile])
 
   return <UserContext.Provider value={{ user, profile, loading }}>{children}</UserContext.Provider>
 }

@@ -80,7 +80,7 @@ const adminNavigation = [
 export function DashboardSidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
-  const { profile } = useUser()
+  const { profile, loading } = useUser()
 
   const isAdmin = profile?.role === "admin" || profile?.role === "superadmin"
 

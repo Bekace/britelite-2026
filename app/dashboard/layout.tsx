@@ -37,8 +37,10 @@ export default async function DashboardLayout({
     redirect("/auth/login")
   }
 
+  const { data: profile } = await supabase.from("profiles").select("id, email, role").eq("id", user.id).single()
+
   return (
-    <UserProvider>
+    <UserProvider initialUser={user} initialProfile={profile}>
       <div className="flex h-screen bg-background">
         {/* Sidebar */}
         <DashboardSidebar />
