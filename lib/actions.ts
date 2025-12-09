@@ -2,6 +2,11 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import Stripe from "stripe"
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2025-05-28.basil",
+})
 
 // Update the signIn function to handle redirects properly
 export async function signIn(prevState: any, formData: FormData) {
@@ -40,7 +45,6 @@ export async function signIn(prevState: any, formData: FormData) {
 
 // Update the signUp function to handle potential null formData and plan assignment
 export async function signUp(prevState: any, formData: FormData) {
-  // Check if formData is valid
   if (!formData) {
     return { error: "Form data is missing" }
   }
@@ -50,8 +54,9 @@ export async function signUp(prevState: any, formData: FormData) {
   const fullName = formData.get("fullName")
   const companyName = formData.get("companyName")
   const planId = formData.get("planId")
+  const priceId = formData.get("priceId")
+  const stripePriceId = formData.get("stripePriceId")
 
-  // Validate required fields
   if (!email || !password) {
     return { error: "Email and password are required" }
   }
@@ -59,14 +64,13 @@ export async function signUp(prevState: any, formData: FormData) {
   const supabase = await createClient()
 
   try {
-    // Create auth user
+    // Create auth user - no email confirmation required
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email.toString(),
       password: password.toString(),
       options: {
-        emailRedirectTo:
-          process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-          `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-pointer-ai-landing-page-psi-six-73.vercel.app"}/dashboard`,
+        // Skip email confirmation - user gets immediate access
+        emailRedirectTo: undefined,
         data: {
           full_name: fullName?.toString() || "",
           company_name: companyName?.toString() || "",
@@ -78,58 +82,116 @@ export async function signUp(prevState: any, formData: FormData) {
       return { error: authError.message }
     }
 
-    // If planId is provided, create subscription record
-    // Otherwise, assign Free plan by default
-    if (authData.user) {
-      const userId = authData.user.id
+    if (!authData.user) {
+      return { error: "Failed to create user account" }
+    }
 
-      // Determine which plan to assign
-      let selectedPlanId = planId?.toString()
+    const userId = authData.user.id
 
-      // If no plan selected, get the Free plan
-      if (!selectedPlanId) {
-        const { data: freePlan, error: freePlanError } = await supabase
-          .from("subscription_plans")
-          .select("id")
-          .eq("name", "Free")
-          .single()
+    // Check if this is a paid plan
+    if (stripePriceId && planId) {
+      // For paid plans: Create Stripe customer and checkout session
+      const customer = await stripe.customers.create({
+        email: email.toString(),
+        name: fullName?.toString() || undefined,
+        metadata: {
+          supabase_user_id: userId,
+          plan_id: planId.toString(),
+          price_id: priceId?.toString() || "",
+        },
+      })
 
-        if (freePlanError) {
-          console.error("[v0] Error fetching Free plan:", freePlanError)
-        } else {
-          selectedPlanId = freePlan?.id
-        }
-      }
+      // Get trial days from the price
+      const { data: priceData } = await supabase
+        .from("subscription_prices")
+        .select("trial_days")
+        .eq("id", priceId?.toString())
+        .single()
 
-      // Create subscription record
-      if (selectedPlanId) {
-        const { error: subscriptionError } = await supabase.from("user_subscriptions").insert({
-          user_id: userId,
-          plan_id: selectedPlanId,
-          status: "active",
-          started_at: new Date().toISOString(),
+      const trialDays = priceData?.trial_days || 0
+
+      // Create checkout session
+      const session = await stripe.checkout.sessions.create({
+        customer: customer.id,
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price: stripePriceId.toString(),
+            quantity: 1,
+          },
+        ],
+        mode: "subscription",
+        subscription_data: trialDays > 0 ? { trial_period_days: trialDays } : undefined,
+        success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/pricing`,
+        metadata: {
+          supabase_user_id: userId,
+          plan_id: planId.toString(),
+          price_id: priceId?.toString() || "",
+        },
+      })
+
+      // Store temporary data for the user (will be finalized by webhook)
+      await supabase
+        .from("profiles")
+        .update({
+          company_name: companyName?.toString() || null,
+          stripe_customer_id: customer.id,
         })
+        .eq("id", userId)
 
-        if (subscriptionError) {
-          console.error("[v0] Error creating subscription:", subscriptionError)
-        }
-      }
-
-      // Update profile with company name if provided
-      if (companyName) {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({ company_name: companyName.toString() })
-          .eq("id", userId)
-
-        if (profileError) {
-          console.error("[v0] Error updating profile:", profileError)
-        }
+      // Redirect to Stripe Checkout
+      if (session.url) {
+        redirect(session.url)
       }
     }
 
-    return { success: "Check your email to confirm your account." }
+    // For Free plan: Create subscription immediately and redirect to dashboard
+    let selectedPlanId = planId?.toString()
+
+    if (!selectedPlanId) {
+      const { data: freePlan } = await supabase
+        .from("subscription_plans")
+        .select("id")
+        .eq("name", "Free")
+        .eq("is_active", true)
+        .single()
+
+      selectedPlanId = freePlan?.id
+    }
+
+    if (selectedPlanId) {
+      // Get the price for this plan
+      const { data: planPrice } = await supabase
+        .from("subscription_prices")
+        .select("id")
+        .eq("plan_id", selectedPlanId)
+        .eq("billing_cycle", "monthly")
+        .eq("is_active", true)
+        .single()
+
+      await supabase.from("user_subscriptions").insert({
+        user_id: userId,
+        plan_id: selectedPlanId,
+        price_id: planPrice?.id || priceId?.toString(),
+        status: "active",
+        started_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 100 years for free
+      })
+    }
+
+    // Update profile
+    if (companyName) {
+      await supabase.from("profiles").update({ company_name: companyName.toString() }).eq("id", userId)
+    }
+
+    // Redirect to dashboard immediately (no email verification required)
+    redirect("/dashboard")
   } catch (error) {
+    // Check if this is a redirect (redirects throw NEXT_REDIRECT errors)
+    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
+      throw error
+    }
     console.error("Sign up error:", error)
     return { error: "An unexpected error occurred. Please try again." }
   }

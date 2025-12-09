@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { UserProvider } from "@/lib/hooks/use-user"
+import { EmailVerificationBanner } from "@/components/email-verification-banner"
 
 export const dynamic = "force-dynamic"
 
@@ -44,6 +45,8 @@ export default async function DashboardLayout({
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
+          <EmailVerificationBanner />
+
           {/* Header */}
           <DashboardHeader user={user} />
 
