@@ -25,8 +25,16 @@ export default async function PricingPage() {
     .eq("is_active", true)
     .order("price", { ascending: true })
 
+  console.log("[v0] Pricing page - fetched plans:", plans)
+  console.log("[v0] Pricing page - error:", error)
+  console.log("[v0] Pricing page - plans count:", plans?.length || 0)
+
   if (error) {
-    console.error("Error fetching plans:", error)
+    console.error("[v0] Error fetching plans:", error)
+  }
+
+  if (plans && plans.length > 0) {
+    console.log("[v0] First plan structure:", JSON.stringify(plans[0], null, 2))
   }
 
   return (
