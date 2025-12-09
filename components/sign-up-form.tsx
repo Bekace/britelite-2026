@@ -48,7 +48,12 @@ interface SignUpFormProps {
 export default function SignUpForm({ selectedPlan }: SignUpFormProps) {
   const [state, formAction] = useActionState(signUp, null)
 
-  const isPaidPlan = selectedPlan && selectedPlan.price > 0
+  const isFreePlan = selectedPlan?.name?.toLowerCase() === "free"
+  const isPaidPlan = selectedPlan && !isFreePlan
+
+  const oauthRedirectTo = isPaidPlan
+    ? `/auth/oauth-checkout?planId=${selectedPlan.id}&priceId=${selectedPlan.priceId || ""}&stripePriceId=${selectedPlan.stripePriceId || ""}`
+    : "/dashboard"
 
   return (
     <div className="w-full max-w-md space-y-8">
@@ -86,19 +91,15 @@ export default function SignUpForm({ selectedPlan }: SignUpFormProps) {
         </div>
       )}
 
-      {!isPaidPlan && (
-        <>
-          <OAuthButtons redirectTo="/dashboard" />
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
-            </div>
-          </div>
-        </>
-      )}
+      <OAuthButtons redirectTo={oauthRedirectTo} />
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
+        </div>
+      </div>
 
       <form action={formAction} className="space-y-6 bg-popover">
         {selectedPlan && (
