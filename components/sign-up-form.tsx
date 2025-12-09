@@ -8,7 +8,7 @@ import { Loader2, Check } from "lucide-react"
 import Link from "next/link"
 import { signUp } from "@/lib/actions"
 
-function SubmitButton() {
+function SubmitButton({ isPaidPlan }: { isPaidPlan: boolean }) {
   const { pending } = useFormStatus()
 
   return (
@@ -22,6 +22,8 @@ function SubmitButton() {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           Creating account...
         </>
+      ) : isPaidPlan ? (
+        "Continue to Payment"
       ) : (
         "Create Account"
       )}
@@ -36,12 +38,16 @@ interface SignUpFormProps {
     price: number
     billing_cycle: string
     features: string[]
+    priceId?: string
+    stripePriceId?: string
+    trialDays?: number
   }
 }
 
 export default function SignUpForm({ selectedPlan }: SignUpFormProps) {
-  // Initialize with null as the initial state
   const [state, formAction] = useActionState(signUp, null)
+
+  const isPaidPlan = selectedPlan && selectedPlan.price > 0
 
   return (
     <div className="w-full max-w-md space-y-8">
@@ -62,6 +68,9 @@ export default function SignUpForm({ selectedPlan }: SignUpFormProps) {
               <p className="text-sm text-muted-foreground">/{selectedPlan.billing_cycle}</p>
             </div>
           </div>
+          {selectedPlan.trialDays && selectedPlan.trialDays > 0 && (
+            <p className="text-sm text-primary mb-2">{selectedPlan.trialDays}-day free trial included</p>
+          )}
           <div className="space-y-1">
             {selectedPlan.features.slice(0, 3).map((feature, idx) => (
               <div key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -77,7 +86,15 @@ export default function SignUpForm({ selectedPlan }: SignUpFormProps) {
       )}
 
       <form action={formAction} className="space-y-6 bg-popover">
-        {selectedPlan && <input type="hidden" name="planId" value={selectedPlan.id} />}
+        {selectedPlan && (
+          <>
+            <input type="hidden" name="planId" value={selectedPlan.id} />
+            {selectedPlan.priceId && <input type="hidden" name="priceId" value={selectedPlan.priceId} />}
+            {selectedPlan.stripePriceId && (
+              <input type="hidden" name="stripePriceId" value={selectedPlan.stripePriceId} />
+            )}
+          </>
+        )}
 
         {state?.error && (
           <div className="bg-destructive/10 border border-destructive/50 text-destructive px-4 py-3 rounded">
@@ -144,7 +161,7 @@ export default function SignUpForm({ selectedPlan }: SignUpFormProps) {
           </div>
         </div>
 
-        <SubmitButton />
+        <SubmitButton isPaidPlan={!!isPaidPlan} />
 
         <div className="text-center text-muted-foreground">
           Already have an account?{" "}
