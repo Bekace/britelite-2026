@@ -18,24 +18,30 @@ export default async function PricingPage() {
     redirect("/dashboard")
   }
 
-  // Fetch subscription plans from database
-  const { data: plans, error } = await supabase
+  const { data: plans, error: plansError } = await supabase
     .from("subscription_plans")
     .select("*")
     .eq("is_active", true)
-    .order("price", { ascending: true })
+    .order("max_screens", { ascending: true })
 
-  console.log("[v0] Pricing page - fetched plans:", plans)
-  console.log("[v0] Pricing page - error:", error)
-  console.log("[v0] Pricing page - plans count:", plans?.length || 0)
+  const { data: prices, error: pricesError } = await supabase
+    .from("subscription_prices")
+    .select("*")
+    .eq("is_active", true)
 
-  if (error) {
-    console.error("[v0] Error fetching plans:", error)
+  if (plansError) {
+    console.error("[v0] Error fetching plans:", plansError)
+  }
+  if (pricesError) {
+    console.error("[v0] Error fetching prices:", pricesError)
   }
 
-  if (plans && plans.length > 0) {
-    console.log("[v0] First plan structure:", JSON.stringify(plans[0], null, 2))
-  }
+  // Combine plans with their prices
+  const plansWithPrices =
+    plans?.map((plan) => ({
+      ...plan,
+      prices: prices?.filter((price) => price.plan_id === plan.id) || [],
+    })) || []
 
   return (
     <div className="min-h-screen bg-background">
@@ -61,7 +67,7 @@ export default async function PricingPage() {
           </p>
         </div>
 
-        <PricingCards plans={plans || []} />
+        <PricingCards plans={plansWithPrices} />
       </section>
     </div>
   )
