@@ -31,8 +31,37 @@ export default async function BillingSettingsPage() {
     .eq("user_id", user.id)
     .single()
 
-  const plan = subscription?.subscription_plans
-  const priceInfo = subscription?.subscription_prices
+  let plan = subscription?.subscription_plans
+  let priceInfo = subscription?.subscription_prices
+
+  if (!subscription || !plan) {
+    const { data: freePlan } = await supabase
+      .from("subscription_plans")
+      .select("*")
+      .eq("name", "Free")
+      .eq("is_active", true)
+      .single()
+
+    if (freePlan) {
+      plan = freePlan
+
+      // Get the monthly price for Free plan
+      const { data: freePrice } = await supabase
+        .from("subscription_prices")
+        .select("*")
+        .eq("plan_id", freePlan.id)
+        .eq("billing_cycle", "monthly")
+        .eq("is_active", true)
+        .single()
+
+      if (freePrice) {
+        priceInfo = freePrice
+      }
+    }
+  }
+
+  const displayPrice = priceInfo?.price ? Number(priceInfo.price).toFixed(0) : "0"
+  const billingCycle = priceInfo?.billing_cycle === "yearly" ? "year" : "month"
 
   return (
     <div className="space-y-6">
@@ -47,15 +76,15 @@ export default async function BillingSettingsPage() {
             <p className="text-sm text-muted-foreground mb-4">Your current subscription plan and usage limits.</p>
             <div className="bg-muted/30 rounded-md p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">{plan?.name || "Free Plan"}</span>
+                <span className="font-medium">{plan?.name || "Free"} Plan</span>
                 <span className="text-primary font-semibold">
-                  ${priceInfo?.price || 0}/{priceInfo?.billing_cycle === "yearly" ? "year" : "month"}
+                  ${displayPrice}/{billingCycle}
                 </span>
               </div>
               {plan && (
                 <div className="text-sm text-muted-foreground space-y-1">
-                  <p>Max Screens: {plan.max_screens}</p>
-                  <p>Max Playlists: {plan.max_playlists}</p>
+                  <p>Max Screens: {plan.max_screens === -1 ? "Unlimited" : plan.max_screens}</p>
+                  <p>Max Playlists: {plan.max_playlists === -1 ? "Unlimited" : plan.max_playlists}</p>
                   <p>
                     Storage: {plan.max_media_storage} {plan.storage_unit}
                   </p>

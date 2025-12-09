@@ -33,12 +33,35 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error && data.user) {
+      const serviceSupabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return cookieStore.getAll()
+            },
+            setAll(cookiesToSet) {
+              try {
+                cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+              } catch {
+                // Ignore errors in edge cases
+              }
+            },
+          },
+        },
+      )
+
       // Check if user has a profile, if not create one
-      const { data: existingProfile } = await supabase.from("profiles").select("id").eq("id", data.user.id).single()
+      const { data: existingProfile } = await serviceSupabase
+        .from("profiles")
+        .select("id")
+        .eq("id", data.user.id)
+        .single()
 
       if (!existingProfile) {
         // Create profile for OAuth user
-        await supabase.from("profiles").insert({
+        await serviceSupabase.from("profiles").insert({
           id: data.user.id,
           email: data.user.email,
           full_name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || "",
@@ -47,7 +70,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Check if user has a subscription, if not create Free plan subscription
-      const { data: existingSubscription } = await supabase
+      const { data: existingSubscription } = await serviceSupabase
         .from("user_subscriptions")
         .select("id")
         .eq("user_id", data.user.id)
@@ -55,7 +78,7 @@ export async function GET(request: NextRequest) {
 
       if (!existingSubscription) {
         // Get Free plan
-        const { data: freePlan } = await supabase
+        const { data: freePlan } = await serviceSupabase
           .from("subscription_plans")
           .select("id")
           .eq("name", "Free")
@@ -64,7 +87,7 @@ export async function GET(request: NextRequest) {
 
         if (freePlan) {
           // Get Free plan monthly price
-          const { data: freePrice } = await supabase
+          const { data: freePrice } = await serviceSupabase
             .from("subscription_prices")
             .select("id")
             .eq("plan_id", freePlan.id)
@@ -72,8 +95,8 @@ export async function GET(request: NextRequest) {
             .eq("is_active", true)
             .single()
 
-          // Create subscription
-          await supabase.from("user_subscriptions").insert({
+          // Create subscription using service role to bypass RLS
+          await serviceSupabase.from("user_subscriptions").insert({
             user_id: data.user.id,
             plan_id: freePlan.id,
             price_id: freePrice?.id,
