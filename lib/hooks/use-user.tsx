@@ -35,30 +35,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     // Get initial user
     const getUser = async () => {
       try {
-        console.log("[v0] useUser - starting getUser")
         const {
           data: { user },
-          error: userError,
         } = await supabase.auth.getUser()
-
-        console.log("[v0] useUser - getUser result:", user?.id, user?.email, "error:", userError)
 
         setUser(user)
 
         if (user) {
-          console.log("[v0] useUser - fetching profile for user:", user.id)
-          const { data: profile, error } = await supabase
-            .from("profiles")
-            .select("id, email, role")
-            .eq("id", user.id)
-            .single()
-
-          console.log("[v0] useUser - profile fetch result:", JSON.stringify({ profile, error }))
+          const { data: profile } = await supabase.from("profiles").select("id, email, role").eq("id", user.id).single()
 
           setProfile(profile)
         }
       } catch (err) {
-        console.error("[v0] useUser - getUser error:", err)
+        console.error("Error fetching user:", err)
       } finally {
         setLoading(false)
       }
@@ -70,25 +59,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("[v0] useUser - auth state change:", event, session?.user?.email)
-
       setUser(session?.user ?? null)
 
       if (session?.user) {
-        try {
-          console.log("[v0] useUser - onAuthStateChange fetching profile for:", session.user.id)
-          const { data: profile, error } = await supabase
-            .from("profiles")
-            .select("id, email, role")
-            .eq("id", session.user.id)
-            .single()
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id, email, role")
+          .eq("id", session.user.id)
+          .single()
 
-          console.log("[v0] useUser - onAuthStateChange profile result:", JSON.stringify({ profile, error }))
-
-          setProfile(profile)
-        } catch (err) {
-          console.error("[v0] useUser - onAuthStateChange profile error:", err)
-        }
+        setProfile(profile)
       } else {
         setProfile(null)
       }

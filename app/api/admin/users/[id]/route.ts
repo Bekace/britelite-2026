@@ -9,8 +9,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const { role } = await request.json()
     const userId = params.id
 
-    console.log("[v0] Updating user ID:", userId, "with role:", role)
-
     const adminSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
     if (profile.role === "admin") {
@@ -21,15 +19,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
       }
     }
-    // Superadmins can update any user (no additional checks needed)
 
     const { data: updatedUsers, error } = await adminSupabase
       .from("profiles")
       .update({ role })
       .eq("id", userId)
       .select()
-
-    console.log("[v0] Update result:", { updatedUsers, error })
 
     if (error) throw error
 
@@ -48,7 +43,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     return NextResponse.json({ user: updatedUser })
   } catch (error) {
-    console.error("[v0] Admin user update error:", error)
+    console.error("Admin user update error:", error)
     return NextResponse.json({ error: "Failed to update user" }, { status: 500 })
   }
 }
@@ -79,12 +74,19 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       }
     }
 
-    const { error } = await adminSupabase.from("profiles").delete().eq("id", userId)
+    // Soft delete: set deleted_at timestamp instead of actually deleting
+    const { error } = await adminSupabase
+      .from("profiles")
+      .update({
+        deleted_at: new Date().toISOString(),
+        deleted_by: profile.id,
+      })
+      .eq("id", userId)
 
     if (error) throw error
 
     await logAdminAction({
-      action: "delete_user",
+      action: "soft_delete_user",
       targetType: "user",
       targetId: userId,
       details: { timestamp: new Date().toISOString() },
@@ -92,7 +94,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[v0] Admin user deletion error:", error)
+    console.error("Admin user deletion error:", error)
     return NextResponse.json({ error: "Failed to delete user" }, { status: 500 })
   }
 }
