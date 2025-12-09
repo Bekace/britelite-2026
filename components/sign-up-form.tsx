@@ -40,7 +40,7 @@ export default function SignUpForm() {
         <p className="text-lg text-foreground">Create your digital signage account</p>
       </div>
 
-      <form action={formAction} className="space-y-6">
+      <form action={formAction} className="space-y-6 bg-popover">
         {state?.error && (
           <div className="bg-destructive/10 border border-destructive/50 text-destructive px-4 py-3 rounded">
             {state.error}
