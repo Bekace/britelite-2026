@@ -206,19 +206,19 @@ SELECT
     sp.id,
     fp.feature_key,
     fp.is_enabled,
-    fp.limit_value
+    fp.limit_value::integer
 FROM public.subscription_plans sp
 CROSS JOIN (
     VALUES 
-    ('max_screens', true, NULL),
-    ('custom_branding', false, NULL),
-    ('multi_user', false, NULL),
-    ('advanced_scheduling', false, NULL),
-    ('priority_support', false, NULL),
-    ('white_label', false, NULL),
-    ('dedicated_manager', false, NULL),
-    ('api_access', false, NULL),
-    ('analytics', false, NULL)
+    ('max_screens', true, NULL::integer),
+    ('custom_branding', false, NULL::integer),
+    ('multi_user', false, NULL::integer),
+    ('advanced_scheduling', false, NULL::integer),
+    ('priority_support', false, NULL::integer),
+    ('white_label', false, NULL::integer),
+    ('dedicated_manager', false, NULL::integer),
+    ('api_access', false, NULL::integer),
+    ('analytics', false, NULL::integer)
 ) AS fp(feature_key, is_enabled, limit_value);
 
 -- Update feature permissions for Pro plan
