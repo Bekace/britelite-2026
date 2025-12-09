@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
+import { createServerClient } from "@supabase/ssr"
+import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
@@ -8,11 +9,43 @@ export async function GET(request: NextRequest) {
   const next = requestUrl.searchParams.get("next") || "/dashboard"
 
   if (code) {
-    const supabase = await createClient()
+    const cookieStore = await cookies()
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll()
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+            } catch {
+              // Ignore errors in edge cases
+            }
+          },
+        },
+      },
+    )
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error && data.user) {
+      // Check if user has a profile, if not create one
+      const { data: existingProfile } = await supabase.from("profiles").select("id").eq("id", data.user.id).single()
+
+      if (!existingProfile) {
+        // Create profile for OAuth user
+        await supabase.from("profiles").insert({
+          id: data.user.id,
+          email: data.user.email,
+          full_name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || "",
+          role: "user",
+        })
+      }
+
       // Check if user has a subscription, if not create Free plan subscription
       const { data: existingSubscription } = await supabase
         .from("user_subscriptions")
@@ -46,12 +79,11 @@ export async function GET(request: NextRequest) {
             price_id: freePrice?.id,
             status: "active",
             started_at: new Date().toISOString(),
-            expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 100 years
+            expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
           })
         }
       }
 
-      // Redirect to the next URL
       return NextResponse.redirect(new URL(next, requestUrl.origin))
     }
   }
