@@ -14,14 +14,97 @@ type Plan = {
   max_screens: number
   max_playlists: number
   max_media_storage: number
-  features: string[]
+  features: any // Can be object or array
 }
 
 interface PricingCardsProps {
   plans: Plan[]
 }
 
+function extractFeatures(plan: Plan): string[] {
+  // If features is already an array, return it
+  if (Array.isArray(plan.features)) {
+    return plan.features
+  }
+
+  // If features has display_features array, use that
+  if (plan.features?.display_features && Array.isArray(plan.features.display_features)) {
+    return plan.features.display_features
+  }
+
+  // Otherwise, build features from plan limits
+  const displayFeatures: string[] = []
+
+  if (plan.max_screens) {
+    displayFeatures.push(
+      plan.max_screens === -1 ? "Unlimited screens" : `${plan.max_screens} screen${plan.max_screens > 1 ? "s" : ""}`,
+    )
+  }
+
+  if (plan.max_playlists) {
+    displayFeatures.push(
+      plan.max_playlists === -1
+        ? "Unlimited playlists"
+        : `${plan.max_playlists} playlist${plan.max_playlists > 1 ? "s" : ""}`,
+    )
+  }
+
+  if (plan.max_media_storage) {
+    displayFeatures.push(`${plan.max_media_storage}GB storage`)
+  }
+
+  // Add from features object if available
+  if (plan.features && typeof plan.features === "object") {
+    if (plan.features.max_screens) {
+      const screens = plan.features.max_screens
+      if (!displayFeatures.some((f) => f.includes("screen"))) {
+        displayFeatures.push(screens === -1 ? "Unlimited screens" : `${screens} screen${screens > 1 ? "s" : ""}`)
+      }
+    }
+    if (plan.features.max_playlists) {
+      const playlists = plan.features.max_playlists
+      if (!displayFeatures.some((f) => f.includes("playlist"))) {
+        displayFeatures.push(
+          playlists === -1 ? "Unlimited playlists" : `${playlists} playlist${playlists > 1 ? "s" : ""}`,
+        )
+      }
+    }
+    if (plan.features.max_media_assets) {
+      const assets = plan.features.max_media_assets
+      displayFeatures.push(assets === -1 ? "Unlimited media assets" : `${assets} media assets`)
+    }
+    if (plan.features.max_media_storage_mb) {
+      const storageGB = Math.round(plan.features.max_media_storage_mb / 1024)
+      if (!displayFeatures.some((f) => f.includes("storage"))) {
+        displayFeatures.push(storageGB === -1 ? "Unlimited storage" : `${storageGB}GB storage`)
+      }
+    }
+  }
+
+  // Add basic support features
+  if (plan.price === 0) {
+    displayFeatures.push("Basic support")
+  } else if (plan.price >= 99) {
+    displayFeatures.push("Priority support", "Advanced analytics", "Custom branding")
+  } else {
+    displayFeatures.push("Email support", "Analytics dashboard")
+  }
+
+  return displayFeatures
+}
+
 export default function PricingCards({ plans }: PricingCardsProps) {
+  console.log("[v0] Pricing plans received:", plans)
+
+  if (!plans || plans.length === 0) {
+    console.log("[v0] No plans to display")
+    return (
+      <div className="text-center text-muted-foreground py-12">
+        <p>No pricing plans available at the moment.</p>
+      </div>
+    )
+  }
+
   // Group plans by base name (Free, Pro, Ultra)
   const groupedPlans = plans.reduce(
     (acc, plan) => {
@@ -42,7 +125,7 @@ export default function PricingCards({ plans }: PricingCardsProps) {
     if (monthlyPlan) return `$${monthlyPlan.price}`
     // Otherwise show yearly divided by 12
     const yearlyPlan = planGroup.find((p) => p.billing_cycle === "yearly")
-    if (yearlyPlan) return `$${(yearlyPlan.price).toFixed(0)}`
+    if (yearlyPlan) return `$${(yearlyPlan.price / 12).toFixed(0)}`
     return `$${planGroup[0].price}`
   }
 
@@ -61,6 +144,9 @@ export default function PricingCards({ plans }: PricingCardsProps) {
       {Object.entries(groupedPlans).map(([baseName, planGroup]) => {
         const isRecommended = getRecommendedPlan(baseName)
         const primaryPlan = planGroup.find((p) => p.billing_cycle === "monthly") || planGroup[0]
+        const features = extractFeatures(primaryPlan)
+
+        console.log("[v0] Rendering plan:", baseName, "features:", features)
 
         return (
           <Card
@@ -90,7 +176,7 @@ export default function PricingCards({ plans }: PricingCardsProps) {
 
               {/* Features */}
               <ul className="space-y-3">
-                {primaryPlan.features.map((feature: string, idx: number) => (
+                {features.map((feature: string, idx: number) => (
                   <li key={idx} className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                     <span className="text-sm text-foreground">{feature}</span>
