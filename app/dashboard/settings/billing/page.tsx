@@ -21,17 +21,18 @@ export default async function BillingSettingsPage() {
     redirect("/auth/login")
   }
 
-  // Fetch user subscription
   const { data: subscription } = await supabase
     .from("user_subscriptions")
     .select(`
       *,
-      subscription_plans (*)
+      subscription_plans (*),
+      subscription_prices (*)
     `)
     .eq("user_id", user.id)
     .single()
 
   const plan = subscription?.subscription_plans
+  const priceInfo = subscription?.subscription_prices
 
   return (
     <div className="space-y-6">
@@ -48,7 +49,7 @@ export default async function BillingSettingsPage() {
               <div className="flex items-center justify-between mb-2">
                 <span className="font-medium">{plan?.name || "Free Plan"}</span>
                 <span className="text-primary font-semibold">
-                  ${plan?.price || 0}/{plan?.billing_cycle || "month"}
+                  ${priceInfo?.price || 0}/{priceInfo?.billing_cycle === "yearly" ? "year" : "month"}
                 </span>
               </div>
               {plan && (
