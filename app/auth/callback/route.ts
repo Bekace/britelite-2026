@@ -61,9 +61,7 @@ export async function GET(request: NextRequest) {
       // If profile exists but is soft-deleted, sign out and redirect to login with error
       if (existingProfile && existingProfile.deleted_at) {
         await supabase.auth.signOut()
-        return NextResponse.redirect(
-          new URL("/auth/login?error=This account has been deleted and cannot be accessed", requestUrl.origin),
-        )
+        return NextResponse.redirect(new URL("/auth/login?error=account_deleted", requestUrl.origin))
       }
 
       if (!existingProfile) {
