@@ -52,12 +52,19 @@ export async function GET(request: NextRequest) {
         },
       )
 
-      // Check if user has a profile, if not create one
       const { data: existingProfile } = await serviceSupabase
         .from("profiles")
-        .select("id")
+        .select("id, deleted_at")
         .eq("id", data.user.id)
         .single()
+
+      // If profile exists but is soft-deleted, sign out and redirect to login with error
+      if (existingProfile && existingProfile.deleted_at) {
+        await supabase.auth.signOut()
+        return NextResponse.redirect(
+          new URL("/auth/login?error=This account has been deleted and cannot be accessed", requestUrl.origin),
+        )
+      }
 
       if (!existingProfile) {
         // Create profile for OAuth user

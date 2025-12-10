@@ -10,6 +10,7 @@ interface UserProfile {
   id: string
   email: string
   role: "user" | "admin" | "superadmin"
+  deleted_at?: string
 }
 
 interface UserContextType {
@@ -52,7 +53,18 @@ export function UserProvider({ children, initialUser = null, initialProfile = nu
         setUser(user)
 
         if (user) {
-          const { data: profile } = await supabase.from("profiles").select("id, email, role").eq("id", user.id).single()
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("id, email, role, deleted_at")
+            .eq("id", user.id)
+            .single()
+
+          // If user is soft-deleted, sign them out immediately
+          if (profile?.deleted_at) {
+            await supabase.auth.signOut()
+            window.location.href = "/auth/login?error=This account has been deleted"
+            return
+          }
 
           setProfile(profile)
         }
@@ -74,9 +86,16 @@ export function UserProvider({ children, initialUser = null, initialProfile = nu
       if (session?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("id, email, role")
+          .select("id, email, role, deleted_at")
           .eq("id", session.user.id)
           .single()
+
+        // If user is soft-deleted, sign them out immediately
+        if (profile?.deleted_at) {
+          await supabase.auth.signOut()
+          window.location.href = "/auth/login?error=This account has been deleted"
+          return
+        }
 
         setProfile(profile)
       } else {
