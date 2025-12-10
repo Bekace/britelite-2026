@@ -7,7 +7,7 @@ export default async function OAuthCheckoutPage({
 }: {
   searchParams: Promise<{ planId?: string; priceId?: string; stripePriceId?: string }>
 }) {
-  const { planId, priceId, stripePriceId } = await searchParams
+  const { planId, priceId, stripePriceId: urlStripePriceId } = await searchParams
   const supabase = await createClient()
 
   const {
@@ -18,8 +18,38 @@ export default async function OAuthCheckoutPage({
     redirect("/auth/login")
   }
 
-  if (!planId || !stripePriceId) {
+  if (!planId) {
     redirect("/auth/pricing")
+  }
+
+  let stripePriceId = urlStripePriceId
+
+  if (!stripePriceId && priceId) {
+    // Look up by internal price ID
+    const { data: priceData } = await supabase
+      .from("subscription_prices")
+      .select("stripe_price_id")
+      .eq("id", priceId)
+      .single()
+
+    stripePriceId = priceData?.stripe_price_id
+  }
+
+  if (!stripePriceId) {
+    // Fall back to default monthly price for the plan
+    const { data: defaultPrice } = await supabase
+      .from("subscription_prices")
+      .select("stripe_price_id")
+      .eq("plan_id", planId)
+      .eq("interval", "month")
+      .single()
+
+    stripePriceId = defaultPrice?.stripe_price_id
+  }
+
+  if (!stripePriceId) {
+    console.error("[v0] No stripe_price_id found for planId:", planId, "priceId:", priceId)
+    redirect("/auth/pricing?error=invalid_plan")
   }
 
   // Check if user already has an active subscription
