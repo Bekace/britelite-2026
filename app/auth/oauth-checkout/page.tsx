@@ -36,12 +36,11 @@ export default async function OAuthCheckoutPage({
   }
 
   if (!stripePriceId) {
-    // Fall back to default monthly price for the plan
     const { data: defaultPrice } = await supabase
       .from("subscription_prices")
       .select("stripe_price_id")
       .eq("plan_id", planId)
-      .eq("interval", "month")
+      .eq("billing_cycle", "monthly")
       .single()
 
     stripePriceId = defaultPrice?.stripe_price_id
