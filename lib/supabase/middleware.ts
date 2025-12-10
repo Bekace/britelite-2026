@@ -36,16 +36,24 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (user && request.nextUrl.pathname.startsWith("/dashboard")) {
-      const { data: profile } = await supabase.from("profiles").select("deleted_at").eq("id", user.id).single()
+    if (user) {
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("deleted_at")
+        .eq("id", user.id)
+        .single()
 
+      // If profile has deleted_at set, sign out and redirect
       if (profile?.deleted_at) {
-        // User is soft-deleted, sign them out and redirect to login
         await supabase.auth.signOut()
         const url = request.nextUrl.clone()
         url.pathname = "/auth/login"
         url.searchParams.set("error", "account_deleted")
-        return NextResponse.redirect(url)
+        // Clear all auth cookies
+        supabaseResponse = NextResponse.redirect(url)
+        supabaseResponse.cookies.delete("sb-access-token")
+        supabaseResponse.cookies.delete("sb-refresh-token")
+        return supabaseResponse
       }
     }
 
