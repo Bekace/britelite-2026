@@ -7,9 +7,10 @@ import { Loader2 } from "lucide-react"
 
 interface OAuthButtonsProps {
   redirectTo?: string
+  mode: "login" | "signup"
 }
 
-export function OAuthButtons({ redirectTo }: OAuthButtonsProps) {
+export function OAuthButtons({ redirectTo, mode }: OAuthButtonsProps) {
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false)
   const [isLoadingApple, setIsLoadingApple] = useState(false)
 
@@ -24,7 +25,7 @@ export function OAuthButtons({ redirectTo }: OAuthButtonsProps) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${redirectUrl}?next=${encodeURIComponent(redirectTo || "/dashboard")}`,
+          redirectTo: `${redirectUrl}?mode=${mode}&next=${encodeURIComponent(redirectTo || "/dashboard")}`,
         },
       })
 

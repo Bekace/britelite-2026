@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get("code")
   const next = requestUrl.searchParams.get("next") || "/dashboard"
+  const mode = requestUrl.searchParams.get("mode") || "signup"
 
   if (code) {
     const cookieStore = await cookies()
@@ -64,8 +65,19 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(new URL("/auth/login?error=account_deleted", requestUrl.origin))
       }
 
+      if (mode === "login" && !existingProfile) {
+        // Sign out the user
+        await supabase.auth.signOut()
+
+        // Delete the auto-created auth user using admin API
+        await serviceSupabase.auth.admin.deleteUser(data.user.id)
+
+        // Redirect to login with error
+        return NextResponse.redirect(new URL("/auth/login?error=no_account", requestUrl.origin))
+      }
+
       if (!existingProfile) {
-        // Create profile for OAuth user
+        // Create profile for OAuth user (only happens in signup mode now)
         await serviceSupabase.from("profiles").insert({
           id: data.user.id,
           email: data.user.email,
