@@ -165,11 +165,15 @@ export function UserManagement({ userRole }: UserManagementProps) {
 
   const handleDeleteUser = async (userId: string) => {
     try {
+      console.log("[v0] Deleting user:", userId)
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: "DELETE",
       })
 
-      if (response.ok) {
+      const data = await response.json()
+      console.log("[v0] Delete response:", response.status, data)
+
+      if (response.ok && data.success) {
         await fetchUsers()
         setDeletingUser(null)
         toast({
@@ -177,10 +181,9 @@ export function UserManagement({ userRole }: UserManagementProps) {
           description: "User deleted successfully",
         })
       } else {
-        const error = await response.json()
         toast({
           title: "Error",
-          description: error.message || "Failed to delete user",
+          description: data.error || "Failed to delete user",
           variant: "destructive",
         })
       }

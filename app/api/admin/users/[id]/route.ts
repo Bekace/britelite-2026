@@ -53,6 +53,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const { supabase, profile } = await requireAdmin()
     const userId = params.id
 
+    console.log("[v0] DELETE user request for:", userId, "by admin:", profile.id)
+
     const adminSupabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
     // Check permissions
@@ -75,22 +77,39 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Soft delete: set deleted_at timestamp instead of actually deleting
-    const { error: profileError } = await adminSupabase
+    const { data: updatedProfile, error: profileError } = await adminSupabase
       .from("profiles")
       .update({
         deleted_at: new Date().toISOString(),
         deleted_by: profile.id,
       })
       .eq("id", userId)
+      .select()
+      .single()
 
-    if (profileError) throw profileError
+    if (profileError) {
+      console.error("[v0] Profile soft delete error:", profileError)
+      return NextResponse.json({ error: "Failed to soft delete profile: " + profileError.message }, { status: 500 })
+    }
 
+    if (!updatedProfile) {
+      console.error("[v0] No profile updated for userId:", userId)
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    console.log("[v0] Profile soft deleted:", updatedProfile.id, "deleted_at:", updatedProfile.deleted_at)
+
+    // Delete from auth.users to prevent login
     const { error: authError } = await adminSupabase.auth.admin.deleteUser(userId)
 
     if (authError) {
-      console.error("Failed to delete auth user:", authError)
-      // Continue anyway - profile is soft deleted
+      console.error("[v0] Failed to delete auth user:", authError)
+      // Revert soft delete if auth delete fails
+      await adminSupabase.from("profiles").update({ deleted_at: null, deleted_by: null }).eq("id", userId)
+      return NextResponse.json({ error: "Failed to delete auth user: " + authError.message }, { status: 500 })
     }
+
+    console.log("[v0] Auth user deleted successfully:", userId)
 
     await logAdminAction({
       action: "soft_delete_user",
@@ -99,9 +118,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       details: { timestamp: new Date().toISOString() },
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, deletedAt: updatedProfile.deleted_at })
   } catch (error) {
-    console.error("Admin user deletion error:", error)
+    console.error("[v0] Admin user deletion error:", error)
     return NextResponse.json({ error: "Failed to delete user" }, { status: 500 })
   }
 }
