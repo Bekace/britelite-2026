@@ -74,41 +74,46 @@ export async function GET(request: NextRequest) {
         })
       }
 
-      // Check if user has a subscription, if not create Free plan subscription
-      const { data: existingSubscription } = await serviceSupabase
-        .from("user_subscriptions")
-        .select("id")
-        .eq("user_id", data.user.id)
-        .single()
+      // If so, DON'T create any subscription - let oauth-checkout handle it
+      const isGoingToCheckout = next.includes("/auth/oauth-checkout")
 
-      if (!existingSubscription) {
-        // Get Free plan
-        const { data: freePlan } = await serviceSupabase
-          .from("subscription_plans")
+      if (!isGoingToCheckout) {
+        // Only create Free subscription if NOT going to paid plan checkout
+        const { data: existingSubscription } = await serviceSupabase
+          .from("user_subscriptions")
           .select("id")
-          .eq("name", "Free")
-          .eq("is_active", true)
+          .eq("user_id", data.user.id)
           .single()
 
-        if (freePlan) {
-          // Get Free plan monthly price
-          const { data: freePrice } = await serviceSupabase
-            .from("subscription_prices")
+        if (!existingSubscription) {
+          // Get Free plan
+          const { data: freePlan } = await serviceSupabase
+            .from("subscription_plans")
             .select("id")
-            .eq("plan_id", freePlan.id)
-            .eq("billing_cycle", "monthly")
+            .eq("name", "Free")
             .eq("is_active", true)
             .single()
 
-          // Create subscription using service role to bypass RLS
-          await serviceSupabase.from("user_subscriptions").insert({
-            user_id: data.user.id,
-            plan_id: freePlan.id,
-            price_id: freePrice?.id,
-            status: "active",
-            started_at: new Date().toISOString(),
-            expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
-          })
+          if (freePlan) {
+            // Get Free plan monthly price
+            const { data: freePrice } = await serviceSupabase
+              .from("subscription_prices")
+              .select("id")
+              .eq("plan_id", freePlan.id)
+              .eq("billing_cycle", "monthly")
+              .eq("is_active", true)
+              .single()
+
+            // Create subscription using service role to bypass RLS
+            await serviceSupabase.from("user_subscriptions").insert({
+              user_id: data.user.id,
+              plan_id: freePlan.id,
+              price_id: freePrice?.id,
+              status: "active",
+              started_at: new Date().toISOString(),
+              expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+            })
+          }
         }
       }
 
