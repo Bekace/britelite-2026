@@ -87,7 +87,11 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       action: "permanent_delete_user",
       targetType: "user",
       targetId: userId,
-      details: { deleted_by: profile.id, email: targetUser.email, timestamp: new Date().toISOString() },
+      details: {
+        deleted_by: profile.id,
+        email: targetUser.email,
+        timestamp: new Date().toISOString(),
+      },
     })
 
     return NextResponse.json({ success: true })
