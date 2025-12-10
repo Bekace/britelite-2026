@@ -4,24 +4,42 @@ import { del } from "@vercel/blob"
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: userId } = await params
+  console.log("[v0] Permanent delete requested for user:", userId)
+
   const supabase = await createClient()
 
   // Verify superadmin access
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
   if (!user) {
+    console.log("[v0] No authenticated user")
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: adminProfile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
+  console.log("[v0] Admin user:", user.id)
+
+  const { data: adminProfile, error: adminError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  console.log("[v0] Admin profile:", adminProfile, "Error:", adminError)
 
   if (!adminProfile || adminProfile.role !== "superadmin") {
     return NextResponse.json({ error: "Only superadmins can permanently delete users" }, { status: 403 })
   }
 
-  // Verify user exists and is soft-deleted
-  const { data: targetUser } = await supabase.from("profiles").select("id, email, deleted_at").eq("id", userId).single()
+  // Verify user exists and is soft-deleted - need to check without RLS filter
+  const { data: targetUser, error: targetError } = await supabase
+    .from("profiles")
+    .select("id, email, deleted_at")
+    .eq("id", userId)
+    .single()
+
+  console.log("[v0] Target user:", targetUser, "Error:", targetError)
 
   if (!targetUser) {
     return NextResponse.json({ error: "User not found" }, { status: 404 })
