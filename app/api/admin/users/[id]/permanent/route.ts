@@ -83,6 +83,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Failed to delete user profile" }, { status: 500 })
     }
 
+    const { error: authError } = await adminSupabase.auth.admin.deleteUser(userId)
+
+    if (authError) {
+      console.error("Failed to delete auth user:", authError)
+      // Profile is already deleted, so log but don't fail
+    }
+
     await logAdminAction({
       action: "permanent_delete_user",
       targetType: "user",
