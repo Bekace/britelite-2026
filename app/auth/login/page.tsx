@@ -25,6 +25,8 @@ export default function LoginPage() {
     const urlError = searchParams.get("error")
     if (urlError === "account_deleted") {
       setError("Your account has been deactivated. Please contact support if you believe this is an error.")
+    } else if (urlError === "no_account") {
+      setError("No account found with this email. Please sign up first.")
     } else if (urlError) {
       setError(decodeURIComponent(urlError))
     }
@@ -84,7 +86,7 @@ export default function LoginPage() {
                 </Alert>
               )}
 
-              <OAuthButtons redirectTo="/dashboard" />
+              <OAuthButtons redirectTo="/dashboard" mode="login" />
 
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
