@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import {
   Users,
   Search,
@@ -36,6 +37,7 @@ import {
   UserX,
   Crown,
   RefreshCw,
+  RotateCcw,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -48,7 +50,8 @@ interface User {
   company_name?: string
   subscription_status?: "active" | "inactive" | "expired"
   subscription_plan?: string
-  subscription_plan_id?: string // Added subscription_plan_id field
+  subscription_plan_id?: string
+  deleted_at?: string | null
 }
 
 interface SubscriptionPlan {
@@ -68,21 +71,27 @@ export function UserManagement({ userRole }: UserManagementProps) {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
+  const [showDeleted, setShowDeleted] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [deletingUser, setDeletingUser] = useState<User | null>(null)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [newUser, setNewUser] = useState({ email: "", role: "user" })
-  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]) // Added subscription plans state
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([])
   const { toast } = useToast()
 
   useEffect(() => {
     fetchUsers()
-    fetchSubscriptionPlans() // Fetch subscription plans on component mount
+    fetchSubscriptionPlans()
   }, [])
+
+  useEffect(() => {
+    fetchUsers()
+  }, [showDeleted])
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch("/api/admin/users")
+      const url = showDeleted ? "/api/admin/users?includeDeleted=true" : "/api/admin/users"
+      const response = await fetch(url)
       if (response.ok) {
         const data = await response.json()
         setUsers(data.users)
@@ -94,7 +103,7 @@ export function UserManagement({ userRole }: UserManagementProps) {
         })
       }
     } catch (error) {
-      console.error("[v0] Error fetching users:", error)
+      console.error("Error fetching users:", error)
       toast({
         title: "Error",
         description: "Failed to fetch users",
@@ -256,10 +265,41 @@ export function UserManagement({ userRole }: UserManagementProps) {
     }
   }
 
+  const handleRestoreUser = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/restore`, {
+        method: "POST",
+      })
+
+      if (response.ok) {
+        await fetchUsers()
+        toast({
+          title: "Success",
+          description: "User restored successfully",
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.message || "Failed to restore user",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error restoring user:", error)
+      toast({
+        title: "Error",
+        description: "Failed to restore user",
+        variant: "destructive",
+      })
+    }
+  }
+
   const filteredUsers = users.filter((user) => {
     const matchesSearch = user.email.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesRole = roleFilter === "all" || user.role === roleFilter
-    return matchesSearch && matchesRole
+    const matchesDeleted = showDeleted || !user.deleted_at
+    return matchesSearch && matchesRole && matchesDeleted
   })
 
   const getRoleBadge = (role: string) => {
@@ -377,6 +417,12 @@ export function UserManagement({ userRole }: UserManagementProps) {
                 <SelectItem value="superadmin">Super Admins</SelectItem>
               </SelectContent>
             </Select>
+            <div className="flex items-center gap-2 border rounded-md px-3 py-2">
+              <Switch id="show-deleted" checked={showDeleted} onCheckedChange={setShowDeleted} />
+              <Label htmlFor="show-deleted" className="cursor-pointer text-sm">
+                Show Deleted
+              </Label>
+            </div>
           </div>
 
           {/* Users Table */}
@@ -394,11 +440,18 @@ export function UserManagement({ userRole }: UserManagementProps) {
               </TableHeader>
               <TableBody>
                 {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
+                  <TableRow key={user.id} className={user.deleted_at ? "opacity-60 bg-muted/30" : ""}>
                     <TableCell>
-                      <div>
-                        <p className="font-medium">{user.email}</p>
-                        {user.full_name && <p className="text-sm text-muted-foreground">{user.full_name}</p>}
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <p className="font-medium">{user.email}</p>
+                          {user.full_name && <p className="text-sm text-muted-foreground">{user.full_name}</p>}
+                        </div>
+                        {user.deleted_at && (
+                          <Badge variant="destructive" className="ml-2">
+                            Deleted
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>{getRoleBadge(user.role)}</TableCell>
@@ -422,17 +475,26 @@ export function UserManagement({ userRole }: UserManagementProps) {
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuSeparator />
-                          {canEditUser(user) && (
-                            <DropdownMenuItem onClick={() => setEditingUser(user)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit User
+                          {user.deleted_at ? (
+                            <DropdownMenuItem onClick={() => handleRestoreUser(user.id)} className="text-green-600">
+                              <RotateCcw className="w-4 h-4 mr-2" />
+                              Restore User
                             </DropdownMenuItem>
-                          )}
-                          {canDeleteUser(user) && (
-                            <DropdownMenuItem onClick={() => setDeletingUser(user)} className="text-red-600">
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete User
-                            </DropdownMenuItem>
+                          ) : (
+                            <>
+                              {canEditUser(user) && (
+                                <DropdownMenuItem onClick={() => setEditingUser(user)}>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit User
+                                </DropdownMenuItem>
+                              )}
+                              {canDeleteUser(user) && (
+                                <DropdownMenuItem onClick={() => setDeletingUser(user)} className="text-red-600">
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete User
+                                </DropdownMenuItem>
+                              )}
+                            </>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -448,11 +510,9 @@ export function UserManagement({ userRole }: UserManagementProps) {
       {/* Edit User Dialog */}
       <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
         <DialogContent className="max-w-md">
-          {/* Made dialog wider for subscription fields */}
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update user role, permissions, and subscription</DialogDescription>{" "}
-            {/* Updated description */}
+            <DialogDescription>Update user role, permissions, and subscription</DialogDescription>
           </DialogHeader>
           {editingUser && (
             <div className="space-y-4">
@@ -479,14 +539,14 @@ export function UserManagement({ userRole }: UserManagementProps) {
               <div>
                 <Label>Subscription Plan</Label>
                 <Select
-                  value={editingUser.subscription_plan_id || "none"} // Updated default value to "none"
+                  value={editingUser.subscription_plan_id || "none"}
                   onValueChange={(value) => setEditingUser({ ...editingUser, subscription_plan_id: value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a plan" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No Plan</SelectItem> // Updated value to "none"
+                    <SelectItem value="none">No Plan</SelectItem>
                     {subscriptionPlans.map((plan) => (
                       <SelectItem key={plan.id} value={plan.id}>
                         {plan.name} - ${plan.price}/{plan.billing_cycle}
@@ -527,7 +587,6 @@ export function UserManagement({ userRole }: UserManagementProps) {
                   })
 
                   if (roleUpdateSuccess) {
-                    // Update subscription if there's a plan selected
                     if (editingUser.subscription_plan_id && editingUser.subscription_plan_id !== "none") {
                       await handleUpdateSubscription(
                         editingUser.id,
@@ -553,7 +612,6 @@ export function UserManagement({ userRole }: UserManagementProps) {
                       ),
                     )
 
-                    // Close dialog after successful update
                     setEditingUser(null)
                   }
                 } catch (error) {
