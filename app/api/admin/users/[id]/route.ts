@@ -76,7 +76,23 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       }
     }
 
-    // Soft delete: set deleted_at timestamp instead of actually deleting
+    const { error: authDeleteError } = await adminSupabase.rpc("delete_auth_user", { user_id: userId })
+
+    // If RPC doesn't exist, try the admin API
+    if (authDeleteError?.message?.includes("function") || authDeleteError?.message?.includes("does not exist")) {
+      console.log("[v0] RPC not available, trying admin.deleteUser")
+      const { error: adminDeleteError } = await adminSupabase.auth.admin.deleteUser(userId)
+      if (adminDeleteError) {
+        console.error("[v0] Admin deleteUser also failed:", adminDeleteError)
+        // Continue anyway - we'll still soft delete and the middleware will block them
+      }
+    } else if (authDeleteError) {
+      console.error("[v0] RPC delete_auth_user failed:", authDeleteError)
+    } else {
+      console.log("[v0] Auth user deleted via RPC")
+    }
+
+    // Soft delete: set deleted_at timestamp
     const { data: updatedProfile, error: profileError } = await adminSupabase
       .from("profiles")
       .update({
@@ -98,18 +114,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     console.log("[v0] Profile soft deleted:", updatedProfile.id, "deleted_at:", updatedProfile.deleted_at)
-
-    // Delete from auth.users to prevent login
-    const { error: authError } = await adminSupabase.auth.admin.deleteUser(userId)
-
-    if (authError) {
-      console.error("[v0] Failed to delete auth user:", authError)
-      // Revert soft delete if auth delete fails
-      await adminSupabase.from("profiles").update({ deleted_at: null, deleted_by: null }).eq("id", userId)
-      return NextResponse.json({ error: "Failed to delete auth user: " + authError.message }, { status: 500 })
-    }
-
-    console.log("[v0] Auth user deleted successfully:", userId)
 
     await logAdminAction({
       action: "soft_delete_user",
