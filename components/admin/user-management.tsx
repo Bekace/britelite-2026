@@ -38,8 +38,10 @@ import {
   Crown,
   RefreshCw,
   RotateCcw,
+  AlertTriangle,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface User {
   id: string
@@ -74,6 +76,16 @@ export function UserManagement({ userRole }: UserManagementProps) {
   const [showDeleted, setShowDeleted] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [deletingUser, setDeletingUser] = useState<User | null>(null)
+  const [permanentDeleteUser, setPermanentDeleteUser] = useState<User | null>(null)
+  const [permanentDeleteConfirmEmail, setPermanentDeleteConfirmEmail] = useState("")
+  const [permanentDeleteDataCounts, setPermanentDeleteDataCounts] = useState<{
+    screens: number
+    media: number
+    playlists: number
+    storage_bytes: number
+  } | null>(null)
+  const [loadingDataCounts, setLoadingDataCounts] = useState(false)
+  const [permanentDeleting, setPermanentDeleting] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [newUser, setNewUser] = useState({ email: "", role: "user" })
   const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([])
@@ -298,6 +310,77 @@ export function UserManagement({ userRole }: UserManagementProps) {
     }
   }
 
+  const fetchUserDataCounts = async (userId: string) => {
+    setLoadingDataCounts(true)
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/data-counts`)
+      if (response.ok) {
+        const data = await response.json()
+        setPermanentDeleteDataCounts(data)
+      } else {
+        setPermanentDeleteDataCounts({ screens: 0, media: 0, playlists: 0, storage_bytes: 0 })
+      }
+    } catch (error) {
+      console.error("Error fetching data counts:", error)
+      setPermanentDeleteDataCounts({ screens: 0, media: 0, playlists: 0, storage_bytes: 0 })
+    } finally {
+      setLoadingDataCounts(false)
+    }
+  }
+
+  const handlePermanentDelete = async () => {
+    if (!permanentDeleteUser || permanentDeleteConfirmEmail !== permanentDeleteUser.email) return
+
+    setPermanentDeleting(true)
+    try {
+      const response = await fetch(`/api/admin/users/${permanentDeleteUser.id}/permanent`, {
+        method: "DELETE",
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        await fetchUsers()
+        setPermanentDeleteUser(null)
+        setPermanentDeleteConfirmEmail("")
+        setPermanentDeleteDataCounts(null)
+        toast({
+          title: "Success",
+          description: "User permanently deleted",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to permanently delete user",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error permanently deleting user:", error)
+      toast({
+        title: "Error",
+        description: "Failed to permanently delete user",
+        variant: "destructive",
+      })
+    } finally {
+      setPermanentDeleting(false)
+    }
+  }
+
+  const openPermanentDeleteDialog = (user: User) => {
+    setPermanentDeleteUser(user)
+    setPermanentDeleteConfirmEmail("")
+    fetchUserDataCounts(user.id)
+  }
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes"
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
+
   const filteredUsers = users.filter((user) => {
     const matchesSearch = user.email.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesRole = roleFilter === "all" || user.role === roleFilter
@@ -479,10 +562,21 @@ export function UserManagement({ userRole }: UserManagementProps) {
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
                           <DropdownMenuSeparator />
                           {user.deleted_at ? (
-                            <DropdownMenuItem onClick={() => handleRestoreUser(user.id)} className="text-green-600">
-                              <RotateCcw className="w-4 h-4 mr-2" />
-                              Restore User
-                            </DropdownMenuItem>
+                            <>
+                              <DropdownMenuItem onClick={() => handleRestoreUser(user.id)} className="text-green-600">
+                                <RotateCcw className="w-4 h-4 mr-2" />
+                                Restore User
+                              </DropdownMenuItem>
+                              {userRole === "superadmin" && (
+                                <DropdownMenuItem
+                                  onClick={() => openPermanentDeleteDialog(user)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete Permanently
+                                </DropdownMenuItem>
+                              )}
+                            </>
                           ) : (
                             <>
                               {canEditUser(user) && (
@@ -696,6 +790,93 @@ export function UserManagement({ userRole }: UserManagementProps) {
             </Button>
             <Button onClick={handleCreateUser} disabled={!newUser.email}>
               Create User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <Dialog
+        open={!!permanentDeleteUser}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPermanentDeleteUser(null)
+            setPermanentDeleteConfirmEmail("")
+            setPermanentDeleteDataCounts(null)
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              Permanently Delete User
+            </DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the user account and all associated data.
+            </DialogDescription>
+          </DialogHeader>
+
+          {permanentDeleteUser && (
+            <div className="space-y-4">
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  You are about to permanently delete <strong>{permanentDeleteUser.email}</strong>
+                </AlertDescription>
+              </Alert>
+
+              <div className="bg-muted p-4 rounded-lg space-y-2">
+                <p className="font-medium text-sm">The following will be deleted:</p>
+                {loadingDataCounts ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : permanentDeleteDataCounts ? (
+                  <ul className="text-sm space-y-1">
+                    <li>• {permanentDeleteDataCounts.screens} screens</li>
+                    <li>
+                      • {permanentDeleteDataCounts.media} media files (
+                      {formatBytes(permanentDeleteDataCounts.storage_bytes)})
+                    </li>
+                    <li>• {permanentDeleteDataCounts.playlists} playlists</li>
+                    <li>• All subscriptions and billing history</li>
+                    <li>• User profile and settings</li>
+                  </ul>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-email">
+                  Type <strong>{permanentDeleteUser.email}</strong> to confirm:
+                </Label>
+                <Input
+                  id="confirm-email"
+                  value={permanentDeleteConfirmEmail}
+                  onChange={(e) => setPermanentDeleteConfirmEmail(e.target.value)}
+                  placeholder="Enter email to confirm"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPermanentDeleteUser(null)
+                setPermanentDeleteConfirmEmail("")
+                setPermanentDeleteDataCounts(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handlePermanentDelete}
+              disabled={
+                !permanentDeleteUser || permanentDeleteConfirmEmail !== permanentDeleteUser.email || permanentDeleting
+              }
+            >
+              {permanentDeleting ? "Deleting..." : "Delete Permanently"}
             </Button>
           </DialogFooter>
         </DialogContent>
