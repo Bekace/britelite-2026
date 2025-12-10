@@ -35,7 +35,17 @@ export async function signIn(prevState: any, formData: FormData) {
       return { error: error.message }
     }
 
-    // Return success instead of redirecting directly
+    const { data: authData } = await supabase.auth.getUser()
+    if (authData.user) {
+      const { data: profile } = await supabase.from("profiles").select("deleted_at").eq("id", authData.user.id).single()
+
+      if (profile?.deleted_at) {
+        // Sign out the user immediately
+        await supabase.auth.signOut()
+        return { error: "This account has been deleted. Please contact support if you believe this is an error." }
+      }
+    }
+
     return { success: true }
   } catch (error) {
     console.error("Login error:", error)

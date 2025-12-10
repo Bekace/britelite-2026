@@ -75,7 +75,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Soft delete: set deleted_at timestamp instead of actually deleting
-    const { error } = await adminSupabase
+    const { error: profileError } = await adminSupabase
       .from("profiles")
       .update({
         deleted_at: new Date().toISOString(),
@@ -83,7 +83,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       })
       .eq("id", userId)
 
-    if (error) throw error
+    if (profileError) throw profileError
+
+    const { error: authError } = await adminSupabase.auth.admin.deleteUser(userId)
+
+    if (authError) {
+      console.error("Failed to delete auth user:", authError)
+      // Continue anyway - profile is soft deleted
+    }
 
     await logAdminAction({
       action: "soft_delete_user",

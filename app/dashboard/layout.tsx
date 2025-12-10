@@ -37,7 +37,17 @@ export default async function DashboardLayout({
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("id, email, role").eq("id", user.id).single()
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, email, role, deleted_at")
+    .eq("id", user.id)
+    .single()
+
+  if (profile?.deleted_at) {
+    // User is soft-deleted, sign them out and redirect
+    await supabase.auth.signOut()
+    redirect("/auth/login?error=account_deleted")
+  }
 
   return (
     <UserProvider initialUser={user} initialProfile={profile}>
