@@ -4,7 +4,6 @@ import { del } from "@vercel/blob"
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: userId } = await params
-  console.log("[v0] Permanent delete requested for user:", userId)
 
   const supabase = await createClient()
 
@@ -14,32 +13,17 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   } = await supabase.auth.getUser()
 
   if (!user) {
-    console.log("[v0] No authenticated user")
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  console.log("[v0] Admin user:", user.id)
-
-  const { data: adminProfile, error: adminError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single()
-
-  console.log("[v0] Admin profile:", adminProfile, "Error:", adminError)
+  const { data: adminProfile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
   if (!adminProfile || adminProfile.role !== "superadmin") {
     return NextResponse.json({ error: "Only superadmins can permanently delete users" }, { status: 403 })
   }
 
-  // Verify user exists and is soft-deleted - need to check without RLS filter
-  const { data: targetUser, error: targetError } = await supabase
-    .from("profiles")
-    .select("id, email, deleted_at")
-    .eq("id", userId)
-    .single()
-
-  console.log("[v0] Target user:", targetUser, "Error:", targetError)
+  // Verify user exists and is soft-deleted
+  const { data: targetUser } = await supabase.from("profiles").select("id, email, deleted_at").eq("id", userId).single()
 
   if (!targetUser) {
     return NextResponse.json({ error: "User not found" }, { status: 404 })
@@ -92,7 +76,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     await supabase.from("screens").delete().eq("user_id", userId)
     await supabase.from("playlists").delete().eq("user_id", userId)
     await supabase.from("media").delete().eq("user_id", userId)
-    await supabase.from("subscriptions").delete().eq("user_id", userId)
+    await supabase.from("user_subscriptions").delete().eq("user_id", userId)
 
     // 6. Finally delete the profile
     const { error: profileError } = await supabase.from("profiles").delete().eq("id", userId)
