@@ -100,16 +100,6 @@ export async function signUp(prevState: any, formData: FormData) {
 
       const userId = adminAuthData.user.id
 
-      // Sign the user in to establish session before Stripe redirect
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.toString(),
-        password: password.toString(),
-      })
-
-      if (signInError) {
-        return { error: signInError.message }
-      }
-
       // Create Stripe customer and checkout session
       const customer = await stripe.customers.create({
         email: email.toString(),
@@ -122,7 +112,7 @@ export async function signUp(prevState: any, formData: FormData) {
       })
 
       // Get trial days from the price
-      const { data: priceData } = await supabase
+      const { data: priceData } = await adminSupabase
         .from("subscription_prices")
         .select("trial_days")
         .eq("id", priceId?.toString())
@@ -151,8 +141,8 @@ export async function signUp(prevState: any, formData: FormData) {
         },
       })
 
-      // Store Stripe customer ID in profile
-      await supabase
+      // Store Stripe customer ID in profile using admin client
+      await adminSupabase
         .from("profiles")
         .update({
           company_name: companyName?.toString() || null,

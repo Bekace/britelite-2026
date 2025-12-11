@@ -11,19 +11,31 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { OAuthButtons } from "@/components/oauth-buttons"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, CheckCircle2 } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  const isCheckoutSuccess = searchParams.get("checkout") === "success"
+  const redirectAfterLogin = isCheckoutSuccess ? "/dashboard?welcome=true" : "/dashboard"
+
   useEffect(() => {
     const urlError = searchParams.get("error")
-    if (urlError === "account_deleted") {
+    const checkoutSuccess = searchParams.get("checkout") === "success"
+    const emailParam = searchParams.get("email")
+
+    if (checkoutSuccess) {
+      setSuccessMessage("Payment successful! Please sign in to access your account.")
+      if (emailParam) {
+        setEmail(decodeURIComponent(emailParam))
+      }
+    } else if (urlError === "account_deleted") {
       setError("Your account has been deactivated. Please contact support if you believe this is an error.")
     } else if (urlError === "no_account") {
       setError("No account found with this email. Please sign up first.")
@@ -61,7 +73,7 @@ export default function LoginPage() {
         }
       }
 
-      router.push("/dashboard")
+      router.push(redirectAfterLogin)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred during login")
     } finally {
@@ -79,6 +91,13 @@ export default function LoginPage() {
               <CardDescription>Enter your email below to login to your account</CardDescription>
             </CardHeader>
             <CardContent>
+              {successMessage && (
+                <Alert className="mb-6 border-green-500 bg-green-500/10">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-700">{successMessage}</AlertDescription>
+                </Alert>
+              )}
+
               {error && (
                 <Alert variant="destructive" className="mb-6">
                   <AlertCircle className="h-4 w-4" />

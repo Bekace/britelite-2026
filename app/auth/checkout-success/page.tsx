@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient } from "@/lib/supabase/server"
+import Stripe from "stripe"
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2025-05-28.basil",
+})
 
 export default async function CheckoutSuccessPage({
   searchParams,
@@ -13,80 +18,46 @@ export default async function CheckoutSuccessPage({
     redirect("/auth/pricing")
   }
 
-  const supabase = await createClient()
+  // Get the Stripe checkout session to find the user
+  let stripeSession
+  try {
+    stripeSession = await stripe.checkout.sessions.retrieve(sessionId)
+  } catch (error) {
+    console.error("Failed to retrieve Stripe session:", error)
+    redirect("/auth/pricing?error=invalid_session")
+  }
 
-  // Get current user
+  // Get user ID from Stripe metadata
+  const userId = stripeSession.metadata?.supabase_user_id
+
+  if (!userId) {
+    console.error("No user ID in Stripe session metadata")
+    redirect("/auth/login?error=no_user")
+  }
+
+  const supabase = await createClient()
+  const adminSupabase = await createAdminClient()
+
+  // Check if user already has a session
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect("/auth/login")
+    // User not signed in - we need to create a magic link or redirect to login
+    // Since the user was created with a password, redirect to login with a success message
+
+    // First verify the user exists and payment was successful
+    const { data: profile } = await adminSupabase.from("profiles").select("email").eq("id", userId).single()
+
+    if (!profile) {
+      redirect("/auth/login?error=no_profile")
+    }
+
+    // Redirect to login with success message - user needs to sign in
+    redirect(`/auth/login?checkout=success&email=${encodeURIComponent(profile.email || "")}`)
   }
 
+  // User is signed in, redirect to dashboard with welcome
   redirect("/dashboard?welcome=true")
-
-  // The following code is not needed after the redirect
-  // const { data: subscription } = await supabase
-  //   .from("user_subscriptions")
-  //   .select(
-  //     `
-  //     *,
-  //     plan:subscription_plans(name, features)
-  //   `,
-  //   )
-  //   .eq("user_id", user.id)
-  //   .eq("status", "active")
-  //   .order("created_at", { ascending: false })
-  //   .limit(1)
-  //   .single()
-
-  // return (
-  //   <div className="flex min-h-screen items-center justify-center p-4">
-  //     <Card className="w-full max-w-md">
-  //       <CardHeader className="text-center">
-  //         {subscription ? (
-  //           <>
-  //             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-  //               <CheckCircle2 className="h-6 w-6 text-green-600" />
-  //             </div>
-  //             <CardTitle className="text-2xl">Payment Successful!</CardTitle>
-  //             <CardDescription>Your subscription to {subscription.plan?.name} has been activated.</CardDescription>
-  //           </>
-  //         ) : (
-  //           <>
-  //             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center">
-  //               <Loader2 className="h-6 w-6 animate-spin text-primary" />
-  //             </div>
-  //             <CardTitle className="text-2xl">Processing Payment</CardTitle>
-  //             <CardDescription>
-  //               Please wait while we activate your subscription. This usually takes a few seconds.
-  //             </CardDescription>
-  //           </>
-  //         )}
-  //       </CardHeader>
-  //       <CardContent className="space-y-4">
-  //         {subscription ? (
-  //           <div className="space-y-2">
-  //             <p className="text-sm text-muted-foreground">
-  //               You now have access to all {subscription.plan?.name} features. Get started by visiting your dashboard.
-  //             </p>
-  //             <Button asChild className="w-full">
-  //               <Link href="/dashboard">Go to Dashboard</Link>
-  //             </Button>
-  //           </div>
-  //         ) : (
-  //           <div className="space-y-2">
-  //             <p className="text-sm text-muted-foreground">
-  //               If this takes longer than expected, please refresh the page or contact support.
-  //             </p>
-  //             <Button asChild variant="outline" className="w-full bg-transparent">
-  //               <Link href="/dashboard">Continue to Dashboard</Link>
-  //             </Button>
-  //           </div>
-  //         )}
-  //       </CardContent>
-  //     </Card>
-  //   </div>
-  // )
 }
