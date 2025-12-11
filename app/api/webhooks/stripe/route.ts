@@ -29,24 +29,95 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
-        const userId = session.metadata?.user_id
         const planId = session.metadata?.plan_id
+        const priceId = session.metadata?.price_id
 
-        if (userId && planId && session.subscription) {
-          // Update subscription with Stripe details
-          await supabase
-            .from("user_subscriptions")
-            .update({
-              stripe_subscription_id: session.subscription.toString(),
-              stripe_customer_id: session.customer?.toString(),
-              status: "trialing",
-              trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-            })
-            .eq("user_id", userId)
-            .eq("plan_id", planId)
+        // Look up pending signup by stripe_session_id
+        const { data: pendingSignup, error: pendingError } = await supabase
+          .from("pending_signups")
+          .select("*")
+          .eq("stripe_session_id", session.id)
+          .single()
 
-          console.log("[v0] Subscription created for user:", userId)
+        if (pendingError || !pendingSignup) {
+          console.error("[v0] No pending signup found for session:", session.id)
+          // This might be an existing user upgrading, check by customer email
+          break
         }
+
+        console.log("[v0] Found pending signup for:", pendingSignup.email)
+
+        // Create user in Supabase Auth with admin API
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+          email: pendingSignup.email,
+          email_confirm: true,
+          user_metadata: {
+            full_name: pendingSignup.full_name || "",
+            company_name: pendingSignup.company_name || "",
+          },
+        })
+
+        if (authError) {
+          console.error("[v0] Failed to create user:", authError)
+          return NextResponse.json({ error: "Failed to create user" }, { status: 500 })
+        }
+
+        const userId = authData.user.id
+
+        // Update password hash directly in auth.users
+        const { error: passwordError } = await supabase.rpc("set_user_password_hash", {
+          user_id: userId,
+          password_hash: pendingSignup.password_hash,
+        })
+
+        if (passwordError) {
+          console.error("[v0] Failed to set password:", passwordError)
+          // Continue anyway - user can reset password
+        }
+
+        console.log("[v0] Created user:", userId)
+
+        // Update profile with Stripe customer ID
+        await supabase
+          .from("profiles")
+          .update({
+            company_name: pendingSignup.company_name,
+            stripe_customer_id: session.customer?.toString(),
+          })
+          .eq("id", userId)
+
+        // Create subscription record
+        if (planId && session.subscription) {
+          // Get trial info from price
+          const { data: priceData } = await supabase
+            .from("subscription_prices")
+            .select("trial_days")
+            .eq("id", priceId)
+            .single()
+
+          const trialDays = priceData?.trial_days || 0
+          const now = new Date()
+          const trialEnd = trialDays > 0 ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null
+
+          await supabase.from("user_subscriptions").insert({
+            user_id: userId,
+            plan_id: planId,
+            price_id: priceId,
+            stripe_subscription_id: session.subscription.toString(),
+            stripe_customer_id: session.customer?.toString(),
+            status: trialDays > 0 ? "trialing" : "active",
+            trial_ends_at: trialEnd?.toISOString() || null,
+            current_period_start: now.toISOString(),
+            current_period_end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          })
+
+          console.log("[v0] Created subscription for user:", userId)
+        }
+
+        // Delete pending signup record
+        await supabase.from("pending_signups").delete().eq("id", pendingSignup.id)
+
+        console.log("[v0] Deleted pending signup record")
         break
       }
 
@@ -120,7 +191,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error("Error processing webhook:", error)
-    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 })
+    console.error("Webhook error:", error)
+    return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 })
   }
 }

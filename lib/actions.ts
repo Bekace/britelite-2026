@@ -3,6 +3,7 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Stripe from "stripe"
+import bcrypt from "bcryptjs"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-05-28.basil",
@@ -79,33 +80,28 @@ export async function signUp(prevState: any, formData: FormData) {
     if (isPaidPlan) {
       const adminSupabase = await createAdminClient()
 
-      // Create user with admin client (auto-confirmed)
-      const { data: adminAuthData, error: adminAuthError } = await adminSupabase.auth.admin.createUser({
-        email: email.toString(),
-        password: password.toString(),
-        email_confirm: true, // Auto-confirm email for paid plans
-        user_metadata: {
-          full_name: fullName?.toString() || "",
-          company_name: companyName?.toString() || "",
-        },
-      })
+      // Check if email already exists in auth.users
+      const { data: existingUsers } = await adminSupabase
+        .from("profiles")
+        .select("email")
+        .eq("email", email.toString())
+        .limit(1)
 
-      if (adminAuthError) {
-        return { error: adminAuthError.message }
+      if (existingUsers && existingUsers.length > 0) {
+        return { error: "An account with this email already exists. Please log in." }
       }
 
-      if (!adminAuthData.user) {
-        return { error: "Failed to create user account" }
-      }
+      // Hash the password for storage
+      const passwordHash = await bcrypt.hash(password.toString(), 12)
 
-      const userId = adminAuthData.user.id
+      // Delete any existing pending signup for this email
+      await adminSupabase.from("pending_signups").delete().eq("email", email.toString())
 
-      // Create Stripe customer and checkout session
+      // Create Stripe customer first
       const customer = await stripe.customers.create({
         email: email.toString(),
         name: fullName?.toString() || undefined,
         metadata: {
-          supabase_user_id: userId,
           plan_id: planId?.toString() || "",
           price_id: priceId?.toString() || "",
         },
@@ -133,22 +129,29 @@ export async function signUp(prevState: any, formData: FormData) {
         mode: "subscription",
         subscription_data: trialDays > 0 ? { trial_period_days: trialDays } : undefined,
         success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/pricing`,
+        cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/pricing`,
         metadata: {
-          supabase_user_id: userId,
           plan_id: planId?.toString() || "",
           price_id: priceId?.toString() || "",
         },
       })
 
-      // Store Stripe customer ID in profile using admin client
-      await adminSupabase
-        .from("profiles")
-        .update({
-          company_name: companyName?.toString() || null,
-          stripe_customer_id: customer.id,
-        })
-        .eq("id", userId)
+      // Store pending signup with stripe_session_id
+      const { error: pendingError } = await adminSupabase.from("pending_signups").insert({
+        email: email.toString(),
+        password_hash: passwordHash,
+        full_name: fullName?.toString() || null,
+        company_name: companyName?.toString() || null,
+        plan_id: planId?.toString() || null,
+        price_id: priceId?.toString() || null,
+        stripe_price_id: stripePriceId.toString(),
+        stripe_session_id: session.id,
+      })
+
+      if (pendingError) {
+        console.error("Failed to store pending signup:", pendingError)
+        return { error: "Failed to process signup. Please try again." }
+      }
 
       // Redirect to Stripe Checkout
       if (session.url) {
@@ -158,7 +161,8 @@ export async function signUp(prevState: any, formData: FormData) {
       return { error: "Failed to create checkout session" }
     }
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // FREE PLAN: Require email verification
+    const { data, error } = await supabase.auth.signUp({
       email: email.toString(),
       password: password.toString(),
       options: {
@@ -170,60 +174,17 @@ export async function signUp(prevState: any, formData: FormData) {
       },
     })
 
-    if (authError) {
-      return { error: authError.message }
+    if (error) {
+      return { error: error.message }
     }
 
-    if (!authData.user) {
-      return { error: "Failed to create user account" }
+    if (!data.user) {
+      return { error: "Failed to create account" }
     }
 
-    const userId = authData.user.id
-
-    // For Free plan: Create subscription immediately
-    let selectedPlanId = planId?.toString()
-
-    if (!selectedPlanId) {
-      const { data: freePlan } = await supabase
-        .from("subscription_plans")
-        .select("id")
-        .eq("name", "Free")
-        .eq("is_active", true)
-        .single()
-
-      selectedPlanId = freePlan?.id
-    }
-
-    if (selectedPlanId) {
-      // Get the price for this plan (using admin client to bypass RLS)
-      const adminSupabase = await createAdminClient()
-      const { data: planPrice } = await adminSupabase
-        .from("subscription_prices")
-        .select("id")
-        .eq("plan_id", selectedPlanId)
-        .eq("billing_cycle", "monthly")
-        .eq("is_active", true)
-        .single()
-
-      await adminSupabase.from("user_subscriptions").insert({
-        user_id: userId,
-        plan_id: selectedPlanId,
-        price_id: planPrice?.id || priceId?.toString(),
-        status: "active",
-        started_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
-      })
-    }
-
-    // Update profile
-    if (companyName) {
-      const adminSupabase = await createAdminClient()
-      await adminSupabase.from("profiles").update({ company_name: companyName.toString() }).eq("id", userId)
-    }
-
+    // For free plan, return success message to check email
     return {
       success: true,
-      requiresVerification: true,
       message: "Please check your email to verify your account before logging in.",
     }
   } catch (error) {
