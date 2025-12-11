@@ -99,6 +99,7 @@ export async function signUp(prevState: { error?: string; success?: boolean; mes
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         payment_method_types: ["card"],
+        customer_email: email.toString(),
         line_items: [
           {
             price: stripePriceId.toString(),
