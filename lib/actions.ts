@@ -73,14 +73,16 @@ export async function signUp(prevState: any, formData: FormData) {
 
   const supabase = await createClient()
 
+  const isPaidPlan = !!stripePriceId
+
   try {
-    // Create auth user - no email confirmation required
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email.toString(),
       password: password.toString(),
       options: {
-        // Skip email confirmation - user gets immediate access
-        emailRedirectTo: undefined,
+        emailRedirectTo: isPaidPlan
+          ? undefined
+          : `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/callback`,
         data: {
           full_name: fullName?.toString() || "",
           company_name: companyName?.toString() || "",
@@ -99,7 +101,7 @@ export async function signUp(prevState: any, formData: FormData) {
     const userId = authData.user.id
 
     // Check if this is a paid plan
-    if (stripePriceId && planId) {
+    if (isPaidPlan && planId) {
       // For paid plans: Create Stripe customer and checkout session
       const customer = await stripe.customers.create({
         email: email.toString(),
@@ -156,7 +158,7 @@ export async function signUp(prevState: any, formData: FormData) {
       }
     }
 
-    // For Free plan: Create subscription immediately and redirect to dashboard
+    // For Free plan: Create subscription immediately
     let selectedPlanId = planId?.toString()
 
     if (!selectedPlanId) {
@@ -195,8 +197,10 @@ export async function signUp(prevState: any, formData: FormData) {
       await supabase.from("profiles").update({ company_name: companyName.toString() }).eq("id", userId)
     }
 
-    // Redirect to dashboard immediately (no email verification required)
-    redirect("/dashboard")
+    return {
+      success: "Please check your email to verify your account before signing in.",
+      requiresVerification: true,
+    }
   } catch (error) {
     // Check if this is a redirect (redirects throw NEXT_REDIRECT errors)
     if (error instanceof Error && error.message === "NEXT_REDIRECT") {

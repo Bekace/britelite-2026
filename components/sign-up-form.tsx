@@ -48,8 +48,7 @@ interface SignUpFormProps {
 export default function SignUpForm({ selectedPlan }: SignUpFormProps) {
   const [state, formAction] = useActionState(signUp, null)
 
-  const isFreePlan = selectedPlan?.name?.toLowerCase() === "free"
-  const isPaidPlan = selectedPlan && !isFreePlan
+  const isPaidPlan = !!selectedPlan?.stripePriceId
 
   const oauthRedirectTo = isPaidPlan
     ? `/auth/oauth-checkout?planId=${selectedPlan.id}&priceId=${selectedPlan.priceId || ""}&stripePriceId=${selectedPlan.stripePriceId || ""}`
@@ -120,7 +119,14 @@ export default function SignUpForm({ selectedPlan }: SignUpFormProps) {
 
         {state?.success && (
           <div className="bg-green-500/10 border border-green-500/50 text-green-700 px-4 py-3 rounded">
-            {state.success}
+            <p className="font-medium">{state.success}</p>
+            {state.requiresVerification && (
+              <p className="text-sm mt-2">
+                <Link href="/auth/login" className="underline">
+                  Go to login page
+                </Link>
+              </p>
+            )}
           </div>
         )}
 
