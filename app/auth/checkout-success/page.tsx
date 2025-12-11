@@ -27,11 +27,10 @@ export default async function CheckoutSuccessPage({
     redirect("/auth/pricing?error=invalid_session")
   }
 
-  // Get user ID from Stripe metadata
-  const userId = stripeSession.metadata?.supabase_user_id
+  const email = stripeSession.metadata?.email || stripeSession.customer_email
 
-  if (!userId) {
-    console.error("No user ID in Stripe session metadata")
+  if (!email) {
+    console.error("No email in Stripe session metadata")
     redirect("/auth/login?error=no_user")
   }
 
@@ -44,18 +43,16 @@ export default async function CheckoutSuccessPage({
   } = await supabase.auth.getUser()
 
   if (!user) {
-    // User not signed in - we need to create a magic link or redirect to login
-    // Since the user was created with a password, redirect to login with a success message
-
-    // First verify the user exists and payment was successful
-    const { data: profile } = await adminSupabase.from("profiles").select("email").eq("id", userId).single()
+    const { data: profile } = await adminSupabase.from("profiles").select("id, email").eq("email", email).single()
 
     if (!profile) {
-      redirect("/auth/login?error=no_profile")
+      // User not created yet - redirect to login with success message
+      // The webhook should create the user shortly
+      redirect(`/auth/login?checkout=success&email=${encodeURIComponent(email)}`)
     }
 
-    // Redirect to login with success message - user needs to sign in
-    redirect(`/auth/login?checkout=success&email=${encodeURIComponent(profile.email || "")}`)
+    // User exists - redirect to login with success message
+    redirect(`/auth/login?checkout=success&email=${encodeURIComponent(profile.email || email)}`)
   }
 
   // User is signed in, redirect to dashboard with welcome
