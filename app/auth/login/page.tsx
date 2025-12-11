@@ -29,8 +29,11 @@ export default function LoginPage() {
     const urlError = searchParams.get("error")
     const checkoutSuccess = searchParams.get("checkout") === "success"
     const emailParam = searchParams.get("email")
+    const emailVerified = searchParams.get("verified") === "true"
 
-    if (checkoutSuccess) {
+    if (emailVerified) {
+      setSuccessMessage("Email verified successfully! Please sign in to access your account.")
+    } else if (checkoutSuccess) {
       setSuccessMessage("Payment successful! Please sign in to access your account.")
       if (emailParam) {
         setEmail(decodeURIComponent(emailParam))
