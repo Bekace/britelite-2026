@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Stripe from "stripe"
 
@@ -76,39 +76,47 @@ export async function signUp(prevState: any, formData: FormData) {
   const isPaidPlan = !!stripePriceId
 
   try {
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: email.toString(),
-      password: password.toString(),
-      options: {
-        emailRedirectTo: isPaidPlan
-          ? undefined
-          : `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/callback`,
-        data: {
+    if (isPaidPlan) {
+      const adminSupabase = await createAdminClient()
+
+      // Create user with admin client (auto-confirmed)
+      const { data: adminAuthData, error: adminAuthError } = await adminSupabase.auth.admin.createUser({
+        email: email.toString(),
+        password: password.toString(),
+        email_confirm: true, // Auto-confirm email for paid plans
+        user_metadata: {
           full_name: fullName?.toString() || "",
           company_name: companyName?.toString() || "",
         },
-      },
-    })
+      })
 
-    if (authError) {
-      return { error: authError.message }
-    }
+      if (adminAuthError) {
+        return { error: adminAuthError.message }
+      }
 
-    if (!authData.user) {
-      return { error: "Failed to create user account" }
-    }
+      if (!adminAuthData.user) {
+        return { error: "Failed to create user account" }
+      }
 
-    const userId = authData.user.id
+      const userId = adminAuthData.user.id
 
-    // Check if this is a paid plan
-    if (isPaidPlan && planId) {
-      // For paid plans: Create Stripe customer and checkout session
+      // Sign the user in to establish session before Stripe redirect
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.toString(),
+        password: password.toString(),
+      })
+
+      if (signInError) {
+        return { error: signInError.message }
+      }
+
+      // Create Stripe customer and checkout session
       const customer = await stripe.customers.create({
         email: email.toString(),
         name: fullName?.toString() || undefined,
         metadata: {
           supabase_user_id: userId,
-          plan_id: planId.toString(),
+          plan_id: planId?.toString() || "",
           price_id: priceId?.toString() || "",
         },
       })
@@ -138,12 +146,12 @@ export async function signUp(prevState: any, formData: FormData) {
         cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/pricing`,
         metadata: {
           supabase_user_id: userId,
-          plan_id: planId.toString(),
+          plan_id: planId?.toString() || "",
           price_id: priceId?.toString() || "",
         },
       })
 
-      // Store temporary data for the user (will be finalized by webhook)
+      // Store Stripe customer ID in profile
       await supabase
         .from("profiles")
         .update({
@@ -156,7 +164,31 @@ export async function signUp(prevState: any, formData: FormData) {
       if (session.url) {
         redirect(session.url)
       }
+
+      return { error: "Failed to create checkout session" }
     }
+
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: email.toString(),
+      password: password.toString(),
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/callback`,
+        data: {
+          full_name: fullName?.toString() || "",
+          company_name: companyName?.toString() || "",
+        },
+      },
+    })
+
+    if (authError) {
+      return { error: authError.message }
+    }
+
+    if (!authData.user) {
+      return { error: "Failed to create user account" }
+    }
+
+    const userId = authData.user.id
 
     // For Free plan: Create subscription immediately
     let selectedPlanId = planId?.toString()
@@ -173,8 +205,9 @@ export async function signUp(prevState: any, formData: FormData) {
     }
 
     if (selectedPlanId) {
-      // Get the price for this plan
-      const { data: planPrice } = await supabase
+      // Get the price for this plan (using admin client to bypass RLS)
+      const adminSupabase = await createAdminClient()
+      const { data: planPrice } = await adminSupabase
         .from("subscription_prices")
         .select("id")
         .eq("plan_id", selectedPlanId)
@@ -182,31 +215,29 @@ export async function signUp(prevState: any, formData: FormData) {
         .eq("is_active", true)
         .single()
 
-      await supabase.from("user_subscriptions").insert({
+      await adminSupabase.from("user_subscriptions").insert({
         user_id: userId,
         plan_id: selectedPlanId,
         price_id: planPrice?.id || priceId?.toString(),
         status: "active",
         started_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 100 years for free
+        expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
       })
     }
 
     // Update profile
     if (companyName) {
-      await supabase.from("profiles").update({ company_name: companyName.toString() }).eq("id", userId)
+      const adminSupabase = await createAdminClient()
+      await adminSupabase.from("profiles").update({ company_name: companyName.toString() }).eq("id", userId)
     }
 
     return {
-      success: "Please check your email to verify your account before signing in.",
+      success: true,
       requiresVerification: true,
+      message: "Please check your email to verify your account before logging in.",
     }
   } catch (error) {
-    // Check if this is a redirect (redirects throw NEXT_REDIRECT errors)
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error
-    }
-    console.error("Sign up error:", error)
+    console.error("Signup error:", error)
     return { error: "An unexpected error occurred. Please try again." }
   }
 }
