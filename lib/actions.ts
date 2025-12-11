@@ -55,70 +55,49 @@ export async function signIn(prevState: any, formData: FormData) {
 }
 
 // Update the signUp function to handle potential null formData and plan assignment
-export async function signUp(prevState: any, formData: FormData) {
-  if (!formData) {
-    return { error: "Form data is missing" }
-  }
-
-  const email = formData.get("email")
-  const password = formData.get("password")
-  const fullName = formData.get("fullName")
-  const companyName = formData.get("companyName")
-  const planId = formData.get("planId")
-  const priceId = formData.get("priceId")
-  const stripePriceId = formData.get("stripePriceId")
-
-  if (!email || !password) {
-    return { error: "Email and password are required" }
-  }
-
-  const supabase = await createClient()
-
-  const isPaidPlan = !!stripePriceId
+export async function signUp(prevState: { error?: string; success?: boolean; message?: string }, formData: FormData) {
+  let stripeRedirectUrl: string | null = null
 
   try {
+    const supabase = await createClient()
+    const adminSupabase = await createAdminClient()
+
+    const email = formData.get("email")
+    const password = formData.get("password")
+    const fullName = formData.get("fullName")
+    const companyName = formData.get("companyName")
+    const planId = formData.get("planId")
+    const priceId = formData.get("priceId")
+    const stripePriceId = formData.get("stripePriceId")
+
+    if (!email || !password) {
+      return { error: "Email and password are required" }
+    }
+
+    // Check if user already exists
+    const { data: existingUser } = await adminSupabase
+      .from("profiles")
+      .select("id")
+      .eq("email", email.toString())
+      .single()
+
+    if (existingUser) {
+      return { error: "An account with this email already exists" }
+    }
+
+    // Check for existing pending signup and delete it
+    await adminSupabase.from("pending_signups").delete().eq("email", email.toString())
+
+    // PAID PLAN: Store in pending_signups and redirect to Stripe
+    const isPaidPlan = !!stripePriceId && stripePriceId.toString().length > 0
+
     if (isPaidPlan) {
-      const adminSupabase = await createAdminClient()
-
-      // Check if email already exists in auth.users
-      const { data: existingUsers } = await adminSupabase
-        .from("profiles")
-        .select("email")
-        .eq("email", email.toString())
-        .limit(1)
-
-      if (existingUsers && existingUsers.length > 0) {
-        return { error: "An account with this email already exists. Please log in." }
-      }
-
-      // Hash the password for storage
+      // Hash password for storage
       const passwordHash = await bcrypt.hash(password.toString(), 12)
 
-      // Delete any existing pending signup for this email
-      await adminSupabase.from("pending_signups").delete().eq("email", email.toString())
-
-      // Create Stripe customer first
-      const customer = await stripe.customers.create({
-        email: email.toString(),
-        name: fullName?.toString() || undefined,
-        metadata: {
-          plan_id: planId?.toString() || "",
-          price_id: priceId?.toString() || "",
-        },
-      })
-
-      // Get trial days from the price
-      const { data: priceData } = await adminSupabase
-        .from("subscription_prices")
-        .select("trial_days")
-        .eq("id", priceId?.toString())
-        .single()
-
-      const trialDays = priceData?.trial_days || 0
-
-      // Create checkout session
+      // Create Stripe Checkout session
       const session = await stripe.checkout.sessions.create({
-        customer: customer.id,
+        mode: "subscription",
         payment_method_types: ["card"],
         line_items: [
           {
@@ -126,17 +105,16 @@ export async function signUp(prevState: any, formData: FormData) {
             quantity: 1,
           },
         ],
-        mode: "subscription",
-        subscription_data: trialDays > 0 ? { trial_period_days: trialDays } : undefined,
         success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/pricing`,
         metadata: {
+          email: email.toString(),
           plan_id: planId?.toString() || "",
           price_id: priceId?.toString() || "",
         },
       })
 
-      // Store pending signup with stripe_session_id
+      // Store pending signup
       const { error: pendingError } = await adminSupabase.from("pending_signups").insert({
         email: email.toString(),
         password_hash: passwordHash,
@@ -153,44 +131,49 @@ export async function signUp(prevState: any, formData: FormData) {
         return { error: "Failed to process signup. Please try again." }
       }
 
-      // Redirect to Stripe Checkout
       if (session.url) {
-        redirect(session.url)
+        stripeRedirectUrl = session.url
+      } else {
+        return { error: "Failed to create checkout session" }
+      }
+    } else {
+      // FREE PLAN: Require email verification
+      const { data, error } = await supabase.auth.signUp({
+        email: email.toString(),
+        password: password.toString(),
+        options: {
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/callback`,
+          data: {
+            full_name: fullName?.toString() || "",
+            company_name: companyName?.toString() || "",
+          },
+        },
+      })
+
+      if (error) {
+        return { error: error.message }
       }
 
-      return { error: "Failed to create checkout session" }
-    }
+      if (!data.user) {
+        return { error: "Failed to create account" }
+      }
 
-    // FREE PLAN: Require email verification
-    const { data, error } = await supabase.auth.signUp({
-      email: email.toString(),
-      password: password.toString(),
-      options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/callback`,
-        data: {
-          full_name: fullName?.toString() || "",
-          company_name: companyName?.toString() || "",
-        },
-      },
-    })
-
-    if (error) {
-      return { error: error.message }
-    }
-
-    if (!data.user) {
-      return { error: "Failed to create account" }
-    }
-
-    // For free plan, return success message to check email
-    return {
-      success: true,
-      message: "Please check your email to verify your account before logging in.",
+      // For free plan, return success message to check email
+      return {
+        success: true,
+        message: "Please check your email to verify your account before logging in.",
+      }
     }
   } catch (error) {
     console.error("Signup error:", error)
     return { error: "An unexpected error occurred. Please try again." }
   }
+
+  if (stripeRedirectUrl) {
+    redirect(stripeRedirectUrl)
+  }
+
+  return { error: "An unexpected error occurred. Please try again." }
 }
 
 export async function signOut() {
