@@ -88,7 +88,8 @@ export async function updateSession(request: NextRequest) {
       !request.nextUrl.pathname.startsWith("/player") &&
       !request.nextUrl.pathname.startsWith("/api/devices") &&
       !request.nextUrl.pathname.startsWith("/screen") &&
-      !request.nextUrl.pathname.startsWith("/api/screens/config")
+      !request.nextUrl.pathname.startsWith("/api/screens/config") &&
+      !request.nextUrl.pathname.startsWith("/api/webhooks") // Exclude webhook routes from auth redirect
     ) {
       // no user, potentially respond by redirecting the user to the login page
       const url = request.nextUrl.clone()
