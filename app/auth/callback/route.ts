@@ -126,6 +126,8 @@ export async function GET(request: NextRequest) {
               expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(),
             })
           }
+
+          return NextResponse.redirect(new URL("/dashboard?welcome=true", requestUrl.origin))
         }
       }
 
