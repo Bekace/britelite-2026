@@ -1,29 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { stripe } from "@/lib/stripe"
-import { createClient } from "@supabase/supabase-js"
-import type Stripe from "stripe"
+import Stripe from "stripe"
+import { createServiceRoleClient } from "@/lib/supabase/server"
 
-// Initialize Supabase with service role for webhook processing
-const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2025-04-30.basil",
+})
 
-export async function POST(request: NextRequest) {
-  const body = await request.text()
-  const signature = request.headers.get("stripe-signature")
-
-  if (!signature) {
-    return NextResponse.json({ error: "No signature" }, { status: 400 })
-  }
+export async function POST(req: NextRequest) {
+  const body = await req.text()
+  const sig = req.headers.get("stripe-signature")!
 
   let event: Stripe.Event
 
   try {
-    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!)
-  } catch (error) {
-    console.error("Webhook signature verification failed:", error)
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
+    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!)
+  } catch (err: unknown) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown error"
+    console.error("[v0] Webhook signature verification failed:", errorMessage)
+    return NextResponse.json({ error: `Webhook Error: ${errorMessage}` }, { status: 400 })
   }
 
-  console.log("[v0] Webhook event received:", event.type)
+  const supabase = createServiceRoleClient()
 
   try {
     switch (event.type) {
@@ -33,6 +30,10 @@ export async function POST(request: NextRequest) {
         const priceId = session.metadata?.price_id
         const customerEmail = session.metadata?.email || session.customer_email
 
+        console.log("[v0] checkout.session.completed")
+        console.log("[v0] planId:", planId, "priceId:", priceId, "email:", customerEmail)
+        console.log("[v0] session.id:", session.id, "subscription:", session.subscription)
+
         // Look up pending signup by stripe_session_id
         const { data: pendingSignup, error: pendingError } = await supabase
           .from("pending_signups")
@@ -40,10 +41,13 @@ export async function POST(request: NextRequest) {
           .eq("stripe_session_id", session.id)
           .single()
 
+        console.log("[v0] pendingSignup found:", !!pendingSignup)
+        if (pendingError) console.log("[v0] pendingError:", pendingError.message)
+
         let userId: string | null = null
 
         if (pendingSignup) {
-          console.log("[v0] Found pending signup for:", pendingSignup.email)
+          console.log("[v0] Creating user for:", pendingSignup.email)
 
           // Create user in Supabase Auth with admin API
           const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -61,6 +65,7 @@ export async function POST(request: NextRequest) {
           }
 
           userId = authData.user.id
+          console.log("[v0] User created with id:", userId)
 
           // Update password hash directly in auth.users
           const { error: passwordError } = await supabase.rpc("set_user_password_hash", {
@@ -70,19 +75,10 @@ export async function POST(request: NextRequest) {
 
           if (passwordError) {
             console.error("[v0] Failed to set password:", passwordError)
-            // Continue anyway - user can reset password
           }
 
-          console.log("[v0] Created user:", userId)
-
           // Update profile with Stripe customer ID
-          await supabase
-            .from("profiles")
-            .update({
-              company_name: pendingSignup.company_name,
-              stripe_customer_id: session.customer?.toString(),
-            })
-            .eq("id", userId)
+          await supabase.from("profiles").update({ stripe_customer_id: session.customer?.toString() }).eq("id", userId)
 
           // Delete pending signup record
           await supabase.from("pending_signups").delete().eq("id", pendingSignup.id)
@@ -108,6 +104,15 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        console.log(
+          "[v0] Before subscription - userId:",
+          userId,
+          "planId:",
+          planId,
+          "subscription:",
+          session.subscription,
+        )
+
         if (userId && planId && session.subscription) {
           // Check if subscription already exists
           const { data: existingSub } = await supabase
@@ -130,6 +135,8 @@ export async function POST(request: NextRequest) {
             const now = new Date()
             const trialEnd = trialDays > 0 ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null
 
+            console.log("[v0] Inserting subscription with userId:", userId, "planId:", planId, "priceId:", priceId)
+
             const { error: subError } = await supabase.from("user_subscriptions").insert({
               user_id: userId,
               plan_id: planId,
@@ -138,8 +145,8 @@ export async function POST(request: NextRequest) {
               stripe_customer_id: session.customer?.toString(),
               status: trialDays > 0 ? "trialing" : "active",
               trial_ends_at: trialEnd?.toISOString() || null,
-              current_period_start: now.toISOString(),
-              current_period_end: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              started_at: now.toISOString(),
+              expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             })
 
             if (subError) {
@@ -164,19 +171,17 @@ export async function POST(request: NextRequest) {
 
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription
-        const userId = subscription.metadata?.user_id
 
-        if (userId) {
-          await supabase
-            .from("user_subscriptions")
-            .update({
-              status: subscription.status,
-              current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-              current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-            })
-            .eq("stripe_subscription_id", subscription.id)
+        const { error } = await supabase
+          .from("user_subscriptions")
+          .update({
+            status: subscription.status,
+            expires_at: new Date(subscription.current_period_end * 1000).toISOString(),
+          })
+          .eq("stripe_subscription_id", subscription.id)
 
-          console.log("[v0] Subscription updated:", subscription.id, subscription.status)
+        if (error) {
+          console.error("[v0] Failed to update subscription:", error)
         }
         break
       }
@@ -184,47 +189,40 @@ export async function POST(request: NextRequest) {
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription
 
-        await supabase
+        const { error } = await supabase
           .from("user_subscriptions")
           .update({
             status: "canceled",
-            ended_at: new Date().toISOString(),
           })
           .eq("stripe_subscription_id", subscription.id)
 
-        console.log("[v0] Subscription canceled:", subscription.id)
+        if (error) {
+          console.error("[v0] Failed to cancel subscription:", error)
+        }
         break
       }
 
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice
-
         if (invoice.subscription) {
           await supabase
             .from("user_subscriptions")
             .update({
               status: "active",
-              payment_method: "card", // Can be enhanced to show card details
+              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
             })
             .eq("stripe_subscription_id", invoice.subscription.toString())
-
-          console.log("[v0] Payment succeeded for subscription:", invoice.subscription)
         }
         break
       }
 
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice
-
         if (invoice.subscription) {
           await supabase
             .from("user_subscriptions")
-            .update({
-              status: "past_due",
-            })
+            .update({ status: "past_due" })
             .eq("stripe_subscription_id", invoice.subscription.toString())
-
-          console.log("[v0] Payment failed for subscription:", invoice.subscription)
         }
         break
       }
@@ -232,7 +230,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error("Webhook error:", error)
+    console.error("[v0] Webhook handler error:", error)
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 })
   }
 }
