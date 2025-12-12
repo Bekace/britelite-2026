@@ -26,13 +26,22 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
-        const planId = session.metadata?.plan_id
-        const priceId = session.metadata?.price_id
+
+        let planId = session.metadata?.plan_id
+        let priceId = session.metadata?.price_id
         const customerEmail = session.metadata?.email || session.customer_email
 
         console.log("[v0] checkout.session.completed")
-        console.log("[v0] planId:", planId, "priceId:", priceId, "email:", customerEmail)
+        console.log("[v0] session metadata - planId:", planId, "priceId:", priceId, "email:", customerEmail)
         console.log("[v0] session.id:", session.id, "subscription:", session.subscription)
+
+        if ((!planId || !priceId) && session.subscription) {
+          console.log("[v0] Fetching subscription metadata from Stripe")
+          const subscription = await stripe.subscriptions.retrieve(session.subscription.toString())
+          planId = subscription.metadata?.plan_id || planId
+          priceId = subscription.metadata?.price_id || priceId
+          console.log("[v0] subscription metadata - planId:", planId, "priceId:", priceId)
+        }
 
         // Look up pending signup by stripe_session_id
         const { data: pendingSignup, error: pendingError } = await supabase

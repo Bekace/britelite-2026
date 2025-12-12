@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import UpgradePlanDialog from "@/components/upgrade-plan-dialog"
 import { useToast } from "@/hooks/use-toast"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 
 type Price = {
   id: string
@@ -43,6 +43,7 @@ export default function BillingClient({ plans, currentPlanId }: BillingClientPro
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const { toast } = useToast()
   const searchParams = useSearchParams()
+  const router = useRouter()
 
   // Show success toast if user just completed an upgrade
   useEffect(() => {
@@ -53,8 +54,10 @@ export default function BillingClient({ plans, currentPlanId }: BillingClientPro
       })
       // Remove the query parameter
       window.history.replaceState({}, "", "/dashboard/settings/billing")
+      // Refresh the page to get updated subscription data
+      router.refresh()
     }
-  }, [searchParams, toast])
+  }, [searchParams, toast, router])
 
   return (
     <>
