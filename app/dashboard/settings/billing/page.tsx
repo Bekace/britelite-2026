@@ -1,9 +1,10 @@
+import { Button } from "@/components/ui/button"
 export const dynamic = "force-dynamic"
 
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { CreditCard, Package, Receipt } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import BillingClient from "./billing-client"
 
 export default async function BillingSettingsPage() {
   const supabase = await createClient()
@@ -60,6 +61,15 @@ export default async function BillingSettingsPage() {
     }
   }
 
+  const { data: allPlans } = await supabase
+    .from("subscription_plans")
+    .select(`
+      *,
+      prices:subscription_prices(*)
+    `)
+    .eq("is_active", true)
+    .order("price", { ascending: true })
+
   const displayPrice = priceInfo?.price ? Number(priceInfo.price).toFixed(0) : "0"
   const billingCycle = priceInfo?.billing_cycle === "yearly" ? "year" : "month"
 
@@ -97,9 +107,7 @@ export default async function BillingSettingsPage() {
           <p className="text-sm text-muted-foreground">
             {subscription?.status === "active" ? "Active subscription" : "No active subscription"}
           </p>
-          <Button size="sm" variant="outline">
-            Upgrade Plan
-          </Button>
+          <BillingClient plans={allPlans || []} currentPlanId={plan?.id} />
         </div>
       </div>
 
