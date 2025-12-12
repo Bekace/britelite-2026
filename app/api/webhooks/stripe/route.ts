@@ -33,9 +33,16 @@ export async function POST(req: NextRequest) {
 
         console.log("[v0] checkout.session.completed")
         console.log("[v0] session metadata - planId:", planId, "priceId:", priceId, "email:", customerEmail)
-        console.log("[v0] session.id:", session.id, "subscription:", session.subscription)
+        console.log(
+          "[v0] session.id:",
+          session.id,
+          "subscription:",
+          session.subscription,
+          "customer:",
+          session.customer,
+        )
 
-        if ((!planId || !priceId) && session.subscription) {
+        if (session.subscription) {
           console.log("[v0] Fetching subscription metadata from Stripe")
           const subscription = await stripe.subscriptions.retrieve(session.subscription.toString())
           planId = subscription.metadata?.plan_id || planId
@@ -93,18 +100,30 @@ export async function POST(req: NextRequest) {
           await supabase.from("pending_signups").delete().eq("id", pendingSignup.id)
           console.log("[v0] Deleted pending signup record")
         } else {
-          console.log("[v0] No pending signup found, looking up existing user by email:", customerEmail)
+          console.log("[v0] No pending signup found, looking up existing user by customer:", session.customer)
 
           if (session.customer) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("id")
+            const { data: existingSubscription } = await supabase
+              .from("user_subscriptions")
+              .select("user_id")
               .eq("stripe_customer_id", session.customer.toString())
               .single()
 
-            if (profile) {
-              userId = profile.id
-              console.log("[v0] Found existing user by customer ID:", userId)
+            if (existingSubscription) {
+              userId = existingSubscription.user_id
+              console.log("[v0] Found existing user by customer ID from subscriptions:", userId)
+            } else {
+              // Try profiles table as fallback
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("id")
+                .eq("stripe_customer_id", session.customer.toString())
+                .single()
+
+              if (profile) {
+                userId = profile.id
+                console.log("[v0] Found existing user by customer ID from profiles:", userId)
+              }
             }
           }
 
@@ -117,10 +136,12 @@ export async function POST(req: NextRequest) {
               console.log("[v0] Found existing user by email:", userId)
 
               // Update profile with Stripe customer ID
-              await supabase
-                .from("profiles")
-                .update({ stripe_customer_id: session.customer?.toString() })
-                .eq("id", userId)
+              if (session.customer) {
+                await supabase
+                  .from("profiles")
+                  .update({ stripe_customer_id: session.customer.toString() })
+                  .eq("id", userId)
+              }
             } else {
               console.error("[v0] No user found for email:", customerEmail)
             }
@@ -132,11 +153,13 @@ export async function POST(req: NextRequest) {
           userId,
           "planId:",
           planId,
+          "priceId:",
+          priceId,
           "subscription:",
           session.subscription,
         )
 
-        if (userId && planId && session.subscription) {
+        if (userId && planId && priceId && session.subscription) {
           const { data: existingSub } = await supabase
             .from("user_subscriptions")
             .select("id, stripe_subscription_id")
@@ -145,6 +168,8 @@ export async function POST(req: NextRequest) {
 
           if (existingSub) {
             console.log("[v0] Existing subscription found, updating for upgrade")
+            console.log("[v0] Old stripe_subscription_id:", existingSub.stripe_subscription_id)
+            console.log("[v0] New stripe_subscription_id:", session.subscription.toString())
 
             // Get trial info from price if available
             const { data: priceData } = await supabase
@@ -174,7 +199,14 @@ export async function POST(req: NextRequest) {
             if (updateError) {
               console.error("[v0] Failed to update subscription:", updateError)
             } else {
-              console.log("[v0] Updated subscription for user:", userId, "to plan:", planId)
+              console.log(
+                "[v0] Successfully updated subscription for user:",
+                userId,
+                "to plan:",
+                planId,
+                "price:",
+                priceId,
+              )
             }
           } else {
             console.log("[v0] No existing subscription, creating new one")
@@ -216,6 +248,8 @@ export async function POST(req: NextRequest) {
             userId,
             "planId:",
             planId,
+            "priceId:",
+            priceId,
             "subscription:",
             session.subscription,
           )
