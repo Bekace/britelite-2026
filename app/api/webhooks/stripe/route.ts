@@ -86,12 +86,26 @@ export async function POST(req: NextRequest) {
         } else {
           console.log("[v0] No pending signup found, looking up existing user by email:", customerEmail)
 
-          if (customerEmail) {
+          if (session.customer) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("stripe_customer_id", session.customer.toString())
+              .single()
+
+            if (profile) {
+              userId = profile.id
+              console.log("[v0] Found existing user by customer ID:", userId)
+            }
+          }
+
+          // If not found by customer ID, try by email
+          if (!userId && customerEmail) {
             const { data: profile } = await supabase.from("profiles").select("id").eq("email", customerEmail).single()
 
             if (profile) {
               userId = profile.id
-              console.log("[v0] Found existing user:", userId)
+              console.log("[v0] Found existing user by email:", userId)
 
               // Update profile with Stripe customer ID
               await supabase
@@ -114,16 +128,48 @@ export async function POST(req: NextRequest) {
         )
 
         if (userId && planId && session.subscription) {
-          // Check if subscription already exists
           const { data: existingSub } = await supabase
             .from("user_subscriptions")
-            .select("id")
-            .eq("stripe_subscription_id", session.subscription.toString())
+            .select("id, stripe_subscription_id")
+            .eq("user_id", userId)
             .single()
 
           if (existingSub) {
-            console.log("[v0] Subscription already exists, skipping creation")
+            console.log("[v0] Existing subscription found, updating for upgrade")
+
+            // Get trial info from price if available
+            const { data: priceData } = await supabase
+              .from("subscription_prices")
+              .select("trial_days")
+              .eq("id", priceId)
+              .single()
+
+            const trialDays = priceData?.trial_days || 0
+            const now = new Date()
+            const trialEnd = trialDays > 0 ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null
+
+            const { error: updateError } = await supabase
+              .from("user_subscriptions")
+              .update({
+                plan_id: planId,
+                price_id: priceId,
+                stripe_subscription_id: session.subscription.toString(),
+                stripe_customer_id: session.customer?.toString(),
+                status: trialDays > 0 ? "trialing" : "active",
+                trial_ends_at: trialEnd?.toISOString() || null,
+                started_at: now.toISOString(),
+                expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              })
+              .eq("id", existingSub.id)
+
+            if (updateError) {
+              console.error("[v0] Failed to update subscription:", updateError)
+            } else {
+              console.log("[v0] Updated subscription for user:", userId, "to plan:", planId)
+            }
           } else {
+            console.log("[v0] No existing subscription, creating new one")
+
             // Get trial info from price
             const { data: priceData } = await supabase
               .from("subscription_prices")
