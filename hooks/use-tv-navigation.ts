@@ -51,48 +51,64 @@ export function useTVNavigation(options: TVNavigationOptions = {}) {
 
       console.log("[v0] TV Navigation - Key pressed:", key, "KeyCode:", keyCode)
 
+      // This allows native focus navigation to work when callbacks don't handle the key
+
       switch (key) {
         case "ArrowUp":
-          event.preventDefault()
-          onUp?.()
+          if (onUp) {
+            event.preventDefault()
+            onUp()
+          }
           break
         case "ArrowDown":
-          event.preventDefault()
-          onDown?.()
+          if (onDown) {
+            event.preventDefault()
+            onDown()
+          }
           break
         case "ArrowLeft":
-          event.preventDefault()
-          onLeft?.()
+          if (onLeft) {
+            event.preventDefault()
+            onLeft()
+          }
           break
         case "ArrowRight":
-          event.preventDefault()
-          onRight?.()
+          if (onRight) {
+            event.preventDefault()
+            onRight()
+          }
           break
         case "Enter":
-          event.preventDefault()
-          onSelect?.()
+          if (onSelect) {
+            event.preventDefault()
+            onSelect()
+          }
           break
         case "Escape":
         case "Backspace": // Fire TV back button
-          event.preventDefault()
-          onBack?.()
+          if (onBack) {
+            event.preventDefault()
+            onBack()
+          }
           break
         case "m":
         case "M":
         case "ContextMenu": // Menu button on some remotes
-          event.preventDefault()
-          onMenu?.()
+          if (onMenu) {
+            event.preventDefault()
+            onMenu()
+          }
           break
       }
 
-      if (keyCode === 82) {
+      if (keyCode === 82 && onMenu) {
         // Menu button
         event.preventDefault()
-        onMenu?.()
-      } else if (keyCode === 4) {
+        onMenu()
+      } else if (keyCode === 4 && onBack) {
         // Back button
         event.preventDefault()
-        onBack?.()
+        onBack()
       }
     }
 

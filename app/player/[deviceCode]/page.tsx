@@ -84,6 +84,15 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         const newIndex = prev - 1
         return newIndex < 0 ? contentLength - 1 : newIndex
       })
+    } else if (showLeftPanel || showRightPanel) {
+      // Let browser handle focus navigation within panels
+      console.log("[v0] TV Navigation - Up pressed in panel, allowing native focus")
+      const focusable = document.querySelectorAll(".tv-focusable")
+      const current = document.activeElement
+      const currentIndex = Array.from(focusable).indexOf(current as HTMLElement)
+      if (currentIndex > 0) {
+        ;(focusable[currentIndex - 1] as HTMLElement).focus()
+      }
     }
   }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length, config?.screen.content?.length])
 
@@ -95,31 +104,53 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         const newIndex = prev + 1
         return newIndex >= contentLength ? 0 : newIndex
       })
+    } else if (showLeftPanel || showRightPanel) {
+      // Let browser handle focus navigation within panels
+      console.log("[v0] TV Navigation - Down pressed in panel, allowing native focus")
+      const focusable = document.querySelectorAll(".tv-focusable")
+      const current = document.activeElement
+      const currentIndex = Array.from(focusable).indexOf(current as HTMLElement)
+      if (currentIndex >= 0 && currentIndex < focusable.length - 1) {
+        ;(focusable[currentIndex + 1] as HTMLElement).focus()
+      }
     }
   }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length, config?.screen.content?.length])
 
   const handleNavigateLeft = useCallback(() => {
-    if (!showCameraSetup) {
-      console.log("[v0] TV Navigation - Left pressed, toggling left panel")
-      setShowLeftPanel((prev) => !prev)
+    if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+      // Open left panel only when both panels are closed
+      console.log("[v0] TV Navigation - Left pressed, opening left panel")
+      setShowLeftPanel(true)
       setShowRightPanel(false)
+    } else if (showLeftPanel || showRightPanel) {
+      // When panel is open, navigate focus left within panel
+      console.log("[v0] TV Navigation - Left pressed in panel, navigating focus")
+      // Let native focus handle it
     }
-  }, [showCameraSetup])
+  }, [showCameraSetup, showLeftPanel, showRightPanel])
 
   const handleNavigateRight = useCallback(() => {
-    if (!showCameraSetup) {
-      console.log("[v0] TV Navigation - Right pressed, toggling right panel")
-      setShowRightPanel((prev) => !prev)
+    if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+      // Open right panel only when both panels are closed
+      console.log("[v0] TV Navigation - Right pressed, opening right panel")
+      setShowRightPanel(true)
       setShowLeftPanel(false)
+    } else if (showLeftPanel || showRightPanel) {
+      // When panel is open, navigate focus right within panel
+      console.log("[v0] TV Navigation - Right pressed in panel, navigating focus")
+      // Let native focus handle it
     }
-  }, [showCameraSetup])
+  }, [showCameraSetup, showLeftPanel, showRightPanel])
 
   const handleMenu = useCallback(() => {
     if (!showCameraSetup) {
       console.log("[v0] TV Navigation - Menu pressed, toggling right panel")
       setShowRightPanel((prev) => !prev)
+      if (!showRightPanel) {
+        setShowLeftPanel(false)
+      }
     }
-  }, [showCameraSetup])
+  }, [showCameraSetup, showRightPanel])
 
   const handleBack = useCallback(() => {
     console.log("[v0] TV Navigation - Back pressed")
@@ -619,6 +650,18 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       return nextIndex >= contentLength ? 0 : nextIndex
     })
   }
+
+  useEffect(() => {
+    if (showLeftPanel || showRightPanel) {
+      setTimeout(() => {
+        const firstFocusable = document.querySelector(".tv-focusable") as HTMLElement
+        if (firstFocusable) {
+          firstFocusable.focus()
+          console.log("[v0] Auto-focused first element in panel")
+        }
+      }, 100)
+    }
+  }, [showLeftPanel, showRightPanel])
 
   if (loading) {
     return (
