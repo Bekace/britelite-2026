@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import type React from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -76,57 +76,68 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const rotationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const youtubePlayerRef = useRef<any>(null)
 
-  const { isTVMode } = useTVNavigation({
-    onUp: () => {
-      if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
-        console.log("[v0] TV Navigation - Up pressed")
-        // Navigate to previous media
-        setCurrentMediaIndex((prev) => {
-          const newIndex = prev - 1
-          return newIndex < 0 ? (shuffledContent.length || config?.screen.content?.length || 1) - 1 : newIndex
-        })
-      }
-    },
-    onDown: () => {
-      if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
-        console.log("[v0] TV Navigation - Down pressed")
-        // Navigate to next media
+  const handleNavigateUp = useCallback(() => {
+    if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+      console.log("[v0] TV Navigation - Up pressed")
+      setCurrentMediaIndex((prev) => {
         const contentLength = shuffledContent.length || config?.screen.content?.length || 0
-        setCurrentMediaIndex((prev) => {
-          const newIndex = prev + 1
-          return newIndex >= contentLength ? 0 : newIndex
-        })
-      }
-    },
-    onLeft: () => {
-      if (!showCameraSetup) {
-        console.log("[v0] TV Navigation - Left pressed, toggling left panel")
-        setShowLeftPanel((prev) => !prev)
-        setShowRightPanel(false)
-      }
-    },
-    onRight: () => {
-      if (!showCameraSetup) {
-        console.log("[v0] TV Navigation - Right pressed, toggling right panel")
-        setShowRightPanel((prev) => !prev)
-        setShowLeftPanel(false)
-      }
-    },
-    onMenu: () => {
-      if (!showCameraSetup) {
-        console.log("[v0] TV Navigation - Menu pressed, toggling right panel")
-        setShowRightPanel((prev) => !prev)
-      }
-    },
-    onBack: () => {
-      console.log("[v0] TV Navigation - Back pressed")
-      if (showLeftPanel || showRightPanel) {
-        setShowLeftPanel(false)
-        setShowRightPanel(false)
-      } else if (showCameraSetup) {
-        setShowCameraSetup(false)
-      }
-    },
+        const newIndex = prev - 1
+        return newIndex < 0 ? contentLength - 1 : newIndex
+      })
+    }
+  }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length, config?.screen.content?.length])
+
+  const handleNavigateDown = useCallback(() => {
+    if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+      console.log("[v0] TV Navigation - Down pressed")
+      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
+      setCurrentMediaIndex((prev) => {
+        const newIndex = prev + 1
+        return newIndex >= contentLength ? 0 : newIndex
+      })
+    }
+  }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length, config?.screen.content?.length])
+
+  const handleNavigateLeft = useCallback(() => {
+    if (!showCameraSetup) {
+      console.log("[v0] TV Navigation - Left pressed, toggling left panel")
+      setShowLeftPanel((prev) => !prev)
+      setShowRightPanel(false)
+    }
+  }, [showCameraSetup])
+
+  const handleNavigateRight = useCallback(() => {
+    if (!showCameraSetup) {
+      console.log("[v0] TV Navigation - Right pressed, toggling right panel")
+      setShowRightPanel((prev) => !prev)
+      setShowLeftPanel(false)
+    }
+  }, [showCameraSetup])
+
+  const handleMenu = useCallback(() => {
+    if (!showCameraSetup) {
+      console.log("[v0] TV Navigation - Menu pressed, toggling right panel")
+      setShowRightPanel((prev) => !prev)
+    }
+  }, [showCameraSetup])
+
+  const handleBack = useCallback(() => {
+    console.log("[v0] TV Navigation - Back pressed")
+    if (showLeftPanel || showRightPanel) {
+      setShowLeftPanel(false)
+      setShowRightPanel(false)
+    } else if (showCameraSetup) {
+      setShowCameraSetup(false)
+    }
+  }, [showLeftPanel, showRightPanel, showCameraSetup])
+
+  const { isTVMode } = useTVNavigation({
+    onUp: handleNavigateUp,
+    onDown: handleNavigateDown,
+    onLeft: handleNavigateLeft,
+    onRight: handleNavigateRight,
+    onMenu: handleMenu,
+    onBack: handleBack,
     enabled: !loading && !error,
   })
 
