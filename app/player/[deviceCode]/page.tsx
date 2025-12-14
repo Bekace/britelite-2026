@@ -77,11 +77,19 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const youtubePlayerRef = useRef<any>(null)
 
   const handleNavigateUp = useCallback(() => {
-    // If panels are open, navigate within them
     if (showLeftPanel || showRightPanel) {
       const focusables = Array.from(document.querySelectorAll(".tv-focusable")) as HTMLElement[]
       const currentIndex = focusables.findIndex((el) => el === document.activeElement)
 
+      // If at first element or no element focused, close the panel
+      if (currentIndex <= 0) {
+        console.log("[v0] At first element, closing panel")
+        setShowLeftPanel(false)
+        setShowRightPanel(false)
+        return true
+      }
+
+      // Navigate to previous element
       if (currentIndex > 0) {
         focusables[currentIndex - 1].focus()
         console.log("[v0] Focused previous element in panel")
@@ -183,8 +191,14 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     } else if (showCameraSetup) {
       setShowCameraSetup(false)
       return true
+    } else {
+      // No panels open, exit the app
+      console.log("[v0] Exiting app")
+      if (typeof window !== "undefined" && window.close) {
+        window.close()
+      }
+      return true
     }
-    return false
   }, [showLeftPanel, showRightPanel, showCameraSetup])
 
   const { isTVMode } = useTVNavigation({
