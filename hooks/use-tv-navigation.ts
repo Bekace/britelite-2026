@@ -51,29 +51,31 @@ export function useTVNavigation(options: TVNavigationOptions = {}) {
 
       console.log("[v0] TV Navigation - Key pressed:", key, "KeyCode:", keyCode)
 
-      // This allows native focus navigation to work when callbacks don't handle the key
-
       let handled = false
 
       switch (key) {
         case "ArrowUp":
           if (onUp) {
             handled = onUp()
+            if (handled) event.preventDefault()
           }
           break
         case "ArrowDown":
           if (onDown) {
             handled = onDown()
+            if (handled) event.preventDefault()
           }
           break
         case "ArrowLeft":
           if (onLeft) {
             handled = onLeft()
+            if (handled) event.preventDefault()
           }
           break
         case "ArrowRight":
           if (onRight) {
             handled = onRight()
+            if (handled) event.preventDefault()
           }
           break
         case "Enter":
@@ -97,10 +99,6 @@ export function useTVNavigation(options: TVNavigationOptions = {}) {
             handled = onMenu()
           }
           break
-      }
-
-      if (handled && (key.startsWith("Arrow") || key === "Enter" || key === "Escape" || key === "Backspace")) {
-        event.preventDefault()
       }
 
       if (keyCode === 82 && onMenu) {

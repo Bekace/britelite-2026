@@ -77,41 +77,89 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const youtubePlayerRef = useRef<any>(null)
 
   const handleNavigateUp = useCallback(() => {
-    if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+    // If panels are open, navigate within them
+    if (showLeftPanel || showRightPanel) {
+      const focusables = Array.from(document.querySelectorAll(".tv-focusable")) as HTMLElement[]
+      const currentIndex = focusables.findIndex((el) => el === document.activeElement)
+
+      if (currentIndex > 0) {
+        focusables[currentIndex - 1].focus()
+        console.log("[v0] Focused previous element in panel")
+        return true
+      }
+      return false
+    }
+
+    // Normal media navigation when panels are closed
+    if (!showCameraSetup) {
       console.log("[v0] TV Navigation - Up pressed")
       setCurrentMediaIndex((prev) => {
         const contentLength = shuffledContent.length || config?.screen.content?.length || 0
         const newIndex = prev - 1
         return newIndex < 0 ? contentLength - 1 : newIndex
       })
+      return true
     }
+    return false
   }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length, config?.screen.content?.length])
 
   const handleNavigateDown = useCallback(() => {
-    if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+    // If panels are open, navigate within them
+    if (showLeftPanel || showRightPanel) {
+      const focusables = Array.from(document.querySelectorAll(".tv-focusable")) as HTMLElement[]
+      const currentIndex = focusables.findIndex((el) => el === document.activeElement)
+
+      if (currentIndex < focusables.length - 1) {
+        focusables[currentIndex + 1].focus()
+        console.log("[v0] Focused next element in panel")
+        return true
+      }
+      return false
+    }
+
+    // Normal media navigation when panels are closed
+    if (!showCameraSetup) {
       console.log("[v0] TV Navigation - Down pressed")
       const contentLength = shuffledContent.length || config?.screen.content?.length || 0
       setCurrentMediaIndex((prev) => {
         const newIndex = prev + 1
         return newIndex >= contentLength ? 0 : newIndex
       })
+      return true
     }
+    return false
   }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length, config?.screen.content?.length])
 
   const handleNavigateLeft = useCallback(() => {
-    if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+    // Don't toggle panels if already open - let internal navigation happen
+    if (showLeftPanel || showRightPanel) {
+      console.log("[v0] Panel open, ignoring left navigation")
+      return false
+    }
+
+    if (!showCameraSetup) {
       console.log("[v0] TV Navigation - Left pressed, opening left panel")
       setShowLeftPanel(true)
       setShowRightPanel(false)
+      return true
     }
+    return false
   }, [showCameraSetup, showLeftPanel, showRightPanel])
 
   const handleNavigateRight = useCallback(() => {
-    if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+    // Don't toggle panels if already open - let internal navigation happen
+    if (showLeftPanel || showRightPanel) {
+      console.log("[v0] Panel open, ignoring right navigation")
+      return false
+    }
+
+    if (!showCameraSetup) {
       console.log("[v0] TV Navigation - Right pressed, opening right panel")
       setShowRightPanel(true)
       setShowLeftPanel(false)
+      return true
     }
+    return false
   }, [showCameraSetup, showLeftPanel, showRightPanel])
 
   const handleMenu = useCallback(() => {
@@ -121,7 +169,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       if (!showRightPanel) {
         setShowLeftPanel(false)
       }
+      return true
     }
+    return false
   }, [showCameraSetup, showRightPanel])
 
   const handleBack = useCallback(() => {
@@ -129,9 +179,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     if (showLeftPanel || showRightPanel) {
       setShowLeftPanel(false)
       setShowRightPanel(false)
+      return true
     } else if (showCameraSetup) {
       setShowCameraSetup(false)
+      return true
     }
+    return false
   }, [showLeftPanel, showRightPanel, showCameraSetup])
 
   const { isTVMode } = useTVNavigation({
@@ -751,6 +804,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           TV Mode
         </div>
       )}
+      {/* Left Panel */}
       <div
         className={`fixed left-0 top-0 h-full w-64 bg-black/80 backdrop-blur-sm border-r border-white/20 z-50 transition-transform duration-300 ease-in-out ${
           showLeftPanel ? "translate-x-0" : "-translate-x-full"
@@ -761,7 +815,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
             onClick={() => setShowCameraSetup(true)}
             variant="secondary"
             className="w-full bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 tv-focusable tv-button"
-            autoFocus={showLeftPanel}
+            tabIndex={showLeftPanel ? 0 : -1}
           >
             <Settings className="w-4 h-4 mr-2" />
             Camera Setup
