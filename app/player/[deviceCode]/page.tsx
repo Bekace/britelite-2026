@@ -84,15 +84,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         const newIndex = prev - 1
         return newIndex < 0 ? contentLength - 1 : newIndex
       })
-    } else if (showLeftPanel || showRightPanel) {
-      // Let browser handle focus navigation within panels
-      console.log("[v0] TV Navigation - Up pressed in panel, allowing native focus")
-      const focusable = document.querySelectorAll(".tv-focusable")
-      const current = document.activeElement
-      const currentIndex = Array.from(focusable).indexOf(current as HTMLElement)
-      if (currentIndex > 0) {
-        ;(focusable[currentIndex - 1] as HTMLElement).focus()
-      }
     }
   }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length, config?.screen.content?.length])
 
@@ -104,41 +95,22 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         const newIndex = prev + 1
         return newIndex >= contentLength ? 0 : newIndex
       })
-    } else if (showLeftPanel || showRightPanel) {
-      // Let browser handle focus navigation within panels
-      console.log("[v0] TV Navigation - Down pressed in panel, allowing native focus")
-      const focusable = document.querySelectorAll(".tv-focusable")
-      const current = document.activeElement
-      const currentIndex = Array.from(focusable).indexOf(current as HTMLElement)
-      if (currentIndex >= 0 && currentIndex < focusable.length - 1) {
-        ;(focusable[currentIndex + 1] as HTMLElement).focus()
-      }
     }
   }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length, config?.screen.content?.length])
 
   const handleNavigateLeft = useCallback(() => {
     if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
-      // Open left panel only when both panels are closed
       console.log("[v0] TV Navigation - Left pressed, opening left panel")
       setShowLeftPanel(true)
       setShowRightPanel(false)
-    } else if (showLeftPanel || showRightPanel) {
-      // When panel is open, navigate focus left within panel
-      console.log("[v0] TV Navigation - Left pressed in panel, navigating focus")
-      // Let native focus handle it
     }
   }, [showCameraSetup, showLeftPanel, showRightPanel])
 
   const handleNavigateRight = useCallback(() => {
     if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
-      // Open right panel only when both panels are closed
       console.log("[v0] TV Navigation - Right pressed, opening right panel")
       setShowRightPanel(true)
       setShowLeftPanel(false)
-    } else if (showLeftPanel || showRightPanel) {
-      // When panel is open, navigate focus right within panel
-      console.log("[v0] TV Navigation - Right pressed in panel, navigating focus")
-      // Let native focus handle it
     }
   }, [showCameraSetup, showLeftPanel, showRightPanel])
 

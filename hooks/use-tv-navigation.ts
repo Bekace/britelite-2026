@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from "react"
 
 export interface TVNavigationOptions {
-  onUp?: () => void
-  onDown?: () => void
-  onLeft?: () => void
-  onRight?: () => void
-  onSelect?: () => void
-  onBack?: () => void
-  onMenu?: () => void
+  onUp?: () => boolean
+  onDown?: () => boolean
+  onLeft?: () => boolean
+  onRight?: () => boolean
+  onSelect?: () => boolean
+  onBack?: () => boolean
+  onMenu?: () => boolean
   enabled?: boolean
   trapFocus?: boolean
 }
@@ -53,42 +53,40 @@ export function useTVNavigation(options: TVNavigationOptions = {}) {
 
       // This allows native focus navigation to work when callbacks don't handle the key
 
+      let handled = false
+
       switch (key) {
         case "ArrowUp":
           if (onUp) {
-            event.preventDefault()
-            onUp()
+            handled = onUp()
           }
           break
         case "ArrowDown":
           if (onDown) {
-            event.preventDefault()
-            onDown()
+            handled = onDown()
           }
           break
         case "ArrowLeft":
           if (onLeft) {
-            event.preventDefault()
-            onLeft()
+            handled = onLeft()
           }
           break
         case "ArrowRight":
           if (onRight) {
-            event.preventDefault()
-            onRight()
+            handled = onRight()
           }
           break
         case "Enter":
           if (onSelect) {
             event.preventDefault()
-            onSelect()
+            handled = onSelect()
           }
           break
         case "Escape":
         case "Backspace": // Fire TV back button
           if (onBack) {
             event.preventDefault()
-            onBack()
+            handled = onBack()
           }
           break
         case "m":
@@ -96,9 +94,13 @@ export function useTVNavigation(options: TVNavigationOptions = {}) {
         case "ContextMenu": // Menu button on some remotes
           if (onMenu) {
             event.preventDefault()
-            onMenu()
+            handled = onMenu()
           }
           break
+      }
+
+      if (handled && (key.startsWith("Arrow") || key === "Enter" || key === "Escape" || key === "Backspace")) {
+        event.preventDefault()
       }
 
       if (keyCode === 82 && onMenu) {
