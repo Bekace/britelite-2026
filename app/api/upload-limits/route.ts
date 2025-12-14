@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -53,7 +56,13 @@ export async function GET() {
           ? uploadSettings.max_file_size
           : plan.max_file_size || 52428800
       planName = plan.name || "Free"
-      console.log("[v0] Using subscription plan storage:", { maxStorage, storageUnit, maxFileSize, planName })
+      console.log("[v0] Using subscription plan storage:", {
+        maxStorage,
+        storageUnit,
+        maxFileSize,
+        planName,
+        enforceGlobally: uploadSettings?.enforce_globally,
+      })
     } else {
       console.log("[v0] No active subscription found, fetching Free plan")
 
@@ -74,7 +83,13 @@ export async function GET() {
             ? uploadSettings.max_file_size
             : freePlan.max_file_size || 52428800
         planName = freePlan.name || "Free"
-        console.log("[v0] Using Free plan storage:", { maxStorage, storageUnit, maxFileSize, planName })
+        console.log("[v0] Using Free plan storage:", {
+          maxStorage,
+          storageUnit,
+          maxFileSize,
+          planName,
+          enforceGlobally: uploadSettings?.enforce_globally,
+        })
       } else {
         console.log("[v0] Free plan not found, using hardcoded defaults")
         if (uploadSettings?.enforce_globally && uploadSettings.max_file_size) {
@@ -102,13 +117,22 @@ export async function GET() {
 
     console.log("[v0] Current storage bytes:", currentStorageBytes)
 
-    return NextResponse.json({
-      maxStorage,
-      storageUnit,
-      currentStorageBytes,
-      maxFileSize,
-      planName,
-    })
+    return NextResponse.json(
+      {
+        maxStorage,
+        storageUnit,
+        currentStorageBytes,
+        maxFileSize,
+        planName,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    )
   } catch (error) {
     console.log("[v0] API error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
