@@ -16,6 +16,10 @@ export async function GET() {
 
     console.log("[v0] Fetching user data for user ID:", user.id)
 
+    const { data: uploadSettingsArray } = await supabase.from("upload_settings").select("*").limit(1)
+    const uploadSettings = uploadSettingsArray?.[0] || null
+    console.log("[v0] Upload settings:", uploadSettings)
+
     const { data: subscriptionData, error: subscriptionError } = await supabase
       .from("user_subscriptions")
       .select(`
@@ -44,7 +48,10 @@ export async function GET() {
       const plan = subscriptionData.subscription_plans
       maxStorage = Number.parseInt(plan.max_media_storage)
       storageUnit = plan.storage_unit || "MB"
-      maxFileSize = plan.max_file_size || 52428800
+      maxFileSize =
+        uploadSettings?.enforce_globally && uploadSettings.max_file_size
+          ? uploadSettings.max_file_size
+          : plan.max_file_size || 52428800
       planName = plan.name || "Free"
       console.log("[v0] Using subscription plan storage:", { maxStorage, storageUnit, maxFileSize, planName })
     } else {
@@ -62,11 +69,17 @@ export async function GET() {
       if (freePlan && !freePlanError) {
         maxStorage = Number.parseInt(freePlan.max_media_storage)
         storageUnit = freePlan.storage_unit || "MB"
-        maxFileSize = freePlan.max_file_size || 52428800
+        maxFileSize =
+          uploadSettings?.enforce_globally && uploadSettings.max_file_size
+            ? uploadSettings.max_file_size
+            : freePlan.max_file_size || 52428800
         planName = freePlan.name || "Free"
         console.log("[v0] Using Free plan storage:", { maxStorage, storageUnit, maxFileSize, planName })
       } else {
         console.log("[v0] Free plan not found, using hardcoded defaults")
+        if (uploadSettings?.enforce_globally && uploadSettings.max_file_size) {
+          maxFileSize = uploadSettings.max_file_size
+        }
       }
     }
 
