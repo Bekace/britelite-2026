@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import type React from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, AlertCircle, RefreshCw, ArrowLeft, Settings } from "lucide-react"
+import { Loader2, AlertCircle, RefreshCw, ArrowLeft, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { CameraAnalytics } from "@/components/camera-analytics"
@@ -78,27 +78,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const handleNavigateUp = useCallback(() => {
     if (showLeftPanel || showRightPanel) {
-      const focusables = Array.from(document.querySelectorAll(".tv-focusable")) as HTMLElement[]
-      const currentIndex = focusables.findIndex((el) => el === document.activeElement)
-
-      // If at first element or no element focused, close the panel
-      if (currentIndex <= 0) {
-        console.log("[v0] At first element, closing panel")
-        setShowLeftPanel(false)
-        setShowRightPanel(false)
-        return true
-      }
-
-      // Navigate to previous element
-      if (currentIndex > 0) {
-        focusables[currentIndex - 1].focus()
-        console.log("[v0] Focused previous element in panel")
-        return true
-      }
       return false
     }
 
-    // Normal media navigation when panels are closed
     if (!showCameraSetup) {
       console.log("[v0] TV Navigation - Up pressed")
       setCurrentMediaIndex((prev) => {
@@ -112,20 +94,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length, config?.screen.content?.length])
 
   const handleNavigateDown = useCallback(() => {
-    // If panels are open, navigate within them
     if (showLeftPanel || showRightPanel) {
-      const focusables = Array.from(document.querySelectorAll(".tv-focusable")) as HTMLElement[]
-      const currentIndex = focusables.findIndex((el) => el === document.activeElement)
-
-      if (currentIndex < focusables.length - 1) {
-        focusables[currentIndex + 1].focus()
-        console.log("[v0] Focused next element in panel")
-        return true
-      }
       return false
     }
 
-    // Normal media navigation when panels are closed
     if (!showCameraSetup) {
       console.log("[v0] TV Navigation - Down pressed")
       const contentLength = shuffledContent.length || config?.screen.content?.length || 0
@@ -818,44 +790,34 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           TV Mode
         </div>
       )}
-      {/* Left Panel */}
-      <div
-        className={`fixed left-0 top-0 h-full w-64 bg-black/80 backdrop-blur-sm border-r border-white/20 z-50 transition-transform duration-300 ease-in-out ${
-          showLeftPanel ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="p-4 space-y-4">
-          <Button
-            onClick={() => setShowCameraSetup(true)}
-            variant="secondary"
-            className="w-full bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 tv-focusable tv-button"
-            tabIndex={showLeftPanel ? 0 : -1}
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Camera Setup
-          </Button>
+      {showLeftPanel && (
+        <div className="fixed left-0 top-0 h-full w-64 bg-background border-r border-border z-40 p-4 overflow-y-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Camera Setup</h3>
+            <Button variant="ghost" size="sm" onClick={() => setShowLeftPanel(false)} className="tv-focusable">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <CameraSetup onClose={() => setShowLeftPanel(false)} onCameraConfigured={handleCameraConfigured} />
         </div>
-      </div>
-      <div
-        className={`fixed right-0 top-0 h-full w-96 bg-black/80 backdrop-blur-sm border-l border-white/20 z-50 transition-transform duration-300 ease-in-out ${
-          showRightPanel ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <div className="p-4 h-full overflow-y-auto">
-          {config?.screen.id && analyticsEnabled && (
-            <>
-              {console.log("[v0] Rendering CameraAnalytics in right panel with screenId:", config.screen.id)}
-              <CameraAnalytics
-                screenId={config.screen.id}
-                enabled={analyticsEnabled}
-                onToggle={setAnalyticsEnabled}
-                onSetupClick={() => setShowCameraSetup(true)}
-                className="bg-transparent border-0"
-              />
-            </>
-          )}
+      )}
+      {showRightPanel && (
+        <div className="fixed right-0 top-0 h-full w-96 bg-background border-l border-border z-40 overflow-y-auto">
+          <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background/95">
+            <h3 className="text-lg font-semibold">Audience Analytics</h3>
+            <Button variant="ghost" size="sm" onClick={() => setShowRightPanel(false)} className="tv-focusable">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="p-4">
+            <CameraAnalytics
+              screenId={config?.screen.id || ""}
+              enabled={analyticsEnabled}
+              onSetupClick={() => setShowCameraSetup(true)}
+            />
+          </div>
         </div>
-      </div>
+      )}
       {contentToDisplay && contentToDisplay.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
           {currentMedia && (
