@@ -1,3 +1,7 @@
 <resources>
     <color name="ic_launcher_background">#000000</color>
+    <!-- Add splash screen brand colors -->
+    <color name="splash_background">#0a0a0a</color>
+    <color name="splash_text">#ffffff</color>
+    <color name="splash_accent">#00d9b4</color>
 </resources>
