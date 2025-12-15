@@ -791,7 +791,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         </div>
       )}
       {showLeftPanel && (
-        <div className="fixed left-0 top-0 h-full w-64 bg-background border-r border-border z-40 p-4 overflow-y-auto flex flex-col">
+        <div className="fixed left-0 top-0 h-full bg-background border-r border-border z-40 p-4 overflow-y-auto flex flex-col w-96">
           <div className="flex-1">
             <h3 className="text-lg font-semibold mb-4">Camera Setup</h3>
             <CameraSetup onClose={() => setShowLeftPanel(false)} onCameraConfigured={handleCameraConfigured} />
