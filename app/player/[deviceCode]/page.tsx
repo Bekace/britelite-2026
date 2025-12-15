@@ -803,7 +803,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       )}
 
       {showRightPanel && (
-        <div className="fixed right-0 top-0 h-full w-80 bg-background border-l border-border z-40 p-4 overflow-y-auto flex flex-col">
+        <div className="fixed right-0 top-0 h-full bg-background border-l border-border z-40 p-4 overflow-y-auto flex flex-col w-96">
           <div className="flex-1">
             <h3 className="text-lg font-semibold mb-4">Audience Analytics</h3>
             <CameraAnalytics
