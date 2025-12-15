@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import type React from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, AlertCircle, RefreshCw, ArrowLeft, X } from "lucide-react"
+import { Loader2, AlertCircle, RefreshCw, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { CameraAnalytics } from "@/components/camera-analytics"
@@ -791,31 +791,34 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         </div>
       )}
       {showLeftPanel && (
-        <div className="fixed left-0 top-0 h-full w-64 bg-background border-r border-border z-40 p-4 overflow-y-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Camera Setup</h3>
-            <Button variant="ghost" size="sm" onClick={() => setShowLeftPanel(false)} className="tv-focusable">
-              <X className="h-4 w-4" />
-            </Button>
+        <div className="fixed left-0 top-0 h-full w-64 bg-background border-r border-border z-40 p-4 overflow-y-auto flex flex-col">
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold mb-4">Camera Setup</h3>
+            <CameraSetup onClose={() => setShowLeftPanel(false)} onCameraConfigured={handleCameraConfigured} />
           </div>
-          <CameraSetup onClose={() => setShowLeftPanel(false)} onCameraConfigured={handleCameraConfigured} />
+          <Button onClick={() => setShowLeftPanel(false)} className="tv-focusable w-full mt-6" variant="outline">
+            Back
+          </Button>
         </div>
       )}
+
       {showRightPanel && (
-        <div className="fixed right-0 top-0 h-full w-96 bg-background border-l border-border z-40 overflow-y-auto">
-          <div className="flex items-center justify-between p-4 border-b border-border sticky top-0 bg-background/95">
-            <h3 className="text-lg font-semibold">Audience Analytics</h3>
-            <Button variant="ghost" size="sm" onClick={() => setShowRightPanel(false)} className="tv-focusable">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="p-4">
+        <div className="fixed right-0 top-0 h-full w-80 bg-background border-l border-border z-40 p-4 overflow-y-auto flex flex-col">
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold mb-4">Audience Analytics</h3>
             <CameraAnalytics
               screenId={config?.screen.id || ""}
               enabled={analyticsEnabled}
-              onSetupClick={() => setShowCameraSetup(true)}
+              onToggle={setAnalyticsEnabled}
+              onSetupClick={() => {
+                setShowRightPanel(false)
+                setShowLeftPanel(true)
+              }}
             />
           </div>
+          <Button onClick={() => setShowRightPanel(false)} className="tv-focusable w-full mt-6" variant="outline">
+            Back
+          </Button>
         </div>
       )}
       {contentToDisplay && contentToDisplay.length > 0 ? (
