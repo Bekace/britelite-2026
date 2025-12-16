@@ -10,6 +10,7 @@ import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
 import { useTVNavigation } from "@/hooks/use-tv-navigation"
 import { PlayerSplash } from "@/components/player-splash"
+import { createBrowserClient } from "@supabase/ssr"
 
 interface MediaItem {
   id: string
@@ -77,6 +78,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const configRef = useRef<ScreenConfig | null>(null)
   const rotationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const youtubePlayerRef = useRef<any>(null)
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  )
 
   const handleNavigateUp = useCallback(() => {
     if (showLeftPanel || showRightPanel) {
@@ -684,6 +690,100 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     return () => clearTimeout(minSplashTime)
   }, [])
 
+  useEffect(() => {
+    if (!config || !config.screen) return
+
+    console.log("[v0] Setting up WebSocket connection for screen updates...")
+
+    // Subscribe to realtime changes on the screens table
+    const channel = supabase
+      .channel(`screen-${config.screen.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "screens",
+          filter: `id=eq.${config.screen.id}`,
+        },
+        (payload) => {
+          console.log("[v0] WebSocket: Screen update detected!", payload)
+          const newUpdatedAt = payload.new.updated_at
+
+          if (newUpdatedAt && lastUpdatedAtRef.current && newUpdatedAt !== lastUpdatedAtRef.current) {
+            console.log("[v0] WebSocket: Update confirmed, queueing refresh...")
+            setHasPendingUpdate(true)
+            lastUpdatedAtRef.current = newUpdatedAt
+          }
+        },
+      )
+      .subscribe((status) => {
+        console.log("[v0] WebSocket connection status:", status)
+      })
+
+    // Fallback polling every 60 seconds (reduced from 15s) in case WebSocket fails
+    const fallbackPolling = setInterval(async () => {
+      if (!configRef.current) return
+
+      try {
+        console.log("[v0] Fallback polling: Checking for updates...")
+
+        const isScreenCode = params.deviceCode.startsWith("SCR-")
+        const apiEndpoint = isScreenCode
+          ? `/api/screens/config/${params.deviceCode}`
+          : `/api/devices/config/${params.deviceCode}`
+
+        const response = await fetch(apiEndpoint, {
+          cache: "no-store",
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          const newUpdatedAt = data.screen?.updated_at
+
+          if (newUpdatedAt && lastUpdatedAtRef.current && newUpdatedAt !== lastUpdatedAtRef.current) {
+            console.log("[v0] Fallback polling: Update detected! Queueing refresh...")
+            setHasPendingUpdate(true)
+            lastUpdatedAtRef.current = newUpdatedAt
+          }
+        }
+      } catch (error) {
+        console.error("[v0] Fallback polling: Error checking for updates:", error)
+      }
+    }, 60000) // 60 seconds instead of 15
+
+    let heartbeatInterval: NodeJS.Timeout | null = null
+
+    // Send initial heartbeat immediately
+    sendHeartbeat()
+
+    // Send heartbeat every 30 seconds for all player instances
+    heartbeatInterval = setInterval(sendHeartbeat, 30000)
+
+    return () => {
+      console.log("[v0] Cleaning up WebSocket connection...")
+      channel.unsubscribe()
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval)
+      }
+      clearInterval(fallbackPolling)
+    }
+  }, [params.deviceCode])
+
+  const preloadYouTubeIframe = (url: string) => {
+    const link = document.createElement("link")
+    link.rel = "preconnect"
+    link.href = "https://www.youtube-nocookie.com"
+    document.head.appendChild(link)
+  }
+
+  useEffect(() => {
+    // Preload YouTube connections early
+    if (shuffledContent.some((item) => isYouTubeVideo(item.media))) {
+      preloadYouTubeIframe("")
+    }
+  }, [shuffledContent])
+
   if (loading || showSplash) {
     return <PlayerSplash />
   }
@@ -844,10 +944,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                   referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
                   title={currentMedia.media.name}
+                  loading="eager"
                   onLoad={() => {
+                    console.log("[v0] YouTube iframe loaded for:", currentMedia.media.name)
                     setTimeout(() => {
                       onYouTubeIframeAPIReady(`youtube-player-${currentMedia.id}`)
-                    }, 1000)
+                    }, 500) // Reduced from 1000ms to 500ms
                   }}
                 />
               ) : currentMedia.media.mime_type.startsWith("video/") ? (
