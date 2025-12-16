@@ -269,7 +269,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       console.error("[v0] Error fetching config:", err)
       setError(err instanceof Error ? err.message : "Failed to load configuration")
       setLoading(false)
-      setShowSplash(false)
     }
   }
 
