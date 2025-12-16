@@ -600,6 +600,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }
 
       const urlObj = new URL(embedUrl)
+      urlObj.searchParams.set("enablejsapi", "1")
       urlObj.searchParams.set("autoplay", "1")
       urlObj.searchParams.set("mute", "1")
       urlObj.searchParams.set("controls", "0")
@@ -608,8 +609,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       urlObj.searchParams.set("modestbranding", "1")
       urlObj.searchParams.set("iv_load_policy", "3")
       return urlObj.toString()
-    } catch (error) {
-      console.error("[v0] Error parsing YouTube URL:", error)
+    } catch (e) {
+      console.error("[v0] Error parsing YouTube URL:", e)
       return url
     }
   }
