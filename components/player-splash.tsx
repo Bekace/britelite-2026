@@ -16,7 +16,7 @@ export function PlayerSplash() {
 
         {/* App Name */}
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight text-white">Pointer TV</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-white">Xkreen</h1>
           <div className="flex items-center justify-center space-x-2">
             <div className="h-1 w-1 animate-bounce rounded-full bg-[#00d9b4] [animation-delay:-0.3s]" />
             <div className="h-1 w-1 animate-bounce rounded-full bg-[#00d9b4] [animation-delay:-0.15s]" />
