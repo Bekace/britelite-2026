@@ -81,29 +81,22 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const youtubePlayerRef = useRef<any>(null)
 
   const [statusMessage, setStatusMessage] = useState<string>("")
-  const [statusType, setStatusType] = useState<"info" | "success" | "warning" | "error">("info")
   const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Helper function to show status messages with auto-hide
-  const showStatus = useCallback(
-    (message: string, type: "info" | "success" | "warning" | "error", duration?: number) => {
-      setStatusMessage(message)
-      setStatusType(type)
+  const showStatus = useCallback((message: string, duration?: number) => {
+    setStatusMessage(message)
 
-      // Clear existing timeout
-      if (statusTimeoutRef.current) {
-        clearTimeout(statusTimeoutRef.current)
-      }
+    if (statusTimeoutRef.current) {
+      clearTimeout(statusTimeoutRef.current)
+    }
 
-      // Auto-hide after duration (only for success/info messages)
-      if ((type === "success" || type === "info") && duration !== 0) {
-        statusTimeoutRef.current = setTimeout(() => {
-          setStatusMessage("")
-        }, duration || 3000)
-      }
-    },
-    [],
-  )
+    // Auto-hide after duration
+    if (duration !== 0) {
+      statusTimeoutRef.current = setTimeout(() => {
+        setStatusMessage("")
+      }, duration || 3000)
+    }
+  }, [])
 
   const handleNavigateUp = useCallback(() => {
     if (showLeftPanel || showRightPanel) {
@@ -243,7 +236,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       if (!response.ok) {
         const errorText = await response.text()
         console.error("[v0] API error response:", errorText)
-        showStatus(`Error: ${response.status === 404 ? "Screen not found" : "Connection failed"}`, "error", 0)
+        showStatus(`Error: ${response.status === 404 ? "Screen not found" : "Connection failed"}`, 0)
         throw new Error(`Failed to fetch config: ${response.status}`)
       }
 
@@ -294,12 +287,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       setLoading(false)
       setHasPendingUpdate(false)
 
-      showStatus("Screen loaded", "success", 3000)
+      showStatus("Screen loaded", 3000)
     } catch (err) {
       console.error("[v0] Error fetching config:", err)
       setError(err instanceof Error ? err.message : "Failed to load configuration")
       setLoading(false)
-      showStatus("Error: Failed to load configuration", "error", 0)
+      showStatus("Error: Failed to load configuration", 0)
     }
   }
 
@@ -492,39 +485,46 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [])
 
   const onYouTubeIframeAPIReady = (iframeId: string, duration: number) => {
-    if (window.YT && window.YT.Player) {
-      try {
-        youtubePlayerRef.current = new window.YT.Player(iframeId, {
-          events: {
-            onReady: (event: any) => {
-              event.target.playVideo()
-              console.log(`[v0] YouTube video started, will advance after ${duration}ms`)
+    console.log(`[v0] Initializing YouTube player: ${iframeId} with duration ${duration}ms`)
 
-              // Set timer to advance to next media after specified duration
-              if (rotationTimerRef.current) {
-                clearTimeout(rotationTimerRef.current)
-              }
-              rotationTimerRef.current = setTimeout(() => {
-                console.log(`[v0] Auto-advancing from YouTube video after duration`)
-                advanceToNextMedia()
-              }, duration)
-            },
-            onStateChange: (event: any) => {
-              // If video ends naturally before the duration timer
-              if (event.data === window.YT.PlayerState.ENDED) {
-                console.log(`[v0] YouTube video ended naturally`)
+    const initializePlayer = () => {
+      if (window.YT && window.YT.Player) {
+        try {
+          youtubePlayerRef.current = new window.YT.Player(iframeId, {
+            events: {
+              onReady: (event: any) => {
+                event.target.playVideo()
+                console.log(`[v0] YouTube video started, will advance after ${duration}ms`)
+
                 if (rotationTimerRef.current) {
                   clearTimeout(rotationTimerRef.current)
                 }
-                advanceToNextMedia()
-              }
+                rotationTimerRef.current = setTimeout(() => {
+                  console.log(`[v0] Auto-advancing from YouTube video after duration`)
+                  advanceToNextMedia()
+                }, duration)
+              },
+              onStateChange: (event: any) => {
+                if (event.data === window.YT.PlayerState.ENDED) {
+                  console.log(`[v0] YouTube video ended naturally`)
+                  if (rotationTimerRef.current) {
+                    clearTimeout(rotationTimerRef.current)
+                  }
+                  advanceToNextMedia()
+                }
+              },
             },
-          },
-        })
-      } catch (e) {
-        console.error("[v0] Error initializing YouTube player:", e)
+          })
+        } catch (e) {
+          console.error("[v0] Error initializing YouTube player:", e)
+        }
+      } else {
+        console.log("[v0] YouTube API not ready, retrying in 500ms...")
+        setTimeout(initializePlayer, 500)
       }
     }
+
+    initializePlayer()
   }
 
   const handleRetry = () => {
@@ -742,14 +742,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [])
 
   useEffect(() => {
-    if (!config || !config.screen) return
-
-    console.log("[v0] Setting up WebSocket connection for screen updates...")
-    showStatus("Connected", "info", 2000)
+    if (!params.deviceCode) return
 
     const supabase = createClient()
 
-    // Subscribe to real-time updates for this screen
     const channel = supabase
       .channel(`screen-updates-${params.deviceCode}`)
       .on(
@@ -762,17 +758,13 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         },
         (payload) => {
           console.log("[v0] Received real-time screen update:", payload)
-          showStatus("Updating screen...", "info", 2000)
+          showStatus("updating content", 2000)
           setHasPendingUpdate(true)
         },
       )
       .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          showStatus("Connected", "info", 2000) // Changed from 'success' to 'info'
-        } else if (status === "CLOSED") {
-          showStatus("Reconnecting...", "warning", 0)
-        } else if (status === "CHANNEL_ERROR") {
-          showStatus("Connection lost, using fallback polling", "warning", 0)
+        if (status === "CHANNEL_ERROR") {
+          console.log("[v0] WebSocket error, falling back to polling")
         }
       })
 
@@ -829,16 +821,16 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     if (!hasPendingUpdate) return
 
     console.log("[v0] Pending update detected! Starting graceful transition...")
-    showStatus("Updating screen...", "info", 0)
+    showStatus("Updating screen...", 0)
 
     const waitForTransition = async () => {
       try {
         const newData = await fetchConfig()
         console.log("[v0] New config fetched during transition:", newData)
-        showStatus("Screen updated", "success", 3000)
+        showStatus("Screen updated", 3000)
       } catch (error) {
         console.error("[v0] Failed to fetch new config during transition:", error)
-        showStatus("Error: Failed to update", "error", 5000)
+        showStatus("Error: Failed to update", 5000)
       }
     }
 
@@ -948,17 +940,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       onMouseMove={handleMouseMove}
     >
       {statusMessage && (
-        <div
-          className={`fixed bottom-4 left-4 z-50 rounded-md px-3 py-1.5 text-xs transition-opacity duration-300 ${
-            statusType === "error"
-              ? "bg-red-500/20 text-red-400 border border-red-500/30"
-              : statusType === "warning"
-                ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                : statusType === "success"
-                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                  : "bg-gray-500/20 text-gray-400 border border-gray-500/30"
-          }`}
-        >
+        <div className="fixed bottom-2 left-2 z-50 rounded px-2 py-1 text-[10px] bg-black/30 text-gray-500 border border-gray-700/30 opacity-60">
           {statusMessage}
         </div>
       )}
