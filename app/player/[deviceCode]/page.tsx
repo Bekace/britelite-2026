@@ -454,10 +454,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     if (!currentMedia) return
 
     const isRegularVideo = currentMedia.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
-    const isYouTube = isYouTubeVideo(currentMedia.media)
 
-    // YouTube videos are handled separately in onYouTubeIframeAPIReady
-    if (!isRegularVideo && !isYouTube) {
+    if (!isRegularVideo) {
       const duration = getEffectiveDuration(currentMedia)
       console.log(`[v0] Setting rotation timer for ${currentMedia.media.name}: ${duration}ms`)
 
