@@ -10,7 +10,8 @@ import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
 import { useTVNavigation } from "@/hooks/use-tv-navigation"
 import { PlayerSplash } from "@/components/player-splash"
-import { supabase } from "@/lib/supabase/client"
+import { createClient } from "@/lib/supabase/client"
+import { preloadYouTubeIframe } from "@/lib/youtube-utils" // Declare the variable before using it
 
 interface MediaItem {
   id: string
@@ -103,7 +104,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     },
     [],
   )
-  // </CHANGE>
 
   const handleNavigateUp = useCallback(() => {
     if (showLeftPanel || showRightPanel) {
@@ -244,7 +244,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         const errorText = await response.text()
         console.error("[v0] API error response:", errorText)
         showStatus(`Error: ${response.status === 404 ? "Screen not found" : "Connection failed"}`, "error", 0)
-        // </CHANGE>
         throw new Error(`Failed to fetch config: ${response.status}`)
       }
 
@@ -296,13 +295,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       setHasPendingUpdate(false)
 
       showStatus("Screen loaded", "success", 3000)
-      // </CHANGE>
     } catch (err) {
       console.error("[v0] Error fetching config:", err)
       setError(err instanceof Error ? err.message : "Failed to load configuration")
       setLoading(false)
       showStatus("Error: Failed to load configuration", "error", 0)
-      // </CHANGE>
     }
   }
 
@@ -410,7 +407,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       if (statusTimeoutRef.current) {
         clearTimeout(statusTimeoutRef.current)
       }
-      // </CHANGE>
     }
   }, [params.deviceCode])
 
@@ -465,8 +461,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     if (!currentMedia) return
 
     const isRegularVideo = currentMedia.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
+    const isYouTube = isYouTubeVideo(currentMedia.media)
 
-    if (!isRegularVideo) {
+    // YouTube videos are handled separately in onYouTubeIframeAPIReady
+    if (!isRegularVideo && !isYouTube) {
       const duration = getEffectiveDuration(currentMedia)
       console.log(`[v0] Setting rotation timer for ${currentMedia.media.name}: ${duration}ms`)
 
@@ -493,13 +491,33 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }, [])
 
-  const onYouTubeIframeAPIReady = (iframeId: string) => {
+  const onYouTubeIframeAPIReady = (iframeId: string, duration: number) => {
     if (window.YT && window.YT.Player) {
       try {
         youtubePlayerRef.current = new window.YT.Player(iframeId, {
           events: {
             onReady: (event: any) => {
               event.target.playVideo()
+              console.log(`[v0] YouTube video started, will advance after ${duration}ms`)
+
+              // Set timer to advance to next media after specified duration
+              if (rotationTimerRef.current) {
+                clearTimeout(rotationTimerRef.current)
+              }
+              rotationTimerRef.current = setTimeout(() => {
+                console.log(`[v0] Auto-advancing from YouTube video after duration`)
+                advanceToNextMedia()
+              }, duration)
+            },
+            onStateChange: (event: any) => {
+              // If video ends naturally before the duration timer
+              if (event.data === window.YT.PlayerState.ENDED) {
+                console.log(`[v0] YouTube video ended naturally`)
+                if (rotationTimerRef.current) {
+                  clearTimeout(rotationTimerRef.current)
+                }
+                advanceToNextMedia()
+              }
             },
           },
         })
@@ -726,43 +744,35 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     if (!config || !config.screen) return
 
     console.log("[v0] Setting up WebSocket connection for screen updates...")
-    showStatus("Connected", "success", 2000)
-    // </CHANGE>
+    showStatus("Connected", "info", 2000)
 
-    // Subscribe to realtime changes on the screens table
+    const supabase = createClient()
+
+    // Subscribe to real-time updates for this screen
     const channel = supabase
-      .channel(`screen-${config.screen.id}`)
+      .channel(`screen-updates-${params.deviceCode}`)
       .on(
         "postgres_changes",
         {
-          event: "UPDATE",
+          event: "*",
           schema: "public",
           table: "screens",
-          filter: `id=eq.${config.screen.id}`,
+          filter: `device_code=eq.${params.deviceCode}`,
         },
         (payload) => {
-          console.log("[v0] WebSocket: Screen update detected!", payload)
-          showStatus("Updating screen...", "info", 0)
-          // </CHANGE>
-          const newUpdatedAt = payload.new.updated_at
-
-          if (newUpdatedAt && lastUpdatedAtRef.current && newUpdatedAt !== lastUpdatedAtRef.current) {
-            console.log("[v0] WebSocket: Update confirmed, queueing refresh...")
-            setHasPendingUpdate(true)
-            lastUpdatedAtRef.current = newUpdatedAt
-          }
+          console.log("[v0] Received real-time screen update:", payload)
+          showStatus("Updating screen...", "info", 2000)
+          setHasPendingUpdate(true)
         },
       )
       .subscribe((status) => {
-        console.log("[v0] WebSocket connection status:", status)
         if (status === "SUBSCRIBED") {
-          showStatus("Connected", "success", 2000)
+          showStatus("Connected", "info", 2000) // Changed from 'success' to 'info'
         } else if (status === "CLOSED") {
           showStatus("Reconnecting...", "warning", 0)
         } else if (status === "CHANNEL_ERROR") {
-          showStatus("Connection lost, using fallback", "warning", 5000)
+          showStatus("Connection lost, using fallback polling", "warning", 0)
         }
-        // </CHANGE>
       })
 
     // Fallback polling every 60 seconds (reduced from 15s) in case WebSocket fails
@@ -819,30 +829,20 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     console.log("[v0] Pending update detected! Starting graceful transition...")
     showStatus("Updating screen...", "info", 0)
-    // </CHANGE>
 
     const waitForTransition = async () => {
       try {
         const newData = await fetchConfig()
         console.log("[v0] New config fetched during transition:", newData)
         showStatus("Screen updated", "success", 3000)
-        // </CHANGE>
       } catch (error) {
         console.error("[v0] Failed to fetch new config during transition:", error)
         showStatus("Error: Failed to update", "error", 5000)
-        // </CHANGE>
       }
     }
 
     waitForTransition()
   }, [hasPendingUpdate])
-
-  const preloadYouTubeIframe = (url: string) => {
-    const link = document.createElement("link")
-    link.rel = "preconnect"
-    link.href = "https://www.youtube-nocookie.com"
-    document.head.appendChild(link)
-  }
 
   useEffect(() => {
     // Preload YouTube connections early
@@ -961,7 +961,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           {statusMessage}
         </div>
       )}
-      {/* </CHANGE> */}
 
       {pendingUpdate && updateProgress > 0 && (
         <div className="fixed top-2 right-2 text-[10px] text-white/40 font-mono z-50">
@@ -1031,9 +1030,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                   loading="eager"
                   onLoad={() => {
                     console.log("[v0] YouTube iframe loaded for:", currentMedia.media.name)
+                    const duration = getEffectiveDuration(currentMedia)
                     setTimeout(() => {
-                      onYouTubeIframeAPIReady(`youtube-player-${currentMedia.id}`)
-                    }, 500) // Reduced from 1000ms to 500ms
+                      onYouTubeIframeAPIReady(`youtube-player-${currentMedia.id}`, duration)
+                    }, 500)
                   }}
                 />
               ) : currentMedia.media.mime_type.startsWith("video/") ? (
