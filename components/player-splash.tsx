@@ -6,8 +6,8 @@ export function PlayerSplash() {
       <div className="flex flex-col items-center space-y-6 text-center">
         {/* Logo */}
         <div className="relative">
-          <div className="absolute inset-0 animate-ping rounded-full bg-[#000000] opacity-20" />
-          <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-[#00d9b4] to-[#00b89a] shadow-lg shadow-[#00d9b4]/50 bg-black">
+          <div className="absolute inset-0 animate-ping rounded-full bg-[#00b89a] opacity-20" />
+          <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-[#0e0e0e] to-[#00b89a] shadow-lg shadow-[#00d9b4]/50 bg-black">
             <img src="/xkreen-logo.svg" alt="Xkreen Logo" className="w-24 h-fit" />
           </div>
         </div>
