@@ -1,7 +1,5 @@
 "use client"
 
-import { Monitor } from "lucide-react"
-
 export function PlayerSplash() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
@@ -10,7 +8,18 @@ export function PlayerSplash() {
         <div className="relative">
           <div className="absolute inset-0 animate-ping rounded-full bg-[#00d9b4] opacity-20" />
           <div className="relative flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-[#00d9b4] to-[#00b89a] shadow-lg shadow-[#00d9b4]/50">
-            <Monitor className="h-16 w-16 text-black" strokeWidth={2.5} />
+            <svg viewBox="0 0 100 100" className="h-16 w-16 text-black" fill="currentColor">
+              <text
+                x="50"
+                y="65"
+                fontSize="48"
+                fontWeight="bold"
+                textAnchor="middle"
+                fontFamily="system-ui, -apple-system, sans-serif"
+              >
+                X
+              </text>
+            </svg>
           </div>
         </div>
 
