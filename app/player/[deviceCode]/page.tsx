@@ -10,7 +10,7 @@ import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
 import { useTVNavigation } from "@/hooks/use-tv-navigation"
 import { PlayerSplash } from "@/components/player-splash"
-import { createBrowserClient } from "@supabase/ssr"
+import { supabase } from "@/lib/supabase/client"
 
 interface MediaItem {
   id: string
@@ -79,10 +79,31 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const rotationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const youtubePlayerRef = useRef<any>(null)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  const [statusMessage, setStatusMessage] = useState<string>("")
+  const [statusType, setStatusType] = useState<"info" | "success" | "warning" | "error">("info")
+  const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Helper function to show status messages with auto-hide
+  const showStatus = useCallback(
+    (message: string, type: "info" | "success" | "warning" | "error", duration?: number) => {
+      setStatusMessage(message)
+      setStatusType(type)
+
+      // Clear existing timeout
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current)
+      }
+
+      // Auto-hide after duration (only for success/info messages)
+      if ((type === "success" || type === "info") && duration !== 0) {
+        statusTimeoutRef.current = setTimeout(() => {
+          setStatusMessage("")
+        }, duration || 3000)
+      }
+    },
+    [],
   )
+  // </CHANGE>
 
   const handleNavigateUp = useCallback(() => {
     if (showLeftPanel || showRightPanel) {
@@ -222,6 +243,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       if (!response.ok) {
         const errorText = await response.text()
         console.error("[v0] API error response:", errorText)
+        showStatus(`Error: ${response.status === 404 ? "Screen not found" : "Connection failed"}`, "error", 0)
+        // </CHANGE>
         throw new Error(`Failed to fetch config: ${response.status}`)
       }
 
@@ -271,10 +294,15 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
       setLoading(false)
       setHasPendingUpdate(false)
+
+      showStatus("Screen loaded", "success", 3000)
+      // </CHANGE>
     } catch (err) {
       console.error("[v0] Error fetching config:", err)
       setError(err instanceof Error ? err.message : "Failed to load configuration")
       setLoading(false)
+      showStatus("Error: Failed to load configuration", "error", 0)
+      // </CHANGE>
     }
   }
 
@@ -379,6 +407,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       if (pollingInterval) {
         clearInterval(pollingInterval)
       }
+      if (statusTimeoutRef.current) {
+        clearTimeout(statusTimeoutRef.current)
+      }
+      // </CHANGE>
     }
   }, [params.deviceCode])
 
@@ -694,6 +726,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     if (!config || !config.screen) return
 
     console.log("[v0] Setting up WebSocket connection for screen updates...")
+    showStatus("Connected", "success", 2000)
+    // </CHANGE>
 
     // Subscribe to realtime changes on the screens table
     const channel = supabase
@@ -708,6 +742,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         },
         (payload) => {
           console.log("[v0] WebSocket: Screen update detected!", payload)
+          showStatus("Updating screen...", "info", 0)
+          // </CHANGE>
           const newUpdatedAt = payload.new.updated_at
 
           if (newUpdatedAt && lastUpdatedAtRef.current && newUpdatedAt !== lastUpdatedAtRef.current) {
@@ -719,6 +755,14 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       )
       .subscribe((status) => {
         console.log("[v0] WebSocket connection status:", status)
+        if (status === "SUBSCRIBED") {
+          showStatus("Connected", "success", 2000)
+        } else if (status === "CLOSED") {
+          showStatus("Reconnecting...", "warning", 0)
+        } else if (status === "CHANNEL_ERROR") {
+          showStatus("Connection lost, using fallback", "warning", 5000)
+        }
+        // </CHANGE>
       })
 
     // Fallback polling every 60 seconds (reduced from 15s) in case WebSocket fails
@@ -768,7 +812,30 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }
       clearInterval(fallbackPolling)
     }
-  }, [params.deviceCode])
+  }, [config, params.deviceCode])
+
+  useEffect(() => {
+    if (!hasPendingUpdate) return
+
+    console.log("[v0] Pending update detected! Starting graceful transition...")
+    showStatus("Updating screen...", "info", 0)
+    // </CHANGE>
+
+    const waitForTransition = async () => {
+      try {
+        const newData = await fetchConfig()
+        console.log("[v0] New config fetched during transition:", newData)
+        showStatus("Screen updated", "success", 3000)
+        // </CHANGE>
+      } catch (error) {
+        console.error("[v0] Failed to fetch new config during transition:", error)
+        showStatus("Error: Failed to update", "error", 5000)
+        // </CHANGE>
+      }
+    }
+
+    waitForTransition()
+  }, [hasPendingUpdate])
 
   const preloadYouTubeIframe = (url: string) => {
     const link = document.createElement("link")
@@ -879,6 +946,23 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }}
       onMouseMove={handleMouseMove}
     >
+      {statusMessage && (
+        <div
+          className={`fixed bottom-4 left-4 z-50 rounded-md px-3 py-1.5 text-xs transition-opacity duration-300 ${
+            statusType === "error"
+              ? "bg-red-500/20 text-red-400 border border-red-500/30"
+              : statusType === "warning"
+                ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                : statusType === "success"
+                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                  : "bg-gray-500/20 text-gray-400 border border-gray-500/30"
+          }`}
+        >
+          {statusMessage}
+        </div>
+      )}
+      {/* </CHANGE> */}
+
       {pendingUpdate && updateProgress > 0 && (
         <div className="fixed top-2 right-2 text-[10px] text-white/40 font-mono z-50">
           {Math.round(updateProgress)}%
