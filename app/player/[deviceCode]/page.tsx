@@ -680,7 +680,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   useEffect(() => {
     const minSplashTime = setTimeout(() => {
       setShowSplash(false)
-    }, 2000)
+    }, 1800000) // 30 minutes in milliseconds
 
     return () => clearTimeout(minSplashTime)
   }, [])
