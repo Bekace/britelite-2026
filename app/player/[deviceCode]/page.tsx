@@ -26,6 +26,7 @@ interface MediaItem {
     mime_type: string
     file_size: number
     duration: number | null
+    url: string
   }
 }
 
@@ -453,8 +454,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     if (!currentMedia) return
 
-    const isRegularVideo = currentMedia.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
+    const isRegularVideo =
+      currentMedia.media.mime_type.startsWith("video/") &&
+      !currentMedia.media.url.includes("youtube.com") &&
+      !currentMedia.media.url.includes("youtu.be")
 
+    // Set timer for all non-regular videos (includes YouTube, Google Slides, PDFs, images)
     if (!isRegularVideo) {
       const duration = getEffectiveDuration(currentMedia)
       console.log(`[v0] Setting rotation timer for ${currentMedia.media.name}: ${duration}ms`)
@@ -471,59 +476,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }
     }
   }, [currentMediaIndex, shuffledContent, config])
-
-  useEffect(() => {
-    // Load YouTube IFrame API
-    if (!window.YT) {
-      const tag = document.createElement("script")
-      tag.src = "https://www.youtube.com/iframe_api"
-      const firstScriptTag = document.getElementsByTagName("script")[0]
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
-    }
-  }, [])
-
-  const onYouTubeIframeAPIReady = (iframeId: string, duration: number) => {
-    console.log(`[v0] Initializing YouTube player: ${iframeId} with duration ${duration}ms`)
-
-    const initializePlayer = () => {
-      if (window.YT && window.YT.Player) {
-        try {
-          youtubePlayerRef.current = new window.YT.Player(iframeId, {
-            events: {
-              onReady: (event: any) => {
-                event.target.playVideo()
-                console.log(`[v0] YouTube video started, will advance after ${duration}ms`)
-
-                if (rotationTimerRef.current) {
-                  clearTimeout(rotationTimerRef.current)
-                }
-                rotationTimerRef.current = setTimeout(() => {
-                  console.log(`[v0] Auto-advancing from YouTube video after duration`)
-                  advanceToNextMedia()
-                }, duration)
-              },
-              onStateChange: (event: any) => {
-                if (event.data === window.YT.PlayerState.ENDED) {
-                  console.log(`[v0] YouTube video ended naturally`)
-                  if (rotationTimerRef.current) {
-                    clearTimeout(rotationTimerRef.current)
-                  }
-                  advanceToNextMedia()
-                }
-              },
-            },
-          })
-        } catch (e) {
-          console.error("[v0] Error initializing YouTube player:", e)
-        }
-      } else {
-        console.log("[v0] YouTube API not ready, retrying in 500ms...")
-        setTimeout(initializePlayer, 500)
-      }
-    }
-
-    initializePlayer()
-  }
 
   const handleRetry = () => {
     setLoading(true)
@@ -1009,13 +961,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                   allowFullScreen
                   title={currentMedia.media.name}
                   loading="eager"
-                  onLoad={() => {
-                    console.log("[v0] YouTube iframe loaded for:", currentMedia.media.name)
-                    const duration = getEffectiveDuration(currentMedia)
-                    setTimeout(() => {
-                      onYouTubeIframeAPIReady(`youtube-player-${currentMedia.id}`, duration)
-                    }, 500)
-                  }}
                 />
               ) : currentMedia.media.mime_type.startsWith("video/") ? (
                 <video
