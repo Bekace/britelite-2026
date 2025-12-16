@@ -60,7 +60,8 @@ interface PlayerPageProps {
 export default function PlayerPage({ params }: PlayerPageProps) {
   const [config, setConfig] = useState<ScreenConfig | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [showSplash, setShowSplash] = useState(true)
+  const [error, setError] = useState<string>("")
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
   const [shuffledContent, setShuffledContent] = useState<MediaItem[]>([])
@@ -268,6 +269,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       console.error("[v0] Error fetching config:", err)
       setError(err instanceof Error ? err.message : "Failed to load configuration")
       setLoading(false)
+      setShowSplash(false)
     }
   }
 
@@ -472,7 +474,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const handleRetry = () => {
     setLoading(true)
-    setError(null)
+    setError("")
     fetchConfig()
   }
 
@@ -675,7 +677,15 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }, [showLeftPanel, showRightPanel])
 
-  if (loading) {
+  useEffect(() => {
+    const minSplashTime = setTimeout(() => {
+      setShowSplash(false)
+    }, 2000)
+
+    return () => clearTimeout(minSplashTime)
+  }, [])
+
+  if (loading || showSplash) {
     return <PlayerSplash />
   }
 
