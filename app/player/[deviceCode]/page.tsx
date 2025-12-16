@@ -3,12 +3,13 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import type React from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Loader2, AlertCircle, RefreshCw, ArrowLeft } from "lucide-react"
+import { AlertCircle, RefreshCw, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
 import { useTVNavigation } from "@/hooks/use-tv-navigation"
+import { PlayerSplash } from "@/components/player-splash"
 
 interface MediaItem {
   id: string
@@ -675,17 +676,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [showLeftPanel, showRightPanel])
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center space-y-4">
-            <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-            <h2 className="text-xl font-semibold">Loading Content</h2>
-            <p className="text-muted-foreground">Fetching screen configuration...</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
+    return <PlayerSplash />
   }
 
   if (error) {
