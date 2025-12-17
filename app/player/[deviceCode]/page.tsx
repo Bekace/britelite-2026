@@ -9,7 +9,6 @@ import Image from "next/image"
 import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
 import { useTVNavigation } from "@/hooks/use-tv-navigation"
-import { PlayerSplash } from "@/components/player-splash"
 
 interface MediaItem {
   id: string
@@ -65,7 +64,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const [isPlaying, setIsPlaying] = useState(true)
   const [shuffledContent, setShuffledContent] = useState<MediaItem[]>([])
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true)
-  const [showSplash, setShowSplash] = useState(true)
   const router = useRouter()
   const [showCameraSetup, setShowCameraSetup] = useState(false)
   const [showLeftPanel, setShowLeftPanel] = useState(false)
@@ -77,7 +75,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const configRef = useRef<ScreenConfig | null>(null)
   const rotationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const youtubePlayerRef = useRef<any>(null)
-  const [isMediaReady, setIsMediaReady] = useState(false)
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -132,14 +129,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     },
     enabled: !loading && !error,
   })
-
-  useEffect(() => {
-    const splashTimer = setTimeout(() => {
-      setShowSplash(false)
-    }, 3000)
-
-    return () => clearTimeout(splashTimer)
-  }, [])
 
   const shuffleArray = (array: MediaItem[]) => {
     const shuffled = [...array]
@@ -620,10 +609,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     })
   }
 
-  useEffect(() => {
-    setIsMediaReady(false)
-  }, [currentMediaIndex])
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -721,140 +706,122 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   })
 
   return (
-    <>
-      {showSplash && <PlayerSplash onClose={() => setShowSplash(false)} />}
+    <div
+      className={`relative w-screen h-screen overflow-hidden ${isTVMode ? "tv-mode" : ""}`}
+      style={{
+        backgroundColor: config?.screen.playlist?.background_color || "#000000",
+        cursor: isTVMode ? "none" : "default",
+      }}
+      onMouseMove={handleMouseMove}
+    >
+      {pendingUpdate && updateProgress > 0 && (
+        <div className="fixed top-2 right-2 text-[10px] text-white/40 font-mono z-50">
+          {Math.round(updateProgress)}%
+        </div>
+      )}
+
+      {isTVMode && (
+        <div className="absolute top-4 right-4 bg-primary/20 text-primary px-3 py-1 rounded-full text-sm font-medium z-50">
+          TV Mode
+        </div>
+      )}
       <div
-        className={`relative w-screen h-screen overflow-hidden ${isTVMode ? "tv-mode" : ""}`}
-        style={{
-          backgroundColor: config?.screen.playlist?.background_color || "#000000",
-          cursor: isTVMode ? "none" : "default",
-        }}
-        onMouseMove={handleMouseMove}
+        className={`fixed left-0 top-0 h-full w-64 bg-black/80 backdrop-blur-sm border-r border-white/20 z-50 transition-transform duration-300 ease-in-out ${
+          showLeftPanel ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
-        {pendingUpdate && updateProgress > 0 && (
-          <div className="fixed top-2 right-2 text-[10px] text-white/40 font-mono z-50">
-            {Math.round(updateProgress)}%
-          </div>
-        )}
-
-        {isTVMode && (
-          <div className="absolute top-4 right-4 bg-primary/20 text-primary px-3 py-1 rounded-full text-sm font-medium z-50">
-            TV Mode
-          </div>
-        )}
-
-        {!isMediaReady && currentMedia && (
-          <div className="fixed bottom-4 left-4 text-xs text-gray-500 z-40">Loading content...</div>
-        )}
-
-        <div
-          className={`fixed left-0 top-0 h-full w-64 bg-black/80 backdrop-blur-sm border-r border-white/20 z-50 transition-transform duration-300 ease-in-out ${
-            showLeftPanel ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
-          <div className="p-4 space-y-4">
-            <Button
-              onClick={() => setShowCameraSetup(true)}
-              variant="secondary"
-              className="w-full bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 tv-focusable tv-button"
-              autoFocus={showLeftPanel}
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Camera Setup
-            </Button>
-          </div>
+        <div className="p-4 space-y-4">
+          <Button
+            onClick={() => setShowCameraSetup(true)}
+            variant="secondary"
+            className="w-full bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 tv-focusable tv-button"
+            autoFocus={showLeftPanel}
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Camera Setup
+          </Button>
         </div>
-
-        <div
-          className={`fixed right-0 top-0 h-full w-96 bg-black/80 backdrop-blur-sm border-l border-white/20 z-50 transition-transform duration-300 ease-in-out ${
-            showRightPanel ? "translate-x-0" : "translate-x-full"
-          }`}
-        >
-          <div className="p-4 h-full overflow-y-auto">
-            {config?.screen.id && analyticsEnabled && (
-              <>
-                {console.log("[v0] Rendering CameraAnalytics in right panel with screenId:", config.screen.id)}
-                <CameraAnalytics
-                  screenId={config.screen.id}
-                  enabled={analyticsEnabled}
-                  onToggle={setAnalyticsEnabled}
-                  onSetupClick={() => setShowCameraSetup(true)}
-                  className="bg-transparent border-0"
+      </div>
+      <div
+        className={`fixed right-0 top-0 h-full w-96 bg-black/80 backdrop-blur-sm border-l border-white/20 z-50 transition-transform duration-300 ease-in-out ${
+          showRightPanel ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="p-4 h-full overflow-y-auto">
+          {config?.screen.id && analyticsEnabled && (
+            <>
+              {console.log("[v0] Rendering CameraAnalytics in right panel with screenId:", config.screen.id)}
+              <CameraAnalytics
+                screenId={config.screen.id}
+                enabled={analyticsEnabled}
+                onToggle={setAnalyticsEnabled}
+                onSetupClick={() => setShowCameraSetup(true)}
+                className="bg-transparent border-0"
+              />
+            </>
+          )}
+        </div>
+      </div>
+      {contentToDisplay && contentToDisplay.length > 0 ? (
+        <div className="w-full h-full flex items-center justify-center">
+          {currentMedia && (
+            <div className="w-full h-full relative">
+              {currentMedia.media.mime_type.startsWith("image/") ? (
+                <Image
+                  src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}
+                  alt={currentMedia.media.name}
+                  fill
+                  className={getMediaObjectFit("image")}
+                  priority
+                  unoptimized
                 />
-              </>
-            )}
-          </div>
-        </div>
-
-        {contentToDisplay && contentToDisplay.length > 0 ? (
-          <div className="w-full h-full flex items-center justify-center">
-            {currentMedia &&
-              (isMediaReady ||
-                (!currentMedia.media.mime_type.startsWith("image/") &&
-                  !isYouTubeVideo(currentMedia.media) &&
-                  !isGoogleSlides(currentMedia.media))) && (
-                <div className="w-full h-full relative">
-                  {currentMedia.media.mime_type.startsWith("image/") ? (
-                    <Image
-                      src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}
-                      alt={currentMedia.media.name}
-                      fill
-                      className={getMediaObjectFit("image")}
-                      priority
-                      unoptimized
-                      onLoad={() => setIsMediaReady(true)}
-                    />
-                  ) : isYouTubeVideo(currentMedia.media) ? (
-                    <iframe
-                      key={currentMedia.id}
-                      id={`youtube-player-${currentMedia.id}`}
-                      src={getYouTubeUrlWithAutoplay(currentMedia.media.file_path)}
-                      className="w-full h-full border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      referrerPolicy="strict-origin-when-cross-origin"
-                      allowFullScreen
-                      title={currentMedia.media.name}
-                      onLoad={() => {
-                        setIsMediaReady(true)
-                        setTimeout(() => {
-                          onYouTubeIframeAPIReady(`youtube-player-${currentMedia.id}`)
-                        }, 1000)
-                      }}
-                    />
-                  ) : currentMedia.media.mime_type.startsWith("video/") ? (
-                    <video
-                      src={getMediaUrl(currentMedia.media.file_path)}
-                      className={`w-full h-full ${getMediaObjectFit("video")}`}
-                      autoPlay
-                      muted
-                      playsInline
-                      onEnded={advanceToNextMedia}
-                      onCanPlay={() => setIsMediaReady(true)}
-                    />
-                  ) : isGoogleSlides(currentMedia.media) ? (
-                    <iframe
-                      src={getGoogleSlidesEmbedUrl(currentMedia.media) || ""}
-                      className="w-full h-full border-0"
-                      allowFullScreen
-                      title={currentMedia.media.name}
-                      onLoad={() => setIsMediaReady(true)}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-white">
-                      <p className="text-2xl">{currentMedia.media.name}</p>
-                    </div>
-                  )}
+              ) : isYouTubeVideo(currentMedia.media) ? (
+                <iframe
+                  key={currentMedia.id}
+                  id={`youtube-player-${currentMedia.id}`}
+                  src={getYouTubeUrlWithAutoplay(currentMedia.media.file_path)}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                  title={currentMedia.media.name}
+                  onLoad={() => {
+                    setTimeout(() => {
+                      onYouTubeIframeAPIReady(`youtube-player-${currentMedia.id}`)
+                    }, 1000)
+                  }}
+                />
+              ) : currentMedia.media.mime_type.startsWith("video/") ? (
+                <video
+                  src={getMediaUrl(currentMedia.media.file_path)}
+                  className={`w-full h-full ${getMediaObjectFit("video")}`}
+                  autoPlay
+                  muted
+                  playsInline
+                  onEnded={advanceToNextMedia}
+                />
+              ) : isGoogleSlides(currentMedia.media) ? (
+                <iframe
+                  src={getGoogleSlidesEmbedUrl(currentMedia.media) || ""}
+                  className="w-full h-full border-0"
+                  allowFullScreen
+                  title={currentMedia.media.name}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white">
+                  <p className="text-2xl">{currentMedia.media.name}</p>
                 </div>
               )}
-          </div>
-        ) : (
-          <div className="text-center space-y-4 text-white">
-            <h2 className="text-3xl font-bold">{screen.name}</h2>
-            <p className="text-xl">No content assigned</p>
-            <p className="text-muted-foreground">Waiting for content to be added to this screen</p>
-          </div>
-        )}
-      </div>
-    </>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-center space-y-4 text-white">
+          <h2 className="text-3xl font-bold">{screen.name}</h2>
+          <p className="text-xl">No content assigned</p>
+          <p className="text-muted-foreground">Waiting for content to be added to this screen</p>
+        </div>
+      )}
+    </div>
   )
 }
