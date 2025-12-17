@@ -25,8 +25,9 @@
         android:hardwareAccelerated="true"
         tools:targetApi="31">
         
+        <!-- Make SplashActivity the launcher activity -->
         <activity
-            android:name=".MainActivity"
+            android:name=".SplashActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:exported="true"
             android:launchMode="singleTask"
@@ -44,6 +45,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+        <!-- SetupActivity moved below SplashActivity -->
+        <activity
+            android:name=".SetupActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape" />
+        
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape" />
     </application>
 
 </manifest>

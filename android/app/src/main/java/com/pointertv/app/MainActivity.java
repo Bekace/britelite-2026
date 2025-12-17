@@ -1,6 +1,8 @@
 package com.pointertv.app;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
@@ -14,15 +16,25 @@ import android.graphics.Color;
 
 public class MainActivity extends Activity {
     private static final String TAG = "XkreenTV";
-    
-    // IMPORTANT: Replace this with your actual Vercel deployment URL
-    private static final String APP_URL = "https://xkreen.vercel.app/player/[deviceCode]?tv=true";
+    private static final String PREFS_NAME = "PointerTVPrefs";
+    private static final String KEY_APP_URL = "app_url";
     
     private WebView webView;
+    private String appUrl;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        appUrl = getAppUrl();
+        
+        if (appUrl == null || appUrl.isEmpty()) {
+            // No URL configured, go to setup
+            Intent intent = new Intent(this, SetupActivity.class);
+            startActivity(intent);
+            finish();
+            return;
+        }
         
         // Enable immersive mode (hide system UI)
         enableImmersiveMode();
@@ -34,8 +46,21 @@ public class MainActivity extends Activity {
         configureWebView();
         
         // Load the app
-        Log.d(TAG, "Loading app from: " + APP_URL);
-        webView.loadUrl(APP_URL);
+        Log.d(TAG, "Loading app from: " + appUrl);
+        webView.loadUrl(appUrl);
+    }
+    
+    private String getAppUrl() {
+        // Check if URL passed via intent (from SetupActivity)
+        Intent intent = getIntent();
+        String urlFromIntent = intent.getStringExtra("app_url");
+        if (urlFromIntent != null && !urlFromIntent.isEmpty()) {
+            return urlFromIntent;
+        }
+        
+        // Check SharedPreferences for saved URL
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        return prefs.getString(KEY_APP_URL, null);
     }
 
     private void configureWebView() {

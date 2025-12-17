@@ -1,11 +1,15 @@
+import { Button } from "@/components/ui/button"
 export const dynamic = "force-dynamic"
 
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { CreditCard, Package, Receipt } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import BillingClient from "./billing-client"
+import { revalidatePath } from "next/cache"
 
 export default async function BillingSettingsPage() {
+  revalidatePath("/dashboard/settings/billing")
+
   const supabase = await createClient()
 
   if (!supabase) {
@@ -21,17 +25,56 @@ export default async function BillingSettingsPage() {
     redirect("/auth/login")
   }
 
-  // Fetch user subscription
   const { data: subscription } = await supabase
     .from("user_subscriptions")
     .select(`
       *,
-      subscription_plans (*)
+      subscription_plans (*),
+      subscription_prices (*)
     `)
     .eq("user_id", user.id)
     .single()
 
-  const plan = subscription?.subscription_plans
+  let plan = subscription?.subscription_plans
+  let priceInfo = subscription?.subscription_prices
+
+  if (!subscription || !plan) {
+    const { data: freePlan } = await supabase
+      .from("subscription_plans")
+      .select("*")
+      .eq("name", "Free")
+      .eq("is_active", true)
+      .single()
+
+    if (freePlan) {
+      plan = freePlan
+
+      // Get the monthly price for Free plan
+      const { data: freePrice } = await supabase
+        .from("subscription_prices")
+        .select("*")
+        .eq("plan_id", freePlan.id)
+        .eq("billing_cycle", "monthly")
+        .eq("is_active", true)
+        .single()
+
+      if (freePrice) {
+        priceInfo = freePrice
+      }
+    }
+  }
+
+  const { data: allPlans } = await supabase
+    .from("subscription_plans")
+    .select(`
+      *,
+      prices:subscription_prices(*)
+    `)
+    .eq("is_active", true)
+    .order("price", { ascending: true })
+
+  const displayPrice = priceInfo?.price ? Number(priceInfo.price).toFixed(0) : "0"
+  const billingCycle = priceInfo?.billing_cycle === "yearly" ? "year" : "month"
 
   return (
     <div className="space-y-6">
@@ -46,15 +89,15 @@ export default async function BillingSettingsPage() {
             <p className="text-sm text-muted-foreground mb-4">Your current subscription plan and usage limits.</p>
             <div className="bg-muted/30 rounded-md p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">{plan?.name || "Free Plan"}</span>
+                <span className="font-medium">{plan?.name || "Free"} Plan</span>
                 <span className="text-primary font-semibold">
-                  ${plan?.price || 0}/{plan?.billing_cycle || "month"}
+                  ${displayPrice}/{billingCycle}
                 </span>
               </div>
               {plan && (
                 <div className="text-sm text-muted-foreground space-y-1">
-                  <p>Max Screens: {plan.max_screens}</p>
-                  <p>Max Playlists: {plan.max_playlists}</p>
+                  <p>Max Screens: {plan.max_screens === -1 ? "Unlimited" : plan.max_screens}</p>
+                  <p>Max Playlists: {plan.max_playlists === -1 ? "Unlimited" : plan.max_playlists}</p>
                   <p>
                     Storage: {plan.max_media_storage} {plan.storage_unit}
                   </p>
@@ -67,9 +110,7 @@ export default async function BillingSettingsPage() {
           <p className="text-sm text-muted-foreground">
             {subscription?.status === "active" ? "Active subscription" : "No active subscription"}
           </p>
-          <Button size="sm" variant="outline">
-            Upgrade Plan
-          </Button>
+          <BillingClient plans={allPlans || []} currentPlanId={plan?.id} />
         </div>
       </div>
 
