@@ -105,16 +105,15 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
 
     if (!showCameraSetup) {
-      console.log("[v0] TV Navigation - Up pressed")
       setCurrentMediaIndex((prev) => {
-        const contentLength = shuffledContent.length || config?.screen.content?.length || 0
+        const contentLength = shuffledContent.length
         const newIndex = prev - 1
         return newIndex < 0 ? contentLength - 1 : newIndex
       })
       return true
     }
     return false
-  }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length, config?.screen.content?.length])
+  }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length])
 
   const handleNavigateDown = useCallback(() => {
     if (showLeftPanel || showRightPanel) {
@@ -122,8 +121,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
 
     if (!showCameraSetup) {
-      console.log("[v0] TV Navigation - Down pressed")
-      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
+      const contentLength = shuffledContent.length
       setCurrentMediaIndex((prev) => {
         const newIndex = prev + 1
         return newIndex >= contentLength ? 0 : newIndex
@@ -131,17 +129,14 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       return true
     }
     return false
-  }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length, config?.screen.content?.length])
+  }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length])
 
   const handleNavigateLeft = useCallback(() => {
-    // Don't toggle panels if already open - let internal navigation happen
     if (showLeftPanel || showRightPanel) {
-      console.log("[v0] Panel open, ignoring left navigation")
       return false
     }
 
     if (!showCameraSetup) {
-      console.log("[v0] TV Navigation - Left pressed, opening left panel")
       setShowLeftPanel(true)
       setShowRightPanel(false)
       return true
@@ -150,14 +145,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [showCameraSetup, showLeftPanel, showRightPanel])
 
   const handleNavigateRight = useCallback(() => {
-    // Don't toggle panels if already open - let internal navigation happen
     if (showLeftPanel || showRightPanel) {
-      console.log("[v0] Panel open, ignoring right navigation")
       return false
     }
 
     if (!showCameraSetup) {
-      console.log("[v0] TV Navigation - Right pressed, opening right panel")
       setShowRightPanel(true)
       setShowLeftPanel(false)
       return true
@@ -167,18 +159,14 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const handleMenu = useCallback(() => {
     if (!showCameraSetup) {
-      console.log("[v0] TV Navigation - Menu pressed, toggling right panel")
       setShowRightPanel((prev) => !prev)
-      if (!showRightPanel) {
-        setShowLeftPanel(false)
-      }
+      setShowLeftPanel(false)
       return true
     }
     return false
-  }, [showCameraSetup, showRightPanel])
+  }, [showCameraSetup])
 
   const handleBack = useCallback(() => {
-    console.log("[v0] TV Navigation - Back pressed")
     if (showLeftPanel || showRightPanel) {
       setShowLeftPanel(false)
       setShowRightPanel(false)
@@ -187,8 +175,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       setShowCameraSetup(false)
       return true
     } else {
-      // No panels open, exit the app
-      console.log("[v0] Exiting app")
       if (typeof window !== "undefined" && window.close) {
         window.close()
       }
@@ -197,22 +183,19 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [showLeftPanel, showRightPanel, showCameraSetup])
 
   const handleRetry = useCallback(() => {
-    console.log("[v0] Retry connection")
     setLoading(true)
     setError("")
     fetchConfig()
   }, [])
 
   const handleBackToSetup = useCallback(() => {
-    console.log("[v0] Back to setup")
     router.push("/setup")
   }, [router])
 
   const handleCameraConfigured = useCallback(() => {
-    console.log("[v0] Camera configured")
     setShowCameraSetup(false)
     showStatus("Camera setup complete", 3000)
-  }, [])
+  }, [showStatus])
 
   const { isTVMode } = useTVNavigation({
     onUp: handleNavigateUp,
@@ -235,36 +218,24 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const fetchConfig = async () => {
     try {
-      console.log("[v0] Fetching config for:", params.deviceCode)
       const isScreenCode = params.deviceCode.startsWith("SCR-")
-      console.log("[v0] Is screen code:", isScreenCode)
-
       const apiEndpoint = isScreenCode
         ? `/api/screens/config/${params.deviceCode}`
         : `/api/devices/config/${params.deviceCode}`
-
-      console.log("[v0] API endpoint:", apiEndpoint)
 
       const response = await fetch(apiEndpoint, {
         cache: "no-store",
       })
 
-      console.log("[v0] Response status:", response.status)
-      console.log("[v0] Response ok:", response.ok)
-
       if (!response.ok) {
         const errorText = await response.text()
-        console.error("[v0] API error response:", errorText)
         showStatus(`Error: ${response.status === 404 ? "Screen not found" : "Connection failed"}`, 0)
         throw new Error(`Failed to fetch config: ${response.status}`)
       }
 
       const data = await response.json()
-      console.log("[v0] API response data:", data)
 
       if (data.screen?.content) {
-        console.log("[v0] Content array length:", data.screen.content.length)
-        console.log("[v0] Content items:", data.screen.content)
         data.screen.content.forEach((item: any, index: number) => {
           console.log(`[v0] Content item ${index}:`, {
             id: item.id,
@@ -293,8 +264,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           updated_at: data.screen.updated_at,
         },
       }
-
-      console.log("[v0] Mapped config data:", mappedConfig)
 
       setConfig(mappedConfig)
       configRef.current = mappedConfig
@@ -363,14 +332,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     const checkForUpdates = async () => {
       if (!configRef.current) {
-        console.log("[v0] Polling: No config yet, skipping check")
         return
       }
 
       try {
-        console.log("[v0] Polling: Checking for updates...")
-        console.log("[v0] Polling: Current lastUpdatedAt:", lastUpdatedAtRef.current)
-
         const isScreenCode = params.deviceCode.startsWith("SCR-")
         const apiEndpoint = isScreenCode
           ? `/api/screens/config/${params.deviceCode}`
@@ -384,10 +349,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           const data = await response.json()
           const newUpdatedAt = data.screen?.updated_at
 
-          console.log("[v0] Polling: New updated_at from API:", newUpdatedAt)
-
           if (newUpdatedAt && lastUpdatedAtRef.current && newUpdatedAt !== lastUpdatedAtRef.current) {
-            console.log("[v0] Polling: Update detected! Queueing refresh...")
             setHasPendingUpdate(true)
           }
 
@@ -401,10 +363,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     let heartbeatInterval: NodeJS.Timeout | null = null
     let pollingInterval: NodeJS.Timeout | null = null
 
-    // Send initial heartbeat immediately
     sendHeartbeat()
 
-    // Send heartbeat every 30 seconds for all player instances
     heartbeatInterval = setInterval(sendHeartbeat, 30000)
 
     setTimeout(() => {
@@ -445,19 +405,15 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   useEffect(() => {
     if (hasPendingUpdate) {
-      console.log("[v0] Pending update detected, will refresh when media finishes")
       const contentLength = shuffledContent.length || config?.screen.content?.length || 0
 
-      // Check if we're at the end of a media cycle to apply the update
       const handleMediaEnd = () => {
-        console.log("[v0] Applying pending update now...")
         fetchConfig()
       }
 
-      // Queue the update to happen when current media index changes
       const timer = setTimeout(() => {
         handleMediaEnd()
-      }, 1000) // Small delay to allow current media transition
+      }, 1000)
 
       return () => clearTimeout(timer)
     }
@@ -465,12 +421,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   useEffect(() => {
     if (!config || !shuffledContent.length) {
-      console.log("[v0] No current media or empty playlist, skipping timer setup")
       return
     }
 
     const currentMedia = shuffledContent[currentMediaIndex]
-    console.log(`[v0] Cleaning up rotation timer for ${currentMedia.media.name}`)
+
     if (rotationTimerRef.current) {
       clearTimeout(rotationTimerRef.current)
       rotationTimerRef.current = null
@@ -487,26 +442,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       !currentMedia.media.file_path.includes("youtu.be")
 
     const isYouTube = isYouTubeVideo(currentMedia.media)
-    console.log(`[v0] Media type check:`, {
-      name: currentMedia.media.name,
-      mimeType: currentMedia.media.mime_type,
-      url: currentMedia.media.file_path,
-      isRegularVideo,
-      isYouTube,
-      willSetTimer: !isRegularVideo,
-    })
 
-    // Set timer for all non-regular videos (includes YouTube, Google Slides, PDFs, images)
     if (!isRegularVideo) {
       const duration = getEffectiveDuration(currentMedia)
-      console.log(`[v0] Setting rotation timer for ${currentMedia.media.name}: ${duration}ms (isYouTube: ${isYouTube})`)
-
       rotationTimerRef.current = setTimeout(() => {
-        console.log(`[v0] Auto-advancing from ${currentMedia.media.name} (YouTube timer fired)`)
         advanceToNextMedia()
       }, duration)
-    } else {
-      console.log(`[v0] Skipping timer for regular video: ${currentMedia.media.name}`)
     }
 
     return () => {
@@ -523,7 +464,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         const firstFocusable = document.querySelector(".tv-focusable") as HTMLElement
         if (firstFocusable) {
           firstFocusable.focus()
-          console.log("[v0] Auto-focused first element in panel")
         }
       }, 100)
     }
@@ -532,7 +472,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   useEffect(() => {
     const minSplashTime = setTimeout(() => {
       setShowSplash(false)
-    }, 3000) // 3 seconds minimum display time
+    }, 3000)
 
     return () => clearTimeout(minSplashTime)
   }, [])
@@ -564,7 +504,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         }
       })
 
-    // Fallback polling every 60 seconds (reduced from 15s) in case WebSocket fails
     const fallbackPolling = setInterval(async () => {
       if (!configRef.current) return
 
@@ -585,7 +524,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           const newUpdatedAt = data.screen?.updated_at
 
           if (newUpdatedAt && lastUpdatedAtRef.current && newUpdatedAt !== lastUpdatedAtRef.current) {
-            console.log("[v0] Fallback polling: Update detected! Queueing refresh...")
             setHasPendingUpdate(true)
             lastUpdatedAtRef.current = newUpdatedAt
           }
@@ -593,18 +531,15 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       } catch (error) {
         console.error("[v0] Fallback polling: Error checking for updates:", error)
       }
-    }, 60000) // 60 seconds instead of 15
+    }, 60000)
 
     let heartbeatInterval: NodeJS.Timeout | null = null
 
-    // Send initial heartbeat immediately
     sendHeartbeat()
 
-    // Send heartbeat every 30 seconds for all player instances
     heartbeatInterval = setInterval(sendHeartbeat, 30000)
 
     return () => {
-      console.log("[v0] Cleaning up WebSocket connection...")
       channel.unsubscribe()
       if (heartbeatInterval) {
         clearInterval(heartbeatInterval)
@@ -616,25 +551,24 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   useEffect(() => {
     if (!hasPendingUpdate) return
 
-    console.log("[v0] Pending update detected! Starting graceful transition...")
     showStatus("Updating screen...", 0)
 
     const waitForTransition = async () => {
       try {
-        const newData = await fetchConfig()
-        console.log("[v0] New config fetched during transition:", newData)
+        await fetchConfig()
         showStatus("Screen updated", 3000)
+        setHasPendingUpdate(false)
       } catch (error) {
         console.error("[v0] Failed to fetch new config during transition:", error)
         showStatus("Error: Failed to update", 5000)
+        setHasPendingUpdate(false)
       }
     }
 
     waitForTransition()
-  }, [hasPendingUpdate])
+  }, [hasPendingUpdate, showStatus])
 
   useEffect(() => {
-    // Preload YouTube connections early
     if (shuffledContent.some((item) => isYouTubeVideo(item.media))) {
       preloadYouTubeIframe("")
     }
@@ -867,25 +801,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const currentMediaItem = contentToDisplay[currentMediaIndex]
 
   setCurrentMedia(currentMediaItem)
-
-  console.log("[v0] Rendering player with:", {
-    totalContent: contentToDisplay.length,
-    currentIndex: currentMediaIndex,
-    currentMedia: currentMediaItem
-      ? {
-          id: currentMediaItem.id,
-          type: currentMediaItem.media?.type,
-          name: currentMediaItem.media?.name,
-        }
-      : null,
-  })
-
-  console.log("[v0] Player page render - Analytics component conditions:", {
-    hasScreenId: !!config?.screen.id,
-    analyticsEnabled,
-    screenId: config?.screen.id,
-    willRenderAnalytics: !!(config?.screen.id && analyticsEnabled),
-  })
 
   return (
     <div
