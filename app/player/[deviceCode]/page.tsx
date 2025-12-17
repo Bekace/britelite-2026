@@ -196,6 +196,24 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }, [showLeftPanel, showRightPanel, showCameraSetup])
 
+  const handleRetry = useCallback(() => {
+    console.log("[v0] Retry connection")
+    setLoading(true)
+    setError("")
+    fetchConfig()
+  }, [])
+
+  const handleBackToSetup = useCallback(() => {
+    console.log("[v0] Back to setup")
+    router.push("/setup")
+  }, [router])
+
+  const handleCameraConfigured = useCallback(() => {
+    console.log("[v0] Camera configured")
+    setShowCameraSetup(false)
+    showStatus("Camera setup complete", 3000)
+  }, [])
+
   const { isTVMode } = useTVNavigation({
     onUp: handleNavigateUp,
     onDown: handleNavigateDown,
@@ -459,217 +477,36 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       !currentMedia.media.url.includes("youtube.com") &&
       !currentMedia.media.url.includes("youtu.be")
 
+    const isYouTube = isYouTubeVideo(currentMedia.media)
+    console.log(`[v0] Media type check:`, {
+      name: currentMedia.media.name,
+      mimeType: currentMedia.media.mime_type,
+      url: currentMedia.media.file_path,
+      isRegularVideo,
+      isYouTube,
+      willSetTimer: !isRegularVideo,
+    })
+
     // Set timer for all non-regular videos (includes YouTube, Google Slides, PDFs, images)
     if (!isRegularVideo) {
       const duration = getEffectiveDuration(currentMedia)
-      console.log(`[v0] Setting rotation timer for ${currentMedia.media.name}: ${duration}ms`)
+      console.log(`[v0] Setting rotation timer for ${currentMedia.media.name}: ${duration}ms (isYouTube: ${isYouTube})`)
 
       rotationTimerRef.current = setTimeout(() => {
-        console.log(`[v0] Auto-advancing from ${currentMedia.media.name}`)
+        console.log(`[v0] Auto-advancing from ${currentMedia.media.name} (YouTube timer fired)`)
         advanceToNextMedia()
       }, duration)
+    } else {
+      console.log(`[v0] Skipping timer for regular video: ${currentMedia.media.name}`)
     }
 
     return () => {
       if (rotationTimerRef.current) {
+        console.log(`[v0] Cleaning up rotation timer for ${currentMedia?.media?.name}`)
         clearTimeout(rotationTimerRef.current)
       }
     }
   }, [currentMediaIndex, shuffledContent, config])
-
-  const handleRetry = () => {
-    setLoading(true)
-    setError("")
-    fetchConfig()
-  }
-
-  const handleBackToSetup = () => {
-    router.push("/player")
-  }
-
-  const handleCameraConfigured = (deviceId: string, settings: MediaTrackSettings) => {
-    const cameraConfig = {
-      deviceId,
-      settings,
-      timestamp: new Date().toISOString(),
-    }
-    localStorage.setItem("cameraConfig", JSON.stringify(cameraConfig))
-    console.log("[v0] Camera configured and saved:", cameraConfig)
-    setShowCameraSetup(false)
-    if (analyticsEnabled && config?.screen.id) {
-      fetchAnalyticsSettings(config.screen.id)
-    }
-  }
-
-  const getMediaUrl = (filePath: string) => {
-    if (!filePath) return "/placeholder.svg"
-    if (filePath.startsWith("http")) return filePath
-    if (filePath.startsWith("blob/")) return `https://blob.vercel-storage.com/${filePath}`
-    return filePath
-  }
-
-  const isGoogleSlides = (media: MediaItem["media"]) => {
-    return (
-      media.mime_type === "application/vnd.google-apps.presentation" ||
-      media.name.toLowerCase().includes("google slides") ||
-      media.file_path.includes("docs.google.com/presentation")
-    )
-  }
-
-  const isYouTubeVideo = (media: MediaItem["media"]) => {
-    return (
-      media.mime_type === "video/youtube" ||
-      media.file_path.includes("youtube.com") ||
-      media.file_path.includes("youtu.be") ||
-      media.file_path.includes("youtube-nocookie.com")
-    )
-  }
-
-  const getYouTubeUrlWithAutoplay = (url: string) => {
-    try {
-      let embedUrl = url
-
-      // Convert youtube.com/watch?v= to embed URL
-      if (url.includes("youtube.com/watch")) {
-        const urlObj = new URL(url)
-        const videoId = urlObj.searchParams.get("v")
-        if (videoId) {
-          embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
-        }
-      }
-      // Convert youtu.be/ to embed URL
-      else if (url.includes("youtu.be/")) {
-        const videoId = url.split("youtu.be/")[1]?.split("?")[0]
-        if (videoId) {
-          embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
-        }
-      }
-      // If already an embed URL, use youtube-nocookie.com
-      else if (url.includes("youtube.com/embed/")) {
-        embedUrl = url.replace("youtube.com", "youtube-nocookie.com")
-      }
-
-      const urlObj = new URL(embedUrl)
-      urlObj.searchParams.set("enablejsapi", "1")
-      urlObj.searchParams.set("autoplay", "1")
-      urlObj.searchParams.set("mute", "1")
-      urlObj.searchParams.set("controls", "0")
-      urlObj.searchParams.set("showinfo", "0")
-      urlObj.searchParams.set("fs", "0")
-      urlObj.searchParams.set("modestbranding", "1")
-      urlObj.searchParams.set("iv_load_policy", "3")
-      return urlObj.toString()
-    } catch (e) {
-      console.error("[v0] Error parsing YouTube URL:", e)
-      return url
-    }
-  }
-
-  const getGoogleSlidesEmbedUrl = (media: MediaItem["media"]) => {
-    let presentationId = ""
-
-    if (media.file_path.includes("docs.google.com/presentation")) {
-      const match = media.file_path.match(/\/presentation\/d\/([a-zA-Z0-9-_]+)/)
-      if (match) presentationId = match[1]
-    } else if (media.name.includes("-")) {
-      const parts = media.name.split("-")
-      presentationId = parts[parts.length - 1].trim()
-    }
-
-    if (presentationId) {
-      return `https://docs.google.com/presentation/d/${presentationId}/embed?start=false&loop=false&delayms=3000&rm=minimal&chrome=false`
-    }
-
-    return null
-  }
-
-  const getScreenStyles = () => {
-    const isPortrait = config?.screen.orientation === "portrait"
-    return {
-      backgroundColor: config?.screen.playlist?.background_color || "#000000",
-      width: "100vw",
-      height: "100vh",
-      transform: isPortrait ? "rotate(90deg)" : "none",
-      transformOrigin: "center center",
-    }
-  }
-
-  const getMediaObjectFit = (mediaType: "image" | "video" | "document") => {
-    const playlist = config?.screen.playlist
-    if (!playlist) return "object-contain"
-
-    let scaleValue = "fit"
-    switch (mediaType) {
-      case "image":
-        scaleValue = playlist.scale_image || "fit"
-        break
-      case "video":
-        scaleValue = playlist.scale_video || "fit"
-        break
-      case "document":
-        scaleValue = playlist.scale_document || "fit"
-        break
-    }
-
-    switch (scaleValue) {
-      case "fill":
-        return "object-cover"
-      case "stretch":
-        return "object-fill"
-      case "center":
-        return "object-none"
-      case "fit":
-      default:
-        return "object-contain"
-    }
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isTVMode) return
-
-    const threshold = 50 // pixels from edge to trigger
-    const windowWidth = window.innerWidth
-    const leftPanelWidth = 256 // w-64 = 16rem = 256px
-    const rightPanelWidth = 384 // w-96 = 24rem = 384px
-
-    // Left edge detection - keep open if within panel width
-    if (e.clientX < threshold) {
-      setShowLeftPanel(true)
-    } else if (e.clientX > leftPanelWidth) {
-      setShowLeftPanel(false)
-    }
-
-    // Right edge detection - keep open if within panel width
-    if (e.clientX > windowWidth - threshold) {
-      setShowRightPanel(true)
-    } else if (e.clientX < windowWidth - rightPanelWidth) {
-      setShowRightPanel(false)
-    }
-  }
-
-  const setLastUpdatedAt = (updatedAt: string | null) => {
-    lastUpdatedAtRef.current = updatedAt
-  }
-
-  const getEffectiveDuration = (item: MediaItem): number => {
-    // Use duration_override if set, otherwise use media.duration, default to 10 seconds
-    if (item.duration_override && item.duration_override > 0) {
-      return item.duration_override * 1000 // Convert to milliseconds
-    }
-    if (item.media.duration && item.media.duration > 0) {
-      return item.media.duration * 1000 // Convert to milliseconds
-    }
-    // Default duration for images and static content (10 seconds)
-    return 10000
-  }
-
-  const advanceToNextMedia = () => {
-    setCurrentMediaIndex((prev) => {
-      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
-      const nextIndex = prev + 1
-      return nextIndex >= contentLength ? 0 : nextIndex
-    })
-  }
 
   useEffect(() => {
     if (showLeftPanel || showRightPanel) {
@@ -794,6 +631,163 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }, [shuffledContent])
 
+  const getEffectiveDuration = (item: MediaItem): number => {
+    if (item.duration_override && item.duration_override > 0) {
+      return item.duration_override * 1000
+    }
+    if (item.media.duration && item.media.duration > 0) {
+      return item.media.duration * 1000
+    }
+    return 10000
+  }
+
+  const advanceToNextMedia = () => {
+    setCurrentMediaIndex((prev) => {
+      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
+      const nextIndex = prev + 1
+      return nextIndex >= contentLength ? 0 : nextIndex
+    })
+  }
+
+  const getMediaUrl = (filePath: string) => {
+    if (!filePath) return "/placeholder.svg"
+    if (filePath.startsWith("http")) return filePath
+    if (filePath.startsWith("blob/")) return `https://blob.vercel-storage.com/${filePath}`
+    return filePath
+  }
+
+  const isGoogleSlides = (media: MediaItem["media"]) => {
+    return (
+      media.mime_type === "application/vnd.google-apps.presentation" ||
+      media.name.toLowerCase().includes("google slides") ||
+      media.file_path.includes("docs.google.com/presentation")
+    )
+  }
+
+  const isYouTubeVideo = (media: MediaItem["media"]) => {
+    return (
+      media.mime_type === "video/youtube" ||
+      media.file_path.includes("youtube.com") ||
+      media.file_path.includes("youtu.be") ||
+      media.file_path.includes("youtube-nocookie.com")
+    )
+  }
+
+  const getYouTubeUrlWithAutoplay = (url: string) => {
+    try {
+      let embedUrl = url
+
+      if (url.includes("youtube.com/watch")) {
+        const urlObj = new URL(url)
+        const videoId = urlObj.searchParams.get("v")
+        if (videoId) {
+          embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
+        }
+      } else if (url.includes("youtu.be/")) {
+        const videoId = url.split("youtu.be/")[1]?.split("?")[0]
+        if (videoId) {
+          embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
+        }
+      } else if (url.includes("youtube.com/embed/")) {
+        embedUrl = url.replace("youtube.com", "youtube-nocookie.com")
+      }
+
+      const urlObj = new URL(embedUrl)
+      urlObj.searchParams.set("enablejsapi", "1")
+      urlObj.searchParams.set("autoplay", "1")
+      urlObj.searchParams.set("mute", "1")
+      urlObj.searchParams.set("controls", "0")
+      urlObj.searchParams.set("showinfo", "0")
+      urlObj.searchParams.set("fs", "0")
+      urlObj.searchParams.set("modestbranding", "1")
+      urlObj.searchParams.set("iv_load_policy", "3")
+      return urlObj.toString()
+    } catch (e) {
+      console.error("[v0] Error parsing YouTube URL:", e)
+      return url
+    }
+  }
+
+  const getGoogleSlidesEmbedUrl = (media: MediaItem["media"]) => {
+    let presentationId = ""
+
+    if (media.file_path.includes("docs.google.com/presentation")) {
+      const match = media.file_path.match(/\/presentation\/d\/([a-zA-Z0-9-_]+)/)
+      if (match) presentationId = match[1]
+    } else if (media.name.includes("-")) {
+      const parts = media.name.split("-")
+      presentationId = parts[parts.length - 1].trim()
+    }
+
+    if (presentationId) {
+      return `https://docs.google.com/presentation/d/${presentationId}/embed?start=false&loop=false&delayms=3000&rm=minimal&chrome=false`
+    }
+
+    return null
+  }
+
+  const getScreenStyles = () => {
+    const isPortrait = config?.screen.orientation === "portrait"
+    return {
+      backgroundColor: config?.screen.playlist?.background_color || "#000000",
+      width: "100vw",
+      height: "100vh",
+      transform: isPortrait ? "rotate(90deg)" : "none",
+      transformOrigin: "center center",
+    }
+  }
+
+  const getMediaObjectFit = (mediaType: "image" | "video" | "document") => {
+    const playlist = config?.screen.playlist
+    if (!playlist) return "object-contain"
+
+    let scaleValue = "fit"
+    switch (mediaType) {
+      case "image":
+        scaleValue = playlist.scale_image || "fit"
+        break
+      case "video":
+        scaleValue = playlist.scale_video || "fit"
+        break
+      case "document":
+        scaleValue = playlist.scale_document || "fit"
+        break
+    }
+
+    switch (scaleValue) {
+      case "fill":
+        return "object-cover"
+      case "stretch":
+        return "object-fill"
+      case "center":
+        return "object-none"
+      case "fit":
+      default:
+        return "object-contain"
+    }
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isTVMode) return
+
+    const threshold = 50
+    const windowWidth = window.innerWidth
+    const leftPanelWidth = 256
+    const rightPanelWidth = 384
+
+    if (e.clientX < threshold) {
+      setShowLeftPanel(true)
+    } else if (e.clientX > leftPanelWidth) {
+      setShowLeftPanel(false)
+    }
+
+    if (e.clientX > windowWidth - threshold) {
+      setShowRightPanel(true)
+    } else if (e.clientX < windowWidth - rightPanelWidth) {
+      setShowRightPanel(false)
+    }
+  }
+
   if (loading || showSplash) {
     return <PlayerSplash />
   }
@@ -883,11 +877,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   return (
     <div
       className={`relative w-screen h-screen overflow-hidden ${isTVMode ? "tv-mode" : ""}`}
-      style={{
-        backgroundColor: config?.screen.playlist?.background_color || "#000000",
-        cursor: isTVMode ? "none" : "default",
-      }}
-      onMouseMove={handleMouseMove}
+      style={getScreenStyles()}
     >
       {statusMessage && (
         <div className="fixed bottom-2 left-2 z-50 rounded px-2 py-1 text-[10px] bg-black/30 text-gray-500 border border-gray-700/30 opacity-60">
