@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from "react"
 
 export interface TVNavigationOptions {
-  onUp?: () => boolean
-  onDown?: () => boolean
-  onLeft?: () => boolean
-  onRight?: () => boolean
-  onSelect?: () => boolean
-  onBack?: () => boolean
-  onMenu?: () => boolean
+  onUp?: () => void
+  onDown?: () => void
+  onLeft?: () => void
+  onRight?: () => void
+  onSelect?: () => void
+  onBack?: () => void
+  onMenu?: () => void
   enabled?: boolean
   trapFocus?: boolean
 }
@@ -51,64 +51,48 @@ export function useTVNavigation(options: TVNavigationOptions = {}) {
 
       console.log("[v0] TV Navigation - Key pressed:", key, "KeyCode:", keyCode)
 
-      let handled = false
-
       switch (key) {
         case "ArrowUp":
-          if (onUp) {
-            handled = onUp()
-            if (handled) event.preventDefault()
-          }
+          event.preventDefault()
+          onUp?.()
           break
         case "ArrowDown":
-          if (onDown) {
-            handled = onDown()
-            if (handled) event.preventDefault()
-          }
+          event.preventDefault()
+          onDown?.()
           break
         case "ArrowLeft":
-          if (onLeft) {
-            handled = onLeft()
-            if (handled) event.preventDefault()
-          }
+          event.preventDefault()
+          onLeft?.()
           break
         case "ArrowRight":
-          if (onRight) {
-            handled = onRight()
-            if (handled) event.preventDefault()
-          }
+          event.preventDefault()
+          onRight?.()
           break
         case "Enter":
-          if (onSelect) {
-            event.preventDefault()
-            handled = onSelect()
-          }
+          event.preventDefault()
+          onSelect?.()
           break
         case "Escape":
         case "Backspace": // Fire TV back button
-          if (onBack) {
-            event.preventDefault()
-            handled = onBack()
-          }
+          event.preventDefault()
+          onBack?.()
           break
         case "m":
         case "M":
         case "ContextMenu": // Menu button on some remotes
-          if (onMenu) {
-            event.preventDefault()
-            handled = onMenu()
-          }
+          event.preventDefault()
+          onMenu?.()
           break
       }
 
-      if (keyCode === 82 && onMenu) {
+      if (keyCode === 82) {
         // Menu button
         event.preventDefault()
-        onMenu()
-      } else if (keyCode === 4 && onBack) {
+        onMenu?.()
+      } else if (keyCode === 4) {
         // Back button
         event.preventDefault()
-        onBack()
+        onBack?.()
       }
     }
 
