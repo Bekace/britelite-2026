@@ -3,15 +3,12 @@ import { useState, useEffect, useRef } from "react"
 import type React from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, RefreshCw, ArrowLeft } from "lucide-react"
+import { Loader2, AlertCircle, RefreshCw, ArrowLeft, Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
 import { useTVNavigation } from "@/hooks/use-tv-navigation"
-import { PlayerSplash } from "@/components/player-splash"
-import { createClient } from "@/lib/supabase/client"
-import { preloadYouTubeIframe } from "@/lib/youtube-utils" // Declare the variable before using it
 
 interface MediaItem {
   id: string
@@ -26,7 +23,6 @@ interface MediaItem {
     mime_type: string
     file_size: number
     duration: number | null
-    url: string
   }
 }
 
@@ -63,8 +59,7 @@ interface PlayerPageProps {
 export default function PlayerPage({ params }: PlayerPageProps) {
   const [config, setConfig] = useState<ScreenConfig | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showSplash, setShowSplash] = useState(true)
-  const [error, setError] = useState<string>("")
+  const [error, setError] = useState<string | null>(null)
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
   const [shuffledContent, setShuffledContent] = useState<MediaItem[]>([])
@@ -81,128 +76,57 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const rotationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const youtubePlayerRef = useRef<any>(null)
 
-  const [statusMessage, setStatusMessage] = useState<string>("")
-  const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  const showStatus = (message: string, duration?: number) => {
-    setStatusMessage(message)
-
-    if (statusTimeoutRef.current) {
-      clearTimeout(statusTimeoutRef.current)
-    }
-
-    if (duration !== 0) {
-      statusTimeoutRef.current = setTimeout(() => {
-        setStatusMessage("")
-      }, duration || 3000)
-    }
-  }
-
-  const handleNavigateUp = () => {
-    if (showLeftPanel || showRightPanel) {
-      return false
-    }
-
-    if (!showCameraSetup) {
-      setCurrentMediaIndex((prev) => {
-        const contentLength = shuffledContent.length
-        const newIndex = prev - 1
-        return newIndex < 0 ? contentLength - 1 : newIndex
-      })
-      return true
-    }
-    return false
-  }
-
-  const handleNavigateDown = () => {
-    if (showLeftPanel || showRightPanel) {
-      return false
-    }
-
-    if (!showCameraSetup) {
-      const contentLength = shuffledContent.length
-      setCurrentMediaIndex((prev) => {
-        const newIndex = prev + 1
-        return newIndex >= contentLength ? 0 : newIndex
-      })
-      return true
-    }
-    return false
-  }
-
-  const handleNavigateLeft = () => {
-    if (showLeftPanel || showRightPanel) {
-      return false
-    }
-
-    if (!showCameraSetup) {
-      setShowLeftPanel(true)
-      setShowRightPanel(false)
-      return true
-    }
-    return false
-  }
-
-  const handleNavigateRight = () => {
-    if (showLeftPanel || showRightPanel) {
-      return false
-    }
-
-    if (!showCameraSetup) {
-      setShowRightPanel(true)
-      setShowLeftPanel(false)
-      return true
-    }
-    return false
-  }
-
-  const handleMenu = () => {
-    if (!showCameraSetup) {
-      setShowRightPanel((prev) => !prev)
-      setShowLeftPanel(false)
-      return true
-    }
-    return false
-  }
-
-  const handleBack = () => {
-    if (showLeftPanel || showRightPanel) {
-      setShowLeftPanel(false)
-      setShowRightPanel(false)
-      return true
-    } else if (showCameraSetup) {
-      setShowCameraSetup(false)
-      return true
-    } else {
-      if (typeof window !== "undefined" && window.close) {
-        window.close()
-      }
-      return true
-    }
-  }
-
-  const handleRetry = () => {
-    setLoading(true)
-    setError("")
-    fetchConfig()
-  }
-
-  const handleBackToSetup = () => {
-    router.push("/setup")
-  }
-
-  const handleCameraConfigured = () => {
-    setShowCameraSetup(false)
-    showStatus("Camera setup complete", 3000)
-  }
-
   const { isTVMode } = useTVNavigation({
-    onUp: handleNavigateUp,
-    onDown: handleNavigateDown,
-    onLeft: handleNavigateLeft,
-    onRight: handleNavigateRight,
-    onMenu: handleMenu,
-    onBack: handleBack,
+    onUp: () => {
+      if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+        console.log("[v0] TV Navigation - Up pressed")
+        // Navigate to previous media
+        setCurrentMediaIndex((prev) => {
+          const newIndex = prev - 1
+          return newIndex < 0 ? (shuffledContent.length || config?.screen.content?.length || 1) - 1 : newIndex
+        })
+      }
+    },
+    onDown: () => {
+      if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
+        console.log("[v0] TV Navigation - Down pressed")
+        // Navigate to next media
+        const contentLength = shuffledContent.length || config?.screen.content?.length || 0
+        setCurrentMediaIndex((prev) => {
+          const newIndex = prev + 1
+          return newIndex >= contentLength ? 0 : newIndex
+        })
+      }
+    },
+    onLeft: () => {
+      if (!showCameraSetup) {
+        console.log("[v0] TV Navigation - Left pressed, toggling left panel")
+        setShowLeftPanel((prev) => !prev)
+        setShowRightPanel(false)
+      }
+    },
+    onRight: () => {
+      if (!showCameraSetup) {
+        console.log("[v0] TV Navigation - Right pressed, toggling right panel")
+        setShowRightPanel((prev) => !prev)
+        setShowLeftPanel(false)
+      }
+    },
+    onMenu: () => {
+      if (!showCameraSetup) {
+        console.log("[v0] TV Navigation - Menu pressed, toggling right panel")
+        setShowRightPanel((prev) => !prev)
+      }
+    },
+    onBack: () => {
+      console.log("[v0] TV Navigation - Back pressed")
+      if (showLeftPanel || showRightPanel) {
+        setShowLeftPanel(false)
+        setShowRightPanel(false)
+      } else if (showCameraSetup) {
+        setShowCameraSetup(false)
+      }
+    },
     enabled: !loading && !error,
   })
 
@@ -217,24 +141,35 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const fetchConfig = async () => {
     try {
+      console.log("[v0] Fetching config for:", params.deviceCode)
       const isScreenCode = params.deviceCode.startsWith("SCR-")
+      console.log("[v0] Is screen code:", isScreenCode)
+
       const apiEndpoint = isScreenCode
         ? `/api/screens/config/${params.deviceCode}`
         : `/api/devices/config/${params.deviceCode}`
+
+      console.log("[v0] API endpoint:", apiEndpoint)
 
       const response = await fetch(apiEndpoint, {
         cache: "no-store",
       })
 
+      console.log("[v0] Response status:", response.status)
+      console.log("[v0] Response ok:", response.ok)
+
       if (!response.ok) {
         const errorText = await response.text()
-        showStatus(`Error: ${response.status === 404 ? "Screen not found" : "Connection failed"}`, 0)
+        console.error("[v0] API error response:", errorText)
         throw new Error(`Failed to fetch config: ${response.status}`)
       }
 
       const data = await response.json()
+      console.log("[v0] API response data:", data)
 
       if (data.screen?.content) {
+        console.log("[v0] Content array length:", data.screen.content.length)
+        console.log("[v0] Content items:", data.screen.content)
         data.screen.content.forEach((item: any, index: number) => {
           console.log(`[v0] Content item ${index}:`, {
             id: item.id,
@@ -264,6 +199,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         },
       }
 
+      console.log("[v0] Mapped config data:", mappedConfig)
+
       setConfig(mappedConfig)
       configRef.current = mappedConfig
 
@@ -273,13 +210,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
       setLoading(false)
       setHasPendingUpdate(false)
-
-      showStatus("Screen loaded", 3000)
     } catch (err) {
       console.error("[v0] Error fetching config:", err)
       setError(err instanceof Error ? err.message : "Failed to load configuration")
       setLoading(false)
-      showStatus("Error: Failed to load configuration", 0)
     }
   }
 
@@ -324,17 +258,19 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }
 
-  const [currentMedia, setCurrentMedia] = useState<MediaItem | null>(null)
-
   useEffect(() => {
     fetchConfig()
 
     const checkForUpdates = async () => {
       if (!configRef.current) {
+        console.log("[v0] Polling: No config yet, skipping check")
         return
       }
 
       try {
+        console.log("[v0] Polling: Checking for updates...")
+        console.log("[v0] Polling: Current lastUpdatedAt:", lastUpdatedAtRef.current)
+
         const isScreenCode = params.deviceCode.startsWith("SCR-")
         const apiEndpoint = isScreenCode
           ? `/api/screens/config/${params.deviceCode}`
@@ -348,7 +284,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           const data = await response.json()
           const newUpdatedAt = data.screen?.updated_at
 
+          console.log("[v0] Polling: New updated_at from API:", newUpdatedAt)
+
           if (newUpdatedAt && lastUpdatedAtRef.current && newUpdatedAt !== lastUpdatedAtRef.current) {
+            console.log("[v0] Polling: Update detected! Queueing refresh...")
             setHasPendingUpdate(true)
           }
 
@@ -362,8 +301,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     let heartbeatInterval: NodeJS.Timeout | null = null
     let pollingInterval: NodeJS.Timeout | null = null
 
+    // Send initial heartbeat immediately
     sendHeartbeat()
 
+    // Send heartbeat every 30 seconds for all player instances
     heartbeatInterval = setInterval(sendHeartbeat, 30000)
 
     setTimeout(() => {
@@ -376,9 +317,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }
       if (pollingInterval) {
         clearInterval(pollingInterval)
-      }
-      if (statusTimeoutRef.current) {
-        clearTimeout(statusTimeoutRef.current)
       }
     }
   }, [params.deviceCode])
@@ -403,180 +341,44 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [config])
 
   useEffect(() => {
-    if (!hasPendingUpdate) return
+    if (hasPendingUpdate) {
+      console.log("[v0] Pending update detected, will refresh when media finishes")
+      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
 
-    showStatus("updating content", 2000)
-
-    const updateConfig = async () => {
-      try {
-        const isScreenCode = params.deviceCode.startsWith("SCR-")
-        const apiEndpoint = isScreenCode
-          ? `/api/screens/config/${params.deviceCode}`
-          : `/api/devices/config/${params.deviceCode}`
-
-        const response = await fetch(apiEndpoint, {
-          cache: "no-store",
-        })
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch config: ${response.status}`)
-        }
-
-        const data = await response.json()
-
-        const mappedConfig: ScreenConfig = {
-          device: {
-            id: data.screen.id,
-            code: params.deviceCode,
-            name: data.screen.name,
-            orientation: data.screen.orientation,
-            resolution: data.screen.resolution,
-          },
-          screen: {
-            id: data.screen.id,
-            name: data.screen.name,
-            content: data.screen.content || [],
-            playlist: data.screen.playlist || null,
-            updated_at: data.screen.updated_at,
-          },
-        }
-
-        setConfig(mappedConfig)
-        configRef.current = mappedConfig
-
-        if (mappedConfig.screen?.updated_at) {
-          lastUpdatedAtRef.current = mappedConfig.screen.updated_at
-        }
-
-        showStatus("screen updated", 3000)
-        setHasPendingUpdate(false)
-      } catch (error) {
-        console.error("[v0] Failed to fetch new config:", error)
-        showStatus("error: failed to update", 5000)
-        setHasPendingUpdate(false)
+      // Check if we're at the end of a media cycle to apply the update
+      const handleMediaEnd = () => {
+        console.log("[v0] Applying pending update now...")
+        fetchConfig()
       }
-    }
 
-    updateConfig()
-  }, [hasPendingUpdate, params.deviceCode])
+      // Queue the update to happen when current media index changes
+      const timer = setTimeout(() => {
+        handleMediaEnd()
+      }, 1000) // Small delay to allow current media transition
+
+      return () => clearTimeout(timer)
+    }
+  }, [hasPendingUpdate, currentMediaIndex])
 
   useEffect(() => {
-    if (showLeftPanel || showRightPanel) {
-      setTimeout(() => {
-        const firstFocusable = document.querySelector(".tv-focusable") as HTMLElement
-        if (firstFocusable) {
-          firstFocusable.focus()
-        }
-      }, 100)
-    }
-  }, [showLeftPanel, showRightPanel])
-
-  useEffect(() => {
-    const minSplashTime = setTimeout(() => {
-      setShowSplash(false)
-    }, 3000)
-
-    return () => clearTimeout(minSplashTime)
-  }, [])
-
-  useEffect(() => {
-    if (!params.deviceCode) return
-
-    const supabase = createClient()
-
-    const channel = supabase
-      .channel(`screen-updates-${params.deviceCode}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "screens",
-          filter: `device_code=eq.${params.deviceCode}`,
-        },
-        (payload) => {
-          console.log("[v0] Received real-time screen update:", payload)
-          showStatus("updating content", 2000)
-          setHasPendingUpdate(true)
-        },
-      )
-      .subscribe((status) => {
-        if (status === "CHANNEL_ERROR") {
-          console.log("[v0] WebSocket error, falling back to polling")
-        }
-      })
-
-    const fallbackPolling = setInterval(async () => {
-      if (!configRef.current) return
-
-      try {
-        console.log("[v0] Fallback polling: Checking for updates...")
-
-        const isScreenCode = params.deviceCode.startsWith("SCR-")
-        const apiEndpoint = isScreenCode
-          ? `/api/screens/config/${params.deviceCode}`
-          : `/api/devices/config/${params.deviceCode}`
-
-        const response = await fetch(apiEndpoint, {
-          cache: "no-store",
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          const newUpdatedAt = data.screen?.updated_at
-
-          if (newUpdatedAt && lastUpdatedAtRef.current && newUpdatedAt !== lastUpdatedAtRef.current) {
-            setHasPendingUpdate(true)
-            lastUpdatedAtRef.current = newUpdatedAt
-          }
-        }
-      } catch (error) {
-        console.error("[v0] Fallback polling: Error checking for updates:", error)
-      }
-    }, 60000)
-
-    let heartbeatInterval: NodeJS.Timeout | null = null
-
-    sendHeartbeat()
-
-    heartbeatInterval = setInterval(sendHeartbeat, 30000)
-
-    return () => {
-      channel.unsubscribe()
-      if (heartbeatInterval) {
-        clearInterval(heartbeatInterval)
-      }
-      clearInterval(fallbackPolling)
-    }
-  }, [params.deviceCode]) // Removed config dependency
-
-  useEffect(() => {
-    if (!config || !shuffledContent.length) {
-      return
-    }
-
-    const currentMediaItem = shuffledContent[currentMediaIndex]
-
+    // Clear any existing timer
     if (rotationTimerRef.current) {
       clearTimeout(rotationTimerRef.current)
-      rotationTimerRef.current = null
     }
 
-    if (!currentMediaItem?.media?.file_path || !currentMediaItem.media.mime_type) {
-      console.error("[v0] Invalid media item:", currentMediaItem)
-      return
-    }
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+    const currentMedia = contentToDisplay[currentMediaIndex]
 
-    const isRegularVideo =
-      currentMediaItem.media.mime_type.startsWith("video/") &&
-      !currentMediaItem.media.file_path.includes("youtube.com") &&
-      !currentMediaItem.media.file_path.includes("youtu.be")
+    if (!currentMedia) return
+
+    const isRegularVideo = currentMedia.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
 
     if (!isRegularVideo) {
-      const duration = getEffectiveDuration(currentMediaItem)
-      console.log("[v0] Setting rotation timer for", currentMediaItem.media.name, "duration:", duration)
+      const duration = getEffectiveDuration(currentMedia)
+      console.log(`[v0] Setting rotation timer for ${currentMedia.media.name}: ${duration}ms`)
+
       rotationTimerRef.current = setTimeout(() => {
-        console.log("[v0] Timer fired! Advancing from", currentMediaItem.media.name)
+        console.log(`[v0] Auto-advancing from ${currentMedia.media.name}`)
         advanceToNextMedia()
       }, duration)
     }
@@ -584,33 +386,58 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     return () => {
       if (rotationTimerRef.current) {
         clearTimeout(rotationTimerRef.current)
-        rotationTimerRef.current = null
       }
     }
-  }, [currentMediaIndex, shuffledContent]) // Updated dependency to shuffledContent
+  }, [currentMediaIndex, shuffledContent, config])
 
   useEffect(() => {
-    if (shuffledContent.some((item) => isYouTubeVideo(item.media))) {
-      preloadYouTubeIframe("")
+    // Load YouTube IFrame API
+    if (!window.YT) {
+      const tag = document.createElement("script")
+      tag.src = "https://www.youtube.com/iframe_api"
+      const firstScriptTag = document.getElementsByTagName("script")[0]
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
     }
-  }, [shuffledContent])
+  }, [])
 
-  const getEffectiveDuration = (item: MediaItem): number => {
-    if (item.duration_override && item.duration_override > 0) {
-      return item.duration_override * 1000
+  const onYouTubeIframeAPIReady = (iframeId: string) => {
+    if (window.YT && window.YT.Player) {
+      try {
+        youtubePlayerRef.current = new window.YT.Player(iframeId, {
+          events: {
+            onReady: (event: any) => {
+              event.target.playVideo()
+            },
+          },
+        })
+      } catch (e) {
+        console.error("[v0] Error initializing YouTube player:", e)
+      }
     }
-    if (item.media.duration && item.media.duration > 0) {
-      return item.media.duration * 1000
-    }
-    return 10000
   }
 
-  const advanceToNextMedia = () => {
-    setCurrentMediaIndex((prev) => {
-      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
-      const nextIndex = prev + 1
-      return nextIndex >= contentLength ? 0 : nextIndex
-    })
+  const handleRetry = () => {
+    setLoading(true)
+    setError(null)
+    fetchConfig()
+  }
+
+  const handleBackToSetup = () => {
+    router.push("/player")
+  }
+
+  const handleCameraConfigured = (deviceId: string, settings: MediaTrackSettings) => {
+    const cameraConfig = {
+      deviceId,
+      settings,
+      timestamp: new Date().toISOString(),
+    }
+    localStorage.setItem("cameraConfig", JSON.stringify(cameraConfig))
+    console.log("[v0] Camera configured and saved:", cameraConfig)
+    setShowCameraSetup(false)
+    if (analyticsEnabled && config?.screen.id) {
+      fetchAnalyticsSettings(config.screen.id)
+    }
   }
 
   const getMediaUrl = (filePath: string) => {
@@ -621,16 +448,14 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }
 
   const isGoogleSlides = (media: MediaItem["media"]) => {
-    if (!media || !media.file_path) return false
     return (
       media.mime_type === "application/vnd.google-apps.presentation" ||
-      (media.name && media.name.toLowerCase().includes("google slides")) ||
+      media.name.toLowerCase().includes("google slides") ||
       media.file_path.includes("docs.google.com/presentation")
     )
   }
 
   const isYouTubeVideo = (media: MediaItem["media"]) => {
-    if (!media || !media.file_path) return false
     return (
       media.mime_type === "video/youtube" ||
       media.file_path.includes("youtube.com") ||
@@ -643,23 +468,27 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     try {
       let embedUrl = url
 
+      // Convert youtube.com/watch?v= to embed URL
       if (url.includes("youtube.com/watch")) {
         const urlObj = new URL(url)
         const videoId = urlObj.searchParams.get("v")
         if (videoId) {
           embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
         }
-      } else if (url.includes("youtu.be/")) {
+      }
+      // Convert youtu.be/ to embed URL
+      else if (url.includes("youtu.be/")) {
         const videoId = url.split("youtu.be/")[1]?.split("?")[0]
         if (videoId) {
           embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
         }
-      } else if (url.includes("youtube.com/embed/")) {
+      }
+      // If already an embed URL, use youtube-nocookie.com
+      else if (url.includes("youtube.com/embed/")) {
         embedUrl = url.replace("youtube.com", "youtube-nocookie.com")
       }
 
       const urlObj = new URL(embedUrl)
-      urlObj.searchParams.set("enablejsapi", "1")
       urlObj.searchParams.set("autoplay", "1")
       urlObj.searchParams.set("mute", "1")
       urlObj.searchParams.set("controls", "0")
@@ -668,8 +497,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       urlObj.searchParams.set("modestbranding", "1")
       urlObj.searchParams.set("iv_load_policy", "3")
       return urlObj.toString()
-    } catch (e) {
-      console.error("[v0] Error parsing YouTube URL:", e)
+    } catch (error) {
+      console.error("[v0] Error parsing YouTube URL:", error)
       return url
     }
   }
@@ -736,17 +565,19 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isTVMode) return
 
-    const threshold = 50
+    const threshold = 50 // pixels from edge to trigger
     const windowWidth = window.innerWidth
-    const leftPanelWidth = 256
-    const rightPanelWidth = 384
+    const leftPanelWidth = 256 // w-64 = 16rem = 256px
+    const rightPanelWidth = 384 // w-96 = 24rem = 384px
 
+    // Left edge detection - keep open if within panel width
     if (e.clientX < threshold) {
       setShowLeftPanel(true)
     } else if (e.clientX > leftPanelWidth) {
       setShowLeftPanel(false)
     }
 
+    // Right edge detection - keep open if within panel width
     if (e.clientX > windowWidth - threshold) {
       setShowRightPanel(true)
     } else if (e.clientX < windowWidth - rightPanelWidth) {
@@ -754,8 +585,42 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }
 
-  if (loading || showSplash) {
-    return <PlayerSplash />
+  const setLastUpdatedAt = (updatedAt: string | null) => {
+    lastUpdatedAtRef.current = updatedAt
+  }
+
+  const getEffectiveDuration = (item: MediaItem): number => {
+    // Use duration_override if set, otherwise use media.duration, default to 10 seconds
+    if (item.duration_override && item.duration_override > 0) {
+      return item.duration_override * 1000 // Convert to milliseconds
+    }
+    if (item.media.duration && item.media.duration > 0) {
+      return item.media.duration * 1000 // Convert to milliseconds
+    }
+    // Default duration for images and static content (10 seconds)
+    return 10000
+  }
+
+  const advanceToNextMedia = () => {
+    setCurrentMediaIndex((prev) => {
+      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
+      const nextIndex = prev + 1
+      return nextIndex >= contentLength ? 0 : nextIndex
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
+            <h2 className="text-xl font-semibold">Loading Content</h2>
+            <p className="text-muted-foreground">Fetching screen configuration...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   if (error) {
@@ -772,7 +637,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
               Retry Connection
             </Button>
             <Button onClick={handleBackToSetup} variant="outline" className="w-full bg-transparent">
-              <ArrowLeft className="mr-2 h-4" />
+              <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Setup
             </Button>
           </CardContent>
@@ -819,19 +684,36 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const { screen } = config
   const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : screen.content || []
-  const currentMediaItem = contentToDisplay[currentMediaIndex]
+  const currentMedia = contentToDisplay[currentMediaIndex]
+
+  console.log("[v0] Rendering player with:", {
+    totalContent: contentToDisplay.length,
+    currentIndex: currentMediaIndex,
+    currentMedia: currentMedia
+      ? {
+          id: currentMedia.id,
+          type: currentMedia.media?.type,
+          name: currentMedia.media?.name,
+        }
+      : null,
+  })
+
+  console.log("[v0] Player page render - Analytics component conditions:", {
+    hasScreenId: !!config?.screen.id,
+    analyticsEnabled,
+    screenId: config?.screen.id,
+    willRenderAnalytics: !!(config?.screen.id && analyticsEnabled),
+  })
 
   return (
     <div
       className={`relative w-screen h-screen overflow-hidden ${isTVMode ? "tv-mode" : ""}`}
-      style={getScreenStyles()}
+      style={{
+        backgroundColor: config?.screen.playlist?.background_color || "#000000",
+        cursor: isTVMode ? "none" : "default",
+      }}
+      onMouseMove={handleMouseMove}
     >
-      {statusMessage && (
-        <div className="fixed bottom-2 left-2 z-50 rounded px-2 py-1 text-[10px] bg-black/30 text-gray-500 border border-gray-700/30 opacity-60">
-          {statusMessage}
-        </div>
-      )}
-
       {pendingUpdate && updateProgress > 0 && (
         <div className="fixed top-2 right-2 text-[10px] text-white/40 font-mono z-50">
           {Math.round(updateProgress)}%
@@ -843,81 +725,91 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           TV Mode
         </div>
       )}
-      {showLeftPanel && (
-        <div className="fixed left-0 top-0 h-full bg-background border-r border-border z-40 p-4 overflow-y-auto flex flex-col w-96">
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold mb-4">Camera Setup</h3>
-            <CameraSetup onClose={() => setShowLeftPanel(false)} onCameraConfigured={handleCameraConfigured} />
-          </div>
-          <Button onClick={() => setShowLeftPanel(false)} className="tv-focusable w-full mt-6" variant="outline">
-            Back
+      <div
+        className={`fixed left-0 top-0 h-full w-64 bg-black/80 backdrop-blur-sm border-r border-white/20 z-50 transition-transform duration-300 ease-in-out ${
+          showLeftPanel ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="p-4 space-y-4">
+          <Button
+            onClick={() => setShowCameraSetup(true)}
+            variant="secondary"
+            className="w-full bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 tv-focusable tv-button"
+            autoFocus={showLeftPanel}
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Camera Setup
           </Button>
         </div>
-      )}
-
-      {showRightPanel && (
-        <div className="fixed right-0 top-0 h-full bg-background border-l border-border z-40 p-4 overflow-y-auto flex flex-col w-96">
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold mb-4">Audience Analytics</h3>
-            <CameraAnalytics
-              screenId={config?.screen.id || ""}
-              enabled={analyticsEnabled}
-              onToggle={setAnalyticsEnabled}
-              onSetupClick={() => {
-                setShowRightPanel(false)
-                setShowLeftPanel(true)
-              }}
-            />
-          </div>
-          <Button onClick={() => setShowRightPanel(false)} className="tv-focusable w-full mt-6" variant="outline">
-            Back
-          </Button>
+      </div>
+      <div
+        className={`fixed right-0 top-0 h-full w-96 bg-black/80 backdrop-blur-sm border-l border-white/20 z-50 transition-transform duration-300 ease-in-out ${
+          showRightPanel ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="p-4 h-full overflow-y-auto">
+          {config?.screen.id && analyticsEnabled && (
+            <>
+              {console.log("[v0] Rendering CameraAnalytics in right panel with screenId:", config.screen.id)}
+              <CameraAnalytics
+                screenId={config.screen.id}
+                enabled={analyticsEnabled}
+                onToggle={setAnalyticsEnabled}
+                onSetupClick={() => setShowCameraSetup(true)}
+                className="bg-transparent border-0"
+              />
+            </>
+          )}
         </div>
-      )}
+      </div>
       {contentToDisplay && contentToDisplay.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
-          {currentMediaItem && (
+          {currentMedia && (
             <div className="w-full h-full relative">
-              {currentMediaItem.media.mime_type.startsWith("image/") ? (
+              {currentMedia.media.mime_type.startsWith("image/") ? (
                 <Image
-                  src={getMediaUrl(currentMediaItem.media.file_path) || "/placeholder.svg"}
-                  alt={currentMediaItem.media.name}
+                  src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}
+                  alt={currentMedia.media.name}
                   fill
                   className={getMediaObjectFit("image")}
                   priority
                   unoptimized
                 />
-              ) : isYouTubeVideo(currentMediaItem.media) ? (
+              ) : isYouTubeVideo(currentMedia.media) ? (
                 <iframe
-                  key={currentMediaItem.id}
-                  id={`youtube-player-${currentMediaItem.id}`}
-                  src={getYouTubeUrlWithAutoplay(currentMediaItem.media.file_path)}
+                  key={currentMedia.id}
+                  id={`youtube-player-${currentMedia.id}`}
+                  src={getYouTubeUrlWithAutoplay(currentMedia.media.file_path)}
                   className="w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
-                  title={currentMediaItem.media.name}
-                  loading="eager"
+                  title={currentMedia.media.name}
+                  onLoad={() => {
+                    setTimeout(() => {
+                      onYouTubeIframeAPIReady(`youtube-player-${currentMedia.id}`)
+                    }, 1000)
+                  }}
                 />
-              ) : currentMediaItem.media.mime_type.startsWith("video/") ? (
+              ) : currentMedia.media.mime_type.startsWith("video/") ? (
                 <video
-                  src={getMediaUrl(currentMediaItem.media.file_path)}
+                  src={getMediaUrl(currentMedia.media.file_path)}
                   className={`w-full h-full ${getMediaObjectFit("video")}`}
                   autoPlay
                   muted
                   playsInline
                   onEnded={advanceToNextMedia}
                 />
-              ) : isGoogleSlides(currentMediaItem.media) ? (
+              ) : isGoogleSlides(currentMedia.media) ? (
                 <iframe
-                  src={getGoogleSlidesEmbedUrl(currentMediaItem.media) || ""}
+                  src={getGoogleSlidesEmbedUrl(currentMedia.media) || ""}
                   className="w-full h-full border-0"
                   allowFullScreen
-                  title={currentMediaItem.media.name}
+                  title={currentMedia.media.name}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-white">
-                  <p className="text-2xl">{currentMediaItem.media.name}</p>
+                  <p className="text-2xl">{currentMedia.media.name}</p>
                 </div>
               )}
             </div>
