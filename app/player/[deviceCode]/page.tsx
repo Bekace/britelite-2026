@@ -405,24 +405,60 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   useEffect(() => {
     if (!hasPendingUpdate) return
 
-    setStatusMessage("updating content")
+    showStatus("updating content", 2000)
 
-    const waitForTransition = async () => {
+    const updateConfig = async () => {
       try {
-        await fetchConfig()
-        setStatusMessage("screen updated")
-        setTimeout(() => setStatusMessage(""), 3000)
+        const isScreenCode = params.deviceCode.startsWith("SCR-")
+        const apiEndpoint = isScreenCode
+          ? `/api/screens/config/${params.deviceCode}`
+          : `/api/devices/config/${params.deviceCode}`
+
+        const response = await fetch(apiEndpoint, {
+          cache: "no-store",
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch config: ${response.status}`)
+        }
+
+        const data = await response.json()
+
+        const mappedConfig: ScreenConfig = {
+          device: {
+            id: data.screen.id,
+            code: params.deviceCode,
+            name: data.screen.name,
+            orientation: data.screen.orientation,
+            resolution: data.screen.resolution,
+          },
+          screen: {
+            id: data.screen.id,
+            name: data.screen.name,
+            content: data.screen.content || [],
+            playlist: data.screen.playlist || null,
+            updated_at: data.screen.updated_at,
+          },
+        }
+
+        setConfig(mappedConfig)
+        configRef.current = mappedConfig
+
+        if (mappedConfig.screen?.updated_at) {
+          lastUpdatedAtRef.current = mappedConfig.screen.updated_at
+        }
+
+        showStatus("screen updated", 3000)
         setHasPendingUpdate(false)
       } catch (error) {
-        console.error("[v0] Failed to fetch new config during transition:", error)
-        setStatusMessage("error: failed to update")
-        setTimeout(() => setStatusMessage(""), 5000)
+        console.error("[v0] Failed to fetch new config:", error)
+        showStatus("error: failed to update", 5000)
         setHasPendingUpdate(false)
       }
     }
 
-    waitForTransition()
-  }, [hasPendingUpdate])
+    updateConfig()
+  }, [hasPendingUpdate, params.deviceCode])
 
   useEffect(() => {
     if (showLeftPanel || showRightPanel) {
