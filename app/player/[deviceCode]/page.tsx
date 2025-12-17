@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import type React from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -84,22 +84,21 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const [statusMessage, setStatusMessage] = useState<string>("")
   const statusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const showStatus = useCallback((message: string, duration?: number) => {
+  const showStatus = (message: string, duration?: number) => {
     setStatusMessage(message)
 
     if (statusTimeoutRef.current) {
       clearTimeout(statusTimeoutRef.current)
     }
 
-    // Auto-hide after duration
     if (duration !== 0) {
       statusTimeoutRef.current = setTimeout(() => {
         setStatusMessage("")
       }, duration || 3000)
     }
-  }, [])
+  }
 
-  const handleNavigateUp = useCallback(() => {
+  const handleNavigateUp = () => {
     if (showLeftPanel || showRightPanel) {
       return false
     }
@@ -113,9 +112,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       return true
     }
     return false
-  }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length])
+  }
 
-  const handleNavigateDown = useCallback(() => {
+  const handleNavigateDown = () => {
     if (showLeftPanel || showRightPanel) {
       return false
     }
@@ -129,9 +128,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       return true
     }
     return false
-  }, [showCameraSetup, showLeftPanel, showRightPanel, shuffledContent.length])
+  }
 
-  const handleNavigateLeft = useCallback(() => {
+  const handleNavigateLeft = () => {
     if (showLeftPanel || showRightPanel) {
       return false
     }
@@ -142,9 +141,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       return true
     }
     return false
-  }, [showCameraSetup, showLeftPanel, showRightPanel])
+  }
 
-  const handleNavigateRight = useCallback(() => {
+  const handleNavigateRight = () => {
     if (showLeftPanel || showRightPanel) {
       return false
     }
@@ -155,18 +154,18 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       return true
     }
     return false
-  }, [showCameraSetup, showLeftPanel, showRightPanel])
+  }
 
-  const handleMenu = useCallback(() => {
+  const handleMenu = () => {
     if (!showCameraSetup) {
       setShowRightPanel((prev) => !prev)
       setShowLeftPanel(false)
       return true
     }
     return false
-  }, [showCameraSetup])
+  }
 
-  const handleBack = useCallback(() => {
+  const handleBack = () => {
     if (showLeftPanel || showRightPanel) {
       setShowLeftPanel(false)
       setShowRightPanel(false)
@@ -180,22 +179,22 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }
       return true
     }
-  }, [showLeftPanel, showRightPanel, showCameraSetup])
+  }
 
-  const handleRetry = useCallback(() => {
+  const handleRetry = () => {
     setLoading(true)
     setError("")
     fetchConfig()
-  }, [])
+  }
 
-  const handleBackToSetup = useCallback(() => {
+  const handleBackToSetup = () => {
     router.push("/setup")
-  }, [router])
+  }
 
-  const handleCameraConfigured = useCallback(() => {
+  const handleCameraConfigured = () => {
     setShowCameraSetup(false)
     showStatus("Camera setup complete", 3000)
-  }, [showStatus])
+  }
 
   const { isTVMode } = useTVNavigation({
     onUp: handleNavigateUp,
@@ -404,59 +403,26 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [config])
 
   useEffect(() => {
-    if (hasPendingUpdate) {
-      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
+    if (!hasPendingUpdate) return
 
-      const handleMediaEnd = () => {
-        fetchConfig()
-      }
+    setStatusMessage("updating content")
 
-      const timer = setTimeout(() => {
-        handleMediaEnd()
-      }, 1000)
-
-      return () => clearTimeout(timer)
-    }
-  }, [hasPendingUpdate, currentMediaIndex])
-
-  useEffect(() => {
-    if (!config || !shuffledContent.length) {
-      return
-    }
-
-    const currentMedia = shuffledContent[currentMediaIndex]
-
-    if (rotationTimerRef.current) {
-      clearTimeout(rotationTimerRef.current)
-      rotationTimerRef.current = null
-    }
-
-    if (!currentMedia.media || !currentMedia.media.file_path || !currentMedia.media.mime_type) {
-      console.error("[v0] Invalid media item, missing required properties:", currentMedia)
-      return
-    }
-
-    const isRegularVideo =
-      currentMedia.media.mime_type.startsWith("video/") &&
-      !currentMedia.media.file_path.includes("youtube.com") &&
-      !currentMedia.media.file_path.includes("youtu.be")
-
-    const isYouTube = isYouTubeVideo(currentMedia.media)
-
-    if (!isRegularVideo) {
-      const duration = getEffectiveDuration(currentMedia)
-      rotationTimerRef.current = setTimeout(() => {
-        advanceToNextMedia()
-      }, duration)
-    }
-
-    return () => {
-      if (rotationTimerRef.current) {
-        clearTimeout(rotationTimerRef.current)
-        rotationTimerRef.current = null
+    const waitForTransition = async () => {
+      try {
+        await fetchConfig()
+        setStatusMessage("screen updated")
+        setTimeout(() => setStatusMessage(""), 3000)
+        setHasPendingUpdate(false)
+      } catch (error) {
+        console.error("[v0] Failed to fetch new config during transition:", error)
+        setStatusMessage("error: failed to update")
+        setTimeout(() => setStatusMessage(""), 5000)
+        setHasPendingUpdate(false)
       }
     }
-  }, [config, shuffledContent])
+
+    waitForTransition()
+  }, [hasPendingUpdate])
 
   useEffect(() => {
     if (showLeftPanel || showRightPanel) {
@@ -549,24 +515,43 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [config, params.deviceCode])
 
   useEffect(() => {
-    if (!hasPendingUpdate) return
-
-    showStatus("Updating screen...", 0)
-
-    const waitForTransition = async () => {
-      try {
-        await fetchConfig()
-        showStatus("Screen updated", 3000)
-        setHasPendingUpdate(false)
-      } catch (error) {
-        console.error("[v0] Failed to fetch new config during transition:", error)
-        showStatus("Error: Failed to update", 5000)
-        setHasPendingUpdate(false)
-      }
+    if (!config || !shuffledContent.length) {
+      return
     }
 
-    waitForTransition()
-  }, [hasPendingUpdate, showStatus])
+    const currentMedia = shuffledContent[currentMediaIndex]
+
+    if (rotationTimerRef.current) {
+      clearTimeout(rotationTimerRef.current)
+      rotationTimerRef.current = null
+    }
+
+    if (!currentMedia.media || !currentMedia.media.file_path || !currentMedia.media.mime_type) {
+      console.error("[v0] Invalid media item, missing required properties:", currentMedia)
+      return
+    }
+
+    const isRegularVideo =
+      currentMedia.media.mime_type.startsWith("video/") &&
+      !currentMedia.media.file_path.includes("youtube.com") &&
+      !currentMedia.media.file_path.includes("youtu.be")
+
+    const isYouTube = isYouTubeVideo(currentMedia.media)
+
+    if (!isRegularVideo) {
+      const duration = getEffectiveDuration(currentMedia)
+      rotationTimerRef.current = setTimeout(() => {
+        advanceToNextMedia()
+      }, duration)
+    }
+
+    return () => {
+      if (rotationTimerRef.current) {
+        clearTimeout(rotationTimerRef.current)
+        rotationTimerRef.current = null
+      }
+    }
+  }, [config, shuffledContent])
 
   useEffect(() => {
     if (shuffledContent.some((item) => isYouTubeVideo(item.media))) {
