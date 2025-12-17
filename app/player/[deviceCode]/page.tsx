@@ -356,6 +356,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }
 
+  const [currentMedia, setCurrentMedia] = useState<MediaItem | null>(null)
+
   useEffect(() => {
     fetchConfig()
 
@@ -462,20 +464,27 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [hasPendingUpdate, currentMediaIndex])
 
   useEffect(() => {
-    // Clear any existing timer
-    if (rotationTimerRef.current) {
-      clearTimeout(rotationTimerRef.current)
+    if (!config || !shuffledContent.length) {
+      console.log("[v0] No current media or empty playlist, skipping timer setup")
+      return
     }
 
-    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
-    const currentMedia = contentToDisplay[currentMediaIndex]
+    const currentMedia = shuffledContent[currentMediaIndex]
+    console.log(`[v0] Cleaning up rotation timer for ${currentMedia.media.name}`)
+    if (rotationTimerRef.current) {
+      clearTimeout(rotationTimerRef.current)
+      rotationTimerRef.current = null
+    }
 
-    if (!currentMedia) return
+    if (!currentMedia.media || !currentMedia.media.file_path || !currentMedia.media.mime_type) {
+      console.error("[v0] Invalid media item, missing required properties:", currentMedia)
+      return
+    }
 
     const isRegularVideo =
       currentMedia.media.mime_type.startsWith("video/") &&
-      !currentMedia.media.url.includes("youtube.com") &&
-      !currentMedia.media.url.includes("youtu.be")
+      !currentMedia.media.file_path.includes("youtube.com") &&
+      !currentMedia.media.file_path.includes("youtu.be")
 
     const isYouTube = isYouTubeVideo(currentMedia.media)
     console.log(`[v0] Media type check:`, {
@@ -502,11 +511,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     return () => {
       if (rotationTimerRef.current) {
-        console.log(`[v0] Cleaning up rotation timer for ${currentMedia?.media?.name}`)
         clearTimeout(rotationTimerRef.current)
+        rotationTimerRef.current = null
       }
     }
-  }, [currentMediaIndex, shuffledContent, config])
+  }, [config, shuffledContent])
 
   useEffect(() => {
     if (showLeftPanel || showRightPanel) {
@@ -657,14 +666,16 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }
 
   const isGoogleSlides = (media: MediaItem["media"]) => {
+    if (!media || !media.file_path) return false
     return (
       media.mime_type === "application/vnd.google-apps.presentation" ||
-      media.name.toLowerCase().includes("google slides") ||
+      (media.name && media.name.toLowerCase().includes("google slides")) ||
       media.file_path.includes("docs.google.com/presentation")
     )
   }
 
   const isYouTubeVideo = (media: MediaItem["media"]) => {
+    if (!media || !media.file_path) return false
     return (
       media.mime_type === "video/youtube" ||
       media.file_path.includes("youtube.com") ||
@@ -853,16 +864,18 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const { screen } = config
   const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : screen.content || []
-  const currentMedia = contentToDisplay[currentMediaIndex]
+  const currentMediaItem = contentToDisplay[currentMediaIndex]
+
+  setCurrentMedia(currentMediaItem)
 
   console.log("[v0] Rendering player with:", {
     totalContent: contentToDisplay.length,
     currentIndex: currentMediaIndex,
-    currentMedia: currentMedia
+    currentMedia: currentMediaItem
       ? {
-          id: currentMedia.id,
-          type: currentMedia.media?.type,
-          name: currentMedia.media?.name,
+          id: currentMediaItem.id,
+          type: currentMediaItem.media?.type,
+          name: currentMediaItem.media?.name,
         }
       : null,
   })
@@ -929,48 +942,48 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       )}
       {contentToDisplay && contentToDisplay.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
-          {currentMedia && (
+          {currentMediaItem && (
             <div className="w-full h-full relative">
-              {currentMedia.media.mime_type.startsWith("image/") ? (
+              {currentMediaItem.media.mime_type.startsWith("image/") ? (
                 <Image
-                  src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}
-                  alt={currentMedia.media.name}
+                  src={getMediaUrl(currentMediaItem.media.file_path) || "/placeholder.svg"}
+                  alt={currentMediaItem.media.name}
                   fill
                   className={getMediaObjectFit("image")}
                   priority
                   unoptimized
                 />
-              ) : isYouTubeVideo(currentMedia.media) ? (
+              ) : isYouTubeVideo(currentMediaItem.media) ? (
                 <iframe
-                  key={currentMedia.id}
-                  id={`youtube-player-${currentMedia.id}`}
-                  src={getYouTubeUrlWithAutoplay(currentMedia.media.file_path)}
+                  key={currentMediaItem.id}
+                  id={`youtube-player-${currentMediaItem.id}`}
+                  src={getYouTubeUrlWithAutoplay(currentMediaItem.media.file_path)}
                   className="w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
-                  title={currentMedia.media.name}
+                  title={currentMediaItem.media.name}
                   loading="eager"
                 />
-              ) : currentMedia.media.mime_type.startsWith("video/") ? (
+              ) : currentMediaItem.media.mime_type.startsWith("video/") ? (
                 <video
-                  src={getMediaUrl(currentMedia.media.file_path)}
+                  src={getMediaUrl(currentMediaItem.media.file_path)}
                   className={`w-full h-full ${getMediaObjectFit("video")}`}
                   autoPlay
                   muted
                   playsInline
                   onEnded={advanceToNextMedia}
                 />
-              ) : isGoogleSlides(currentMedia.media) ? (
+              ) : isGoogleSlides(currentMediaItem.media) ? (
                 <iframe
-                  src={getGoogleSlidesEmbedUrl(currentMedia.media) || ""}
+                  src={getGoogleSlidesEmbedUrl(currentMediaItem.media) || ""}
                   className="w-full h-full border-0"
                   allowFullScreen
-                  title={currentMedia.media.name}
+                  title={currentMediaItem.media.name}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-white">
-                  <p className="text-2xl">{currentMedia.media.name}</p>
+                  <p className="text-2xl">{currentMediaItem.media.name}</p>
                 </div>
               )}
             </div>
