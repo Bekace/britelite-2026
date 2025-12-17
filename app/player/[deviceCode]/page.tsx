@@ -821,8 +821,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : screen.content || []
   const currentMediaItem = contentToDisplay[currentMediaIndex]
 
-  setCurrentMedia(currentMediaItem)
-
   return (
     <div
       className={`relative w-screen h-screen overflow-hidden ${isTVMode ? "tv-mode" : ""}`}
