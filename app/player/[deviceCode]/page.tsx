@@ -512,35 +512,35 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }
       clearInterval(fallbackPolling)
     }
-  }, [config, params.deviceCode])
+  }, [params.deviceCode]) // Removed config dependency
 
   useEffect(() => {
     if (!config || !shuffledContent.length) {
       return
     }
 
-    const currentMedia = shuffledContent[currentMediaIndex]
+    const currentMediaItem = shuffledContent[currentMediaIndex]
 
     if (rotationTimerRef.current) {
       clearTimeout(rotationTimerRef.current)
       rotationTimerRef.current = null
     }
 
-    if (!currentMedia.media || !currentMedia.media.file_path || !currentMedia.media.mime_type) {
-      console.error("[v0] Invalid media item, missing required properties:", currentMedia)
+    if (!currentMediaItem?.media?.file_path || !currentMediaItem.media.mime_type) {
+      console.error("[v0] Invalid media item:", currentMediaItem)
       return
     }
 
     const isRegularVideo =
-      currentMedia.media.mime_type.startsWith("video/") &&
-      !currentMedia.media.file_path.includes("youtube.com") &&
-      !currentMedia.media.file_path.includes("youtu.be")
-
-    const isYouTube = isYouTubeVideo(currentMedia.media)
+      currentMediaItem.media.mime_type.startsWith("video/") &&
+      !currentMediaItem.media.file_path.includes("youtube.com") &&
+      !currentMediaItem.media.file_path.includes("youtu.be")
 
     if (!isRegularVideo) {
-      const duration = getEffectiveDuration(currentMedia)
+      const duration = getEffectiveDuration(currentMediaItem)
+      console.log("[v0] Setting rotation timer for", currentMediaItem.media.name, "duration:", duration)
       rotationTimerRef.current = setTimeout(() => {
+        console.log("[v0] Timer fired! Advancing from", currentMediaItem.media.name)
         advanceToNextMedia()
       }, duration)
     }
@@ -551,7 +551,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         rotationTimerRef.current = null
       }
     }
-  }, [config, shuffledContent])
+  }, [currentMediaIndex, shuffledContent]) // Updated dependency to shuffledContent
 
   useEffect(() => {
     if (shuffledContent.some((item) => isYouTubeVideo(item.media))) {
@@ -736,7 +736,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
               Retry Connection
             </Button>
             <Button onClick={handleBackToSetup} variant="outline" className="w-full bg-transparent">
-              <ArrowLeft className="mr-2 h-4 w-4" />
+              <ArrowLeft className="mr-2 h-4" />
               Back to Setup
             </Button>
           </CardContent>
