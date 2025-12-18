@@ -1,15 +1,12 @@
-import { Button } from "@/components/ui/button"
 export const dynamic = "force-dynamic"
 
+import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { CreditCard, Package, Receipt } from "lucide-react"
 import BillingClient from "./billing-client"
-import { revalidatePath } from "next/cache"
 
 export default async function BillingSettingsPage() {
-  revalidatePath("/dashboard/settings/billing")
-
   const supabase = await createClient()
 
   if (!supabase) {
@@ -25,7 +22,7 @@ export default async function BillingSettingsPage() {
     redirect("/auth/login")
   }
 
-  const { data: subscription } = await supabase
+  const { data: subscription, error: subError } = await supabase
     .from("user_subscriptions")
     .select(`
       *,
@@ -34,6 +31,10 @@ export default async function BillingSettingsPage() {
     `)
     .eq("user_id", user.id)
     .single()
+
+  if (subError) {
+    console.error("[v0] Subscription query error:", subError)
+  }
 
   let plan = subscription?.subscription_plans
   let priceInfo = subscription?.subscription_prices
