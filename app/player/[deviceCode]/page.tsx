@@ -606,7 +606,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     // Only preload images and videos, skip YouTube/embeds
     if (mimeType.startsWith("image/")) {
-      const img = new Image()
+      const img = new window.Image() // Use window.Image instead of Image to avoid Next.js import conflict
       preloadElementRef.current = img
 
       img.onload = () => {
