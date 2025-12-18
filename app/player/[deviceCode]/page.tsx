@@ -79,6 +79,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const youtubePlayerRef = useRef<any>(null)
   const [preloadedMedia, setPreloadedMedia] = useState<{ index: number; ready: boolean }>({ index: -1, ready: false })
   const preloadElementRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
+  const [preloadStatus, setPreloadStatus] = useState<string>("")
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -592,6 +593,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const preloadMedia = useCallback((mediaItem: MediaItem, targetIndex: number) => {
     console.log(`[v0] Preloading media: ${mediaItem.media.name} (index: ${targetIndex})`)
+    setPreloadStatus(`Preloading: ${mediaItem.media.name}`)
 
     // Clean up previous preload element
     if (preloadElementRef.current) {
@@ -606,17 +608,19 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     // Only preload images and videos, skip YouTube/embeds
     if (mimeType.startsWith("image/")) {
-      const img = new window.Image() // Use window.Image instead of Image to avoid Next.js import conflict
+      const img = new window.Image()
       preloadElementRef.current = img
 
       img.onload = () => {
         console.log(`[v0] Image preloaded successfully: ${mediaItem.media.name}`)
         setPreloadedMedia({ index: targetIndex, ready: true })
+        setPreloadStatus(`Ready: ${mediaItem.media.name}`)
       }
 
       img.onerror = () => {
         console.error(`[v0] Failed to preload image: ${mediaItem.media.name}`)
         setPreloadedMedia({ index: targetIndex, ready: false })
+        setPreloadStatus(`Failed: ${mediaItem.media.name}`)
       }
 
       img.src = mediaItem.media.url
@@ -629,6 +633,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       const onCanPlayThrough = () => {
         console.log(`[v0] Video preloaded successfully: ${mediaItem.media.name}`)
         setPreloadedMedia({ index: targetIndex, ready: true })
+        setPreloadStatus(`Ready: ${mediaItem.media.name}`)
         video.removeEventListener("canplaythrough", onCanPlayThrough)
         video.removeEventListener("error", onError)
       }
@@ -636,6 +641,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       const onError = () => {
         console.error(`[v0] Failed to preload video: ${mediaItem.media.name}`)
         setPreloadedMedia({ index: targetIndex, ready: false })
+        setPreloadStatus(`Failed: ${mediaItem.media.name}`)
         video.removeEventListener("canplaythrough", onCanPlayThrough)
         video.removeEventListener("error", onError)
       }
@@ -648,6 +654,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       // For YouTube/embeds, mark as ready immediately (no preload needed)
       console.log(`[v0] Non-preloadable media type: ${mimeType}`)
       setPreloadedMedia({ index: targetIndex, ready: true })
+      setPreloadStatus(`Instant ready: ${mediaItem.media.name}`)
     }
   }, [])
 
@@ -692,6 +699,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const fetchScreenData = async () => {
     try {
       console.log(`[v0] Fetching screen data for device: ${params.deviceCode}`)
+      setPreloadStatus("Fetching new content...")
+
       const response = await fetch(`/api/devices/config/${params.deviceCode}`)
 
       if (!response.ok) {
@@ -703,50 +712,65 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       if (data.screen.content && data.screen.content.length > 0) {
         const firstItem = data.screen.content[0]
         console.log(`[v0] New content received, preloading first item: ${firstItem.media.name}`)
+        setPreloadStatus(`New content detected, preloading first item...`)
 
-        // Wait for first item to preload before updating config
+        setPreloadedMedia({ index: -1, ready: false })
+
         await new Promise<void>((resolve) => {
+          let timeout: NodeJS.Timeout
+          let checkInterval: NodeJS.Timeout
+
+          preloadMedia(firstItem, 0)
+
           const checkPreload = () => {
             if (preloadedMedia.index === 0 && preloadedMedia.ready) {
               console.log(`[v0] First item preloaded, switching to new content`)
+              setPreloadStatus(`First item loaded, displaying new content`)
+              clearTimeout(timeout)
+              clearInterval(checkInterval)
               resolve()
-            } else {
-              // Retry or timeout after 5 seconds
-              setTimeout(() => {
-                console.log(`[v0] Preload timeout, switching anyway`)
-                resolve()
-              }, 5000)
             }
           }
 
-          // Trigger preload
-          preloadMedia(firstItem, 0)
+          checkInterval = setInterval(checkPreload, 100)
 
-          // Check if already loaded or wait
-          setTimeout(checkPreload, 100)
+          timeout = setTimeout(() => {
+            console.log(`[v0] Preload timeout, switching anyway`)
+            setPreloadStatus(`Preload timeout, displaying content anyway`)
+            clearInterval(checkInterval)
+            resolve()
+          }, 8000)
         })
-      }
 
-      console.log(`[v0] Screen configuration fetched successfully`)
-      setConfig(data)
-      configRef.current = data
-      lastUpdatedAtRef.current = data.screen.updated_at
+        console.log(`[v0] Applying new configuration`)
+        setConfig(data)
+        configRef.current = data
+        lastUpdatedAtRef.current = data.screen.updated_at
 
-      if (data.screen.shuffle_content) {
-        const shuffled = [...data.screen.content].sort(() => Math.random() - 0.5)
-        setShuffledContent(shuffled)
+        if (data.screen.playlist?.shuffle) {
+          const shuffled = shuffleArray(data.screen.content)
+          setShuffledContent(shuffled)
+        } else {
+          setShuffledContent(data.screen.content)
+        }
+
+        setCurrentMediaIndex(0)
+        setHasPendingUpdate(false)
+        setPendingUpdate(null)
+        setPreloadStatus(`Displaying new content`)
+
+        setTimeout(() => setPreloadStatus(""), 3000)
       } else {
-        setShuffledContent([])
+        setConfig(data)
+        configRef.current = data
+        setPreloadStatus("No content in playlist")
       }
 
-      // Reset to first item when new content arrives
-      setCurrentMediaIndex(0)
       setLoading(false)
-      setHasPendingUpdate(false)
-      setPendingUpdate(null)
     } catch (err) {
       console.error("[v0] Error fetching screen data:", err)
       setError(err instanceof Error ? err.message : "Failed to load screen configuration")
+      setPreloadStatus(`Error: ${err instanceof Error ? err.message : "Unknown error"}`)
       setLoading(false)
     }
   }
@@ -856,6 +880,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }}
       onMouseMove={handleMouseMove}
     >
+      {preloadStatus && (
+        <div className="fixed bottom-4 left-4 bg-black/60 backdrop-blur-sm text-white/70 px-3 py-1.5 rounded text-xs font-mono z-50 max-w-xs truncate">
+          {preloadStatus}
+        </div>
+      )}
+
       {pendingUpdate && updateProgress > 0 && (
         <div className="fixed top-2 right-2 text-[10px] text-white/40 font-mono z-50">
           {Math.round(updateProgress)}%
