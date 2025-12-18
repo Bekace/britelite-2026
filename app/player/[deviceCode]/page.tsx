@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import type React from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -48,6 +48,7 @@ interface ScreenConfig {
       scale_document?: string
       shuffle?: boolean
       default_transition?: string
+      shuffle_content?: boolean
     } | null
     updated_at: string
   }
@@ -76,6 +77,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const configRef = useRef<ScreenConfig | null>(null)
   const rotationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const youtubePlayerRef = useRef<any>(null)
+  const [preloadedMedia, setPreloadedMedia] = useState<{ index: number; ready: boolean }>({ index: -1, ready: false })
+  const preloadElementRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -587,12 +590,165 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     return 10000
   }
 
-  const advanceToNextMedia = () => {
-    setCurrentMediaIndex((prev) => {
-      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
-      const nextIndex = prev + 1
-      return nextIndex >= contentLength ? 0 : nextIndex
-    })
+  const preloadMedia = useCallback((mediaItem: MediaItem, targetIndex: number) => {
+    console.log(`[v0] Preloading media: ${mediaItem.media.name} (index: ${targetIndex})`)
+
+    // Clean up previous preload element
+    if (preloadElementRef.current) {
+      if (preloadElementRef.current instanceof HTMLVideoElement) {
+        preloadElementRef.current.pause()
+        preloadElementRef.current.src = ""
+      }
+      preloadElementRef.current = null
+    }
+
+    const mimeType = mediaItem.media.mime_type
+
+    // Only preload images and videos, skip YouTube/embeds
+    if (mimeType.startsWith("image/")) {
+      const img = new Image()
+      preloadElementRef.current = img
+
+      img.onload = () => {
+        console.log(`[v0] Image preloaded successfully: ${mediaItem.media.name}`)
+        setPreloadedMedia({ index: targetIndex, ready: true })
+      }
+
+      img.onerror = () => {
+        console.error(`[v0] Failed to preload image: ${mediaItem.media.name}`)
+        setPreloadedMedia({ index: targetIndex, ready: false })
+      }
+
+      img.src = mediaItem.media.url
+    } else if (mimeType.startsWith("video/")) {
+      const video = document.createElement("video")
+      preloadElementRef.current = video
+      video.preload = "auto"
+      video.muted = true
+
+      const onCanPlayThrough = () => {
+        console.log(`[v0] Video preloaded successfully: ${mediaItem.media.name}`)
+        setPreloadedMedia({ index: targetIndex, ready: true })
+        video.removeEventListener("canplaythrough", onCanPlayThrough)
+        video.removeEventListener("error", onError)
+      }
+
+      const onError = () => {
+        console.error(`[v0] Failed to preload video: ${mediaItem.media.name}`)
+        setPreloadedMedia({ index: targetIndex, ready: false })
+        video.removeEventListener("canplaythrough", onCanPlayThrough)
+        video.removeEventListener("error", onError)
+      }
+
+      video.addEventListener("canplaythrough", onCanPlayThrough)
+      video.addEventListener("error", onError)
+      video.src = mediaItem.media.url
+      video.load()
+    } else {
+      // For YouTube/embeds, mark as ready immediately (no preload needed)
+      console.log(`[v0] Non-preloadable media type: ${mimeType}`)
+      setPreloadedMedia({ index: targetIndex, ready: true })
+    }
+  }, [])
+
+  const advanceToNextMedia = useCallback(() => {
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+    const contentLength = contentToDisplay.length
+
+    if (contentLength === 0) return
+
+    const nextIndex = (currentMediaIndex + 1) % contentLength
+
+    // Check if next media is preloaded and ready
+    if (preloadedMedia.index === nextIndex && preloadedMedia.ready) {
+      console.log(`[v0] Advancing to preloaded media at index ${nextIndex}`)
+      setCurrentMediaIndex(nextIndex)
+    } else {
+      // If not ready, wait briefly and retry (or skip if still not ready)
+      console.log(`[v0] Next media not ready, checking status...`)
+
+      // If preload failed or timed out, advance anyway (graceful degradation)
+      setTimeout(() => {
+        console.log(`[v0] Advancing to index ${nextIndex} (preload status: ${preloadedMedia.ready})`)
+        setCurrentMediaIndex(nextIndex)
+      }, 500) // Small delay to give preload a chance
+    }
+  }, [currentMediaIndex, shuffledContent, config, preloadedMedia])
+
+  useEffect(() => {
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+
+    if (contentToDisplay.length === 0) return
+
+    const nextIndex = (currentMediaIndex + 1) % contentToDisplay.length
+    const nextMedia = contentToDisplay[nextIndex]
+
+    if (nextMedia) {
+      // Start preloading next item in background
+      preloadMedia(nextMedia, nextIndex)
+    }
+  }, [currentMediaIndex, shuffledContent, config, preloadMedia])
+
+  const fetchScreenData = async () => {
+    try {
+      console.log(`[v0] Fetching screen data for device: ${params.deviceCode}`)
+      const response = await fetch(`/api/devices/config/${params.deviceCode}`)
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch config: ${response.statusText}`)
+      }
+
+      const data: ScreenConfig = await response.json()
+
+      if (data.screen.content && data.screen.content.length > 0) {
+        const firstItem = data.screen.content[0]
+        console.log(`[v0] New content received, preloading first item: ${firstItem.media.name}`)
+
+        // Wait for first item to preload before updating config
+        await new Promise<void>((resolve) => {
+          const checkPreload = () => {
+            if (preloadedMedia.index === 0 && preloadedMedia.ready) {
+              console.log(`[v0] First item preloaded, switching to new content`)
+              resolve()
+            } else {
+              // Retry or timeout after 5 seconds
+              setTimeout(() => {
+                console.log(`[v0] Preload timeout, switching anyway`)
+                resolve()
+              }, 5000)
+            }
+          }
+
+          // Trigger preload
+          preloadMedia(firstItem, 0)
+
+          // Check if already loaded or wait
+          setTimeout(checkPreload, 100)
+        })
+      }
+
+      console.log(`[v0] Screen configuration fetched successfully`)
+      setConfig(data)
+      configRef.current = data
+      lastUpdatedAtRef.current = data.screen.updated_at
+
+      if (data.screen.shuffle_content) {
+        const shuffled = [...data.screen.content].sort(() => Math.random() - 0.5)
+        setShuffledContent(shuffled)
+      } else {
+        setShuffledContent([])
+      }
+
+      // Reset to first item when new content arrives
+      setCurrentMediaIndex(0)
+      setLoading(false)
+      setHasPendingUpdate(false)
+      setPendingUpdate(null)
+    } catch (err) {
+      console.error("[v0] Error fetching screen data:", err)
+      setError(err instanceof Error ? err.message : "Failed to load screen configuration")
+      setLoading(false)
+    }
   }
 
   if (loading) {
