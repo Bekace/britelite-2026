@@ -81,6 +81,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const preloadElementRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
   const [preloadStatus, setPreloadStatus] = useState<string>("")
   const [configHash, setConfigHash] = useState<string>("")
+  const contentHashRef = useRef<string>("")
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -338,21 +339,18 @@ export default function PlayerPage({ params }: PlayerPageProps) {
             })),
           )
 
-          const currentHash = config?.screen?.content
-            ? JSON.stringify(
-                config.screen.content.map((item) => ({
-                  id: item.id,
-                  media_id: item.media_id,
-                })),
-              )
-            : ""
+          const currentHash = contentHashRef.current
 
-          console.log("[v0] Polling: Current hash length:", currentHash.length)
-          console.log("[v0] Polling: New hash length:", newHash.length)
+          console.log("[v0] Polling: Current hash:", currentHash.substring(0, 100) + "...")
+          console.log("[v0] Polling: New hash:", newHash.substring(0, 100) + "...")
 
           if (newHash !== currentHash && currentHash !== "") {
-            console.log("[v0] Polling: Content changed! Triggering update...")
+            console.log("[v0] Polling: Content changed! Old items:", currentHash.length, "New items:", newHash.length)
+            contentHashRef.current = newHash
             setHasPendingUpdate(true)
+          } else if (currentHash === "") {
+            console.log("[v0] Polling: Initializing content hash")
+            contentHashRef.current = newHash
           } else {
             console.log("[v0] Polling: No content changes detected")
           }
@@ -796,6 +794,19 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     setConfigHash(contentHash)
   }, [config, configHash, preloadMedia])
+
+  useEffect(() => {
+    if (config?.screen?.content && contentHashRef.current === "") {
+      const initialHash = JSON.stringify(
+        config.screen.content.map((item) => ({
+          id: item.id,
+          media_id: item.media_id,
+        })),
+      )
+      contentHashRef.current = initialHash
+      console.log("[v0] Content hash initialized on mount:", initialHash.substring(0, 100) + "...")
+    }
+  }, [config])
 
   if (loading) {
     return (
