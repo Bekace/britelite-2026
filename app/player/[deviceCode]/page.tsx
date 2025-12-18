@@ -9,6 +9,7 @@ import Image from "next/image"
 import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
 import { useTVNavigation } from "@/hooks/use-tv-navigation"
+import { createClient } from "@/lib/supabase/client" // Fixed import path to use correct Supabase client location
 
 interface MediaItem {
   id: string
@@ -261,63 +262,48 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   useEffect(() => {
     fetchConfig()
 
-    const checkForUpdates = async () => {
-      if (!configRef.current) {
-        console.log("[v0] Polling: No config yet, skipping check")
-        return
-      }
+    const supabase = createClient()
+    const isScreenCode = params.deviceCode.startsWith("SCR-")
 
-      try {
-        console.log("[v0] Polling: Checking for updates...")
-        console.log("[v0] Polling: Current lastUpdatedAt:", lastUpdatedAtRef.current)
+    console.log("[v0] Setting up WebSocket connection for device:", params.deviceCode)
 
-        const isScreenCode = params.deviceCode.startsWith("SCR-")
-        const apiEndpoint = isScreenCode
-          ? `/api/screens/config/${params.deviceCode}`
-          : `/api/devices/config/${params.deviceCode}`
-
-        const response = await fetch(apiEndpoint, {
-          cache: "no-store",
-        })
-
-        if (response.ok) {
-          const data = await response.json()
-          const newUpdatedAt = data.screen?.updated_at
-
-          console.log("[v0] Polling: New updated_at from API:", newUpdatedAt)
+    // Setup real-time subscription for screen updates
+    const channel = supabase
+      .channel(`player-${params.deviceCode}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: isScreenCode ? "screens" : "devices",
+          filter: isScreenCode ? `code=eq.${params.deviceCode}` : `code=eq.${params.deviceCode}`,
+        },
+        (payload) => {
+          console.log("[v0] WebSocket: Screen update received via realtime:", payload)
+          const newUpdatedAt = payload.new?.updated_at
 
           if (newUpdatedAt && lastUpdatedAtRef.current && newUpdatedAt !== lastUpdatedAtRef.current) {
-            console.log("[v0] Polling: Update detected! Queueing refresh...")
+            console.log("[v0] WebSocket: Update detected! Queueing refresh...")
             setHasPendingUpdate(true)
           }
 
           lastUpdatedAtRef.current = newUpdatedAt
-        }
-      } catch (error) {
-        console.error("[v0] Polling: Error checking for updates:", error)
-      }
-    }
-
-    let heartbeatInterval: NodeJS.Timeout | null = null
-    let pollingInterval: NodeJS.Timeout | null = null
+        },
+      )
+      .subscribe((status) => {
+        console.log("[v0] WebSocket subscription status:", status)
+      })
 
     // Send initial heartbeat immediately
     sendHeartbeat()
 
     // Send heartbeat every 30 seconds for all player instances
-    heartbeatInterval = setInterval(sendHeartbeat, 30000)
-
-    setTimeout(() => {
-      pollingInterval = setInterval(checkForUpdates, 15000)
-    }, 5000)
+    const heartbeatInterval = setInterval(sendHeartbeat, 30000)
 
     return () => {
-      if (heartbeatInterval) {
-        clearInterval(heartbeatInterval)
-      }
-      if (pollingInterval) {
-        clearInterval(pollingInterval)
-      }
+      console.log("[v0] Cleaning up WebSocket subscription and heartbeat")
+      supabase.removeChannel(channel)
+      clearInterval(heartbeatInterval)
     }
   }, [params.deviceCode])
 
