@@ -318,6 +318,50 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         console.log("[v0] WebSocket subscription status:", status)
       })
 
+    console.log("[v0] Starting polling interval for content changes (every 5s)")
+    const pollingInterval = setInterval(async () => {
+      console.log("[v0] Polling: Checking for content changes...")
+
+      try {
+        const endpoint = isScreenCode
+          ? `/api/screens/config/${params.deviceCode}`
+          : `/api/devices/config/${params.deviceCode}`
+
+        const response = await fetch(endpoint, { cache: "no-store" })
+        const data = await response.json()
+
+        if (data.screen?.content) {
+          const newHash = JSON.stringify(
+            data.screen.content.map((item: { id: string; media_id: string }) => ({
+              id: item.id,
+              media_id: item.media_id,
+            })),
+          )
+
+          const currentHash = config?.screen?.content
+            ? JSON.stringify(
+                config.screen.content.map((item) => ({
+                  id: item.id,
+                  media_id: item.media_id,
+                })),
+              )
+            : ""
+
+          console.log("[v0] Polling: Current hash length:", currentHash.length)
+          console.log("[v0] Polling: New hash length:", newHash.length)
+
+          if (newHash !== currentHash && currentHash !== "") {
+            console.log("[v0] Polling: Content changed! Triggering update...")
+            setHasPendingUpdate(true)
+          } else {
+            console.log("[v0] Polling: No content changes detected")
+          }
+        }
+      } catch (error) {
+        console.error("[v0] Polling error:", error)
+      }
+    }, 5000)
+
     // Send initial heartbeat immediately
     sendHeartbeat()
 
@@ -325,11 +369,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     const heartbeatInterval = setInterval(sendHeartbeat, 30000)
 
     return () => {
-      console.log("[v0] Cleaning up WebSocket subscription and heartbeat")
+      console.log("[v0] Cleaning up WebSocket subscription, polling, and heartbeat")
       supabase.removeChannel(channel)
+      clearInterval(pollingInterval)
       clearInterval(heartbeatInterval)
     }
-  }, [params.deviceCode])
+  }, [params.deviceCode, config])
 
   useEffect(() => {
     if (hasPendingUpdate) {
