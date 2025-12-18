@@ -30,7 +30,7 @@ export default async function BillingSettingsPage() {
       subscription_prices (*)
     `)
     .eq("user_id", user.id)
-    .single()
+    .maybeSingle()
 
   if (subError) {
     console.error("[v0] Subscription query error:", subError)
@@ -45,7 +45,7 @@ export default async function BillingSettingsPage() {
       .select("*")
       .eq("name", "Free")
       .eq("is_active", true)
-      .single()
+      .maybeSingle()
 
     if (freePlan) {
       plan = freePlan
@@ -57,7 +57,7 @@ export default async function BillingSettingsPage() {
         .eq("plan_id", freePlan.id)
         .eq("billing_cycle", "monthly")
         .eq("is_active", true)
-        .single()
+        .maybeSingle()
 
       if (freePrice) {
         priceInfo = freePrice
