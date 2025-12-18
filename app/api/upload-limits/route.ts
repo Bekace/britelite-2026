@@ -36,7 +36,7 @@ export async function GET() {
         )
       `)
       .eq("user_id", user.id)
-      .eq("status", "active")
+      .in("status", ["active", "trialing"])
       .not("plan_id", "is", null)
       .maybeSingle()
 
@@ -71,7 +71,8 @@ export async function GET() {
         .select("max_media_storage, storage_unit, name, max_file_size")
         .eq("price", 0)
         .eq("is_active", true)
-        .maybeSingle()
+        .limit(1)
+        .single()
 
       console.log("[v0] Free plan query result:", { freePlan, freePlanError })
 
