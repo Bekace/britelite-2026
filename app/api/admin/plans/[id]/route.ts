@@ -1,10 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { requireSuperAdmin } from "@/lib/admin/auth"
+import { requireSuperAdminAPI } from "@/lib/admin/auth"
 import { logAdminAction } from "@/lib/admin/audit"
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { supabase } = await requireSuperAdmin()
+    const authResult = await requireSuperAdminAPI()
+    if ("error" in authResult && authResult.error !== null) {
+      return authResult
+    }
+    const { supabase } = authResult
+
     const body = await request.json()
     const planId = params.id
 
@@ -86,7 +91,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const { supabase } = await requireSuperAdmin()
+    const authResult = await requireSuperAdminAPI()
+    if ("error" in authResult && authResult.error !== null) {
+      return authResult
+    }
+    const { supabase } = authResult
+
     const planId = params.id
 
     // Check if plan has active subscribers

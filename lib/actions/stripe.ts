@@ -4,7 +4,7 @@ import { stripe } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
-export async function createCheckoutSession(planId: string) {
+export async function createCheckoutSession(planId: string, priceId: string) {
   const supabase = await createClient()
 
   // Get the current user
@@ -28,11 +28,14 @@ export async function createCheckoutSession(planId: string) {
     return { error: "Invalid plan selected" }
   }
 
-  // Determine which Stripe price ID to use
-  const stripePriceId = plan.billing_cycle === "monthly" ? plan.stripe_price_id_monthly : plan.stripe_price_id_yearly
+  const { data: price, error: priceError } = await supabase
+    .from("subscription_prices")
+    .select("*")
+    .eq("id", priceId)
+    .single()
 
-  if (!stripePriceId) {
-    return { error: "Plan does not have a Stripe price configured" }
+  if (priceError || !price || !price.stripe_price_id) {
+    return { error: "Invalid price selected" }
   }
 
   // Get or create Stripe customer
@@ -72,7 +75,7 @@ export async function createCheckoutSession(planId: string) {
     customer: customerId,
     line_items: [
       {
-        price: stripePriceId,
+        price: price.stripe_price_id,
         quantity: 1,
       },
     ],
@@ -82,6 +85,7 @@ export async function createCheckoutSession(planId: string) {
       metadata: {
         user_id: user.id,
         plan_id: planId,
+        price_id: priceId,
       },
     },
     success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-pointer-ai-landing-page-psi-six-73.vercel.app"}/auth/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -89,6 +93,7 @@ export async function createCheckoutSession(planId: string) {
     metadata: {
       user_id: user.id,
       plan_id: planId,
+      price_id: priceId,
     },
   })
 

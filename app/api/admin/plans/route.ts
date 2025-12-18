@@ -1,10 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { requireSuperAdmin } from "@/lib/admin/auth"
+import { requireSuperAdminAPI } from "@/lib/admin/auth"
 import { logAdminAction } from "@/lib/admin/audit"
 
 export async function GET(request: NextRequest) {
   try {
-    const { supabase } = await requireSuperAdmin()
+    const authResult = await requireSuperAdminAPI()
+    if ("error" in authResult && authResult.error !== null) {
+      return authResult
+    }
+    const { supabase } = authResult
 
     const { data: plans, error } = await supabase
       .from("subscription_plans")
@@ -54,7 +58,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { supabase } = await requireSuperAdmin()
+    const authResult = await requireSuperAdminAPI()
+    if ("error" in authResult && authResult.error !== null) {
+      return authResult
+    }
+    const { supabase } = authResult
+
     const body = await request.json()
 
     const { monthly_price, yearly_price, trial_days, ...planData } = body
