@@ -57,7 +57,7 @@ export function UserProvider({ children, initialUser = null, initialProfile = nu
             .from("profiles")
             .select("id, email, role, deleted_at")
             .eq("id", user.id)
-            .single()
+            .maybeSingle()
 
           // If user is soft-deleted, sign them out immediately
           if (profile?.deleted_at) {
@@ -88,7 +88,7 @@ export function UserProvider({ children, initialUser = null, initialProfile = nu
           .from("profiles")
           .select("id, email, role, deleted_at")
           .eq("id", session.user.id)
-          .single()
+          .maybeSingle()
 
         // If user is soft-deleted, sign them out immediately
         if (profile?.deleted_at) {
