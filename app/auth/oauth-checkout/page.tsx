@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { AlertCircle } from "lucide-react"
 import Link from "next/link"
 
+export const dynamic = "force-dynamic"
+
 function ErrorDisplay({ message }: { message: string }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
