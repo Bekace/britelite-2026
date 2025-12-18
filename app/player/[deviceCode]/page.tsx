@@ -372,7 +372,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       clearInterval(pollingInterval)
       clearInterval(heartbeatInterval)
     }
-  }, [params.deviceCode, config])
+  }, [params.deviceCode])
 
   useEffect(() => {
     if (hasPendingUpdate) {
