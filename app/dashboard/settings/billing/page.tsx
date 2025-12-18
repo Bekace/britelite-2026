@@ -77,6 +77,17 @@ export default async function BillingSettingsPage() {
   const displayPrice = priceInfo?.price ? Number(priceInfo.price).toFixed(0) : "0"
   const billingCycle = priceInfo?.billing_cycle === "yearly" ? "year" : "month"
 
+  const formatStorage = (bytes: number, unit: string) => {
+    if (unit === "GB") {
+      const gb = bytes / (1024 * 1024 * 1024)
+      return gb.toFixed(gb < 10 ? 1 : 0) // Show 1 decimal for values < 10GB
+    } else if (unit === "MB") {
+      const mb = bytes / (1024 * 1024)
+      return mb.toFixed(mb < 10 ? 1 : 0)
+    }
+    return bytes.toString()
+  }
+
   return (
     <div className="space-y-6">
       {/* Current Plan */}
@@ -100,7 +111,7 @@ export default async function BillingSettingsPage() {
                   <p>Max Screens: {plan.max_screens === -1 ? "Unlimited" : plan.max_screens}</p>
                   <p>Max Playlists: {plan.max_playlists === -1 ? "Unlimited" : plan.max_playlists}</p>
                   <p>
-                    Storage: {plan.max_media_storage} {plan.storage_unit}
+                    Storage: {formatStorage(plan.max_media_storage, plan.storage_unit)} {plan.storage_unit}
                   </p>
                 </div>
               )}
