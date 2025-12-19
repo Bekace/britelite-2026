@@ -1,8 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Changed theme parent to AppCompat theme to fix crash with AppCompatActivity -->
-    <style name="Theme.XkreenPlayer" parent="Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">@android:color/black</item>
+    <style name="XkreenPlayer" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowFullscreen">true</item>
         <item name="android:windowNoTitle">true</item>
-        <style name="XkreenPlayer" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/black</item>
     </style>
 </resources>
