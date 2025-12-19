@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="60dp"
-    android:background="@android:color/black"
+    android:background="@color/black"
     android:gravity="center">
     
     <TextView
@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:text="Xkreen Player Setup"
         android:textSize="48sp"
-        android:textColor="@android:color/white"
+        android:textColor="@color/white"
         android:textStyle="bold"
         android:gravity="center"
         android:layout_marginBottom="60dp" />
@@ -24,7 +24,7 @@
         android:layout_height="wrap_content"
         android:text="Enter your server URL and device code to connect"
         android:textSize="24sp"
-        android:textColor="@android:color/lighter_gray"
+        android:textColor="@color/lighter_gray"
         android:gravity="center"
         android:layout_marginBottom="40dp" />
     
@@ -34,8 +34,8 @@
         android:layout_height="80dp"
         android:hint="https://xkreen.vercel.app"
         android:textSize="24sp"
-        android:textColor="@android:color/white"
-        android:textColorHint="@android:color/darker_gray"
+        android:textColor="@color/white"
+        android:textColorHint="@color/darker_gray"
         android:background="@drawable/input_background"
         android:padding="20dp"
         android:layout_marginBottom="30dp"
@@ -47,8 +47,8 @@
         android:layout_height="80dp"
         android:hint="Device Code (optional)"
         android:textSize="24sp"
-        android:textColor="@android:color/white"
-        android:textColorHint="@android:color/darker_gray"
+        android:textColor="@color/white"
+        android:textColorHint="@color/darker_gray"
         android:background="@drawable/input_background"
         android:padding="20dp"
         android:layout_marginBottom="60dp"
@@ -62,7 +62,7 @@
         android:textSize="32sp"
         android:textStyle="bold"
         android:background="@drawable/button_background"
-        android:textColor="@android:color/black" />
+        android:textColor="@color/black" />
     
     <TextView
         android:id="@+id/info_text"
@@ -70,7 +70,7 @@
         android:layout_height="wrap_content"
         android:text="Get your device code from the Player setup screen"
         android:textSize="18sp"
-        android:textColor="@android:color/darker_gray"
+        android:textColor="@color/darker_gray"
         android:gravity="center"
         android:layout_marginTop="40dp" />
     
