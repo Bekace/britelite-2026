@@ -1,8 +1,6 @@
 package com.pointertv.app;
 
 import android.app.Activity;
-import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
@@ -16,25 +14,14 @@ import android.graphics.Color;
 
 public class MainActivity extends Activity {
     private static final String TAG = "XkreenPlayer";
-    private static final String PREFS_NAME = "XkreenPlayerPrefs";
-    private static final String KEY_APP_URL = "app_url";
+    private static final String WEB_PLAYER_URL = "https://v0-xkreen-ai.vercel.app/player";
     
     private WebView webView;
-    private String appUrl;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        appUrl = getAppUrl();
-        
-        if (appUrl == null || appUrl.isEmpty()) {
-            // No URL configured, go to setup
-            Intent intent = new Intent(this, SetupActivity.class);
-            startActivity(intent);
-            finish();
-            return;
-        }
         
         // Enable immersive mode (hide system UI)
         enableImmersiveMode();
@@ -45,22 +32,9 @@ public class MainActivity extends Activity {
         
         configureWebView();
         
-        // Load the app
-        Log.d(TAG, "Loading app from: " + appUrl);
-        webView.loadUrl(appUrl);
-    }
-    
-    private String getAppUrl() {
-        // Check if URL passed via intent (from SetupActivity)
-        Intent intent = getIntent();
-        String urlFromIntent = intent.getStringExtra("app_url");
-        if (urlFromIntent != null && !urlFromIntent.isEmpty()) {
-            return urlFromIntent;
-        }
-        
-        // Check SharedPreferences for saved URL
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        return prefs.getString(KEY_APP_URL, null);
+        // Load the web player
+        Log.d(TAG, "Loading web player from: " + WEB_PLAYER_URL);
+        webView.loadUrl(WEB_PLAYER_URL);
     }
 
     private void configureWebView() {
@@ -77,14 +51,12 @@ public class MainActivity extends Activity {
         
         // Enable caching
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setAppCacheEnabled(true);
         
         // Enable hardware acceleration
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         
-        // Set user agent to identify as Fire TV
         String userAgent = settings.getUserAgentString();
-        settings.setUserAgentString(userAgent + " XkreenPlayer/1.0 FireTV");
+        settings.setUserAgentString(userAgent + " AFTM XkreenPlayer/1.0");
         
         // Allow mixed content (if needed)
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);

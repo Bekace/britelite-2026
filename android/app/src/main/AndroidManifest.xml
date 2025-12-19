@@ -46,13 +46,7 @@
             </intent-filter>
         </activity>
         
-        <!-- SetupActivity moved below SplashActivity -->
-        <activity
-            android:name=".SetupActivity"
-            android:configChanges="orientation|keyboardHidden|screenSize"
-            android:exported="true"
-            android:launchMode="singleTask"
-            android:screenOrientation="landscape" />
+        <!-- Removed SetupActivity - no longer needed -->
         
         <activity
             android:name=".MainActivity"
