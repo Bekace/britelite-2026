@@ -22,6 +22,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
+        WebView.setWebContentsDebuggingEnabled(true);
         
         // Enable immersive mode (hide system UI)
         enableImmersiveMode();
@@ -68,11 +69,18 @@ public class MainActivity extends Activity {
         // Set background color to black
         webView.setBackgroundColor(Color.BLACK);
         
+        settings.setLoadWithOverviewMode(true);
+        settings.setUseWideViewPort(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        
         // Set WebViewClient to handle page navigation
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 Log.d(TAG, "Page loaded: " + url);
+                Log.d(TAG, "Page title: " + view.getTitle());
             }
             
             @Override
