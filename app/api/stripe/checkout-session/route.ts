@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getStripe } from "@/lib/stripe"
+import { stripe } from "@/lib/stripe"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -10,7 +10,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const stripe = getStripe()
     const session = await stripe.checkout.sessions.retrieve(sessionId)
     return NextResponse.json({ client_secret: session.client_secret })
   } catch (error) {

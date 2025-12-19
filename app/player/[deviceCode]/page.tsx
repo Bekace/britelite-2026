@@ -79,9 +79,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const youtubePlayerRef = useRef<any>(null)
   const [preloadedMedia, setPreloadedMedia] = useState<{ index: number; ready: boolean }>({ index: -1, ready: false })
   const preloadElementRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
-  const [preloadStatus, setPreloadStatus] = useState<string>("")
-  const [configHash, setConfigHash] = useState<string>("")
-  const contentHashRef = useRef<string>("")
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -273,6 +270,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     console.log("[v0] Setting up WebSocket connection for device:", params.deviceCode)
 
+    // Setup real-time subscription for screen updates
     const channel = supabase
       .channel(`player-${params.deviceCode}`)
       .on(
@@ -284,81 +282,20 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           filter: isScreenCode ? `code=eq.${params.deviceCode}` : `code=eq.${params.deviceCode}`,
         },
         (payload) => {
-          console.log("[v0] WebSocket: Screen/Device update received:", payload)
-          console.log("[v0] WebSocket: Triggering config refresh...")
-          setHasPendingUpdate(true)
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "playlist_items",
-        },
-        (payload) => {
-          console.log("[v0] WebSocket: Playlist items changed:", payload)
-          console.log("[v0] WebSocket: Triggering config refresh...")
-          setHasPendingUpdate(true)
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "playlists",
-        },
-        (payload) => {
-          console.log("[v0] WebSocket: Playlist updated:", payload)
-          console.log("[v0] WebSocket: Triggering config refresh...")
-          setHasPendingUpdate(true)
+          console.log("[v0] WebSocket: Screen update received via realtime:", payload)
+          const newUpdatedAt = payload.new?.updated_at
+
+          if (newUpdatedAt && lastUpdatedAtRef.current && newUpdatedAt !== lastUpdatedAtRef.current) {
+            console.log("[v0] WebSocket: Update detected! Queueing refresh...")
+            setHasPendingUpdate(true)
+          }
+
+          lastUpdatedAtRef.current = newUpdatedAt
         },
       )
       .subscribe((status) => {
         console.log("[v0] WebSocket subscription status:", status)
       })
-
-    console.log("[v0] Starting polling interval for content changes (every 5s)")
-    const pollingInterval = setInterval(async () => {
-      console.log("[v0] Polling: Checking for content changes...")
-
-      try {
-        const endpoint = isScreenCode
-          ? `/api/screens/config/${params.deviceCode}`
-          : `/api/devices/config/${params.deviceCode}`
-
-        const response = await fetch(endpoint, { cache: "no-store" })
-        const data = await response.json()
-
-        if (data.screen?.content) {
-          const newHash = JSON.stringify(
-            data.screen.content.map((item: { id: string; media_id: string }) => ({
-              id: item.id,
-              media_id: item.media_id,
-            })),
-          )
-
-          const currentHash = contentHashRef.current
-
-          console.log("[v0] Polling: Current hash:", currentHash.substring(0, 100) + "...")
-          console.log("[v0] Polling: New hash:", newHash.substring(0, 100) + "...")
-
-          if (newHash !== currentHash && currentHash !== "") {
-            console.log("[v0] Polling: Content changed! Old items:", currentHash.length, "New items:", newHash.length)
-            contentHashRef.current = newHash
-            setHasPendingUpdate(true)
-          } else if (currentHash === "") {
-            console.log("[v0] Polling: Initializing content hash")
-            contentHashRef.current = newHash
-          } else {
-            console.log("[v0] Polling: No content changes detected")
-          }
-        }
-      } catch (error) {
-        console.error("[v0] Polling error:", error)
-      }
-    }, 5000)
 
     // Send initial heartbeat immediately
     sendHeartbeat()
@@ -367,21 +304,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     const heartbeatInterval = setInterval(sendHeartbeat, 30000)
 
     return () => {
-      console.log("[v0] Cleaning up WebSocket subscription, polling, and heartbeat")
+      console.log("[v0] Cleaning up WebSocket subscription and heartbeat")
       supabase.removeChannel(channel)
-      clearInterval(pollingInterval)
       clearInterval(heartbeatInterval)
     }
   }, [params.deviceCode])
-
-  useEffect(() => {
-    if (hasPendingUpdate) {
-      console.log("[v0] Pending update detected, fetching new config...")
-      setPreloadStatus(`Checking for updates...`)
-
-      fetchConfig()
-    }
-  }, [hasPendingUpdate])
 
   useEffect(() => {
     if (!config) return
@@ -401,6 +328,26 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       // fetchAnalyticsSettings(config.screen.id)
     }
   }, [config])
+
+  useEffect(() => {
+    if (hasPendingUpdate) {
+      console.log("[v0] Pending update detected, will refresh when media finishes")
+      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
+
+      // Check if we're at the end of a media cycle to apply the update
+      const handleMediaEnd = () => {
+        console.log("[v0] Applying pending update now...")
+        fetchConfig()
+      }
+
+      // Queue the update to happen when current media index changes
+      const timer = setTimeout(() => {
+        handleMediaEnd()
+      }, 1000) // Small delay to allow current media transition
+
+      return () => clearTimeout(timer)
+    }
+  }, [hasPendingUpdate, currentMediaIndex])
 
   useEffect(() => {
     // Clear any existing timer
@@ -643,81 +590,74 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     return 10000
   }
 
-  const preloadMedia = useCallback((item: any, index: number) => {
-    console.log(`[v0] Starting preload for: ${item.media.name} (index: ${index})`)
-    setPreloadStatus(`Preloading: ${item.media.name}`)
+  const preloadMedia = useCallback((mediaItem: MediaItem, targetIndex: number) => {
+    console.log(`[v0] Preloading media: ${mediaItem.media.name} (index: ${targetIndex})`)
 
-    return new Promise<void>((resolve) => {
-      if (item.media.mime_type.startsWith("image/")) {
-        const img = new window.Image()
-        img.crossOrigin = "anonymous"
+    // Clean up previous preload element
+    if (preloadElementRef.current) {
+      if (preloadElementRef.current instanceof HTMLVideoElement) {
+        preloadElementRef.current.pause()
+        preloadElementRef.current.src = ""
+      }
+      preloadElementRef.current = null
+    }
 
-        img.onload = () => {
-          console.log(`[v0] Successfully preloaded image: ${item.media.name}`)
-          setPreloadStatus(`Ready: ${item.media.name}`)
-          setPreloadedMedia({ index, ready: true })
-          resolve()
-        }
+    const mimeType = mediaItem.media.mime_type
 
-        img.onerror = (error) => {
-          console.error(`[v0] Failed to preload image: ${item.media.name}`, {
-            url: item.media.file_path,
-            error: error,
-            errorType: error instanceof ErrorEvent ? error.message : "Unknown error",
-          })
-          setPreloadStatus(`Preload failed: ${item.media.name} (will show anyway)`)
-          setPreloadedMedia({ index, ready: true })
-          resolve()
-        }
+    // Only preload images and videos, skip YouTube/embeds
+    if (mimeType.startsWith("image/")) {
+      const img = new window.Image() // Use window.Image instead of Image to avoid Next.js import conflict
+      preloadElementRef.current = img
 
-        img.src = item.media.file_path
-      } else if (item.media.mime_type.startsWith("video/") && !isYouTubeVideo(item.media)) {
-        const video = document.createElement("video")
-        video.crossOrigin = "anonymous"
-        video.preload = "auto"
-
-        video.onloadeddata = () => {
-          console.log(`[v0] Successfully preloaded video: ${item.media.name}`)
-          setPreloadStatus(`Ready: ${item.media.name}`)
-          setPreloadedMedia({ index, ready: true })
-          resolve()
-        }
-
-        video.onerror = (error) => {
-          console.error(`[v0] Failed to preload video: ${item.media.name}`, {
-            url: item.media.file_path,
-            error: video.error,
-            errorCode: video.error?.code,
-            errorMessage: video.error?.message,
-          })
-          setPreloadStatus(`Preload failed: ${item.media.name} (will show anyway)`)
-          setPreloadedMedia({ index, ready: true })
-          resolve()
-        }
-
-        video.src = item.media.file_path
-      } else {
-        console.log(`[v0] Non-preloadable media type: ${item.media.mime_type}`)
-        setPreloadStatus(`Ready: ${item.media.name}`)
-        setPreloadedMedia({ index, ready: true })
-        resolve()
+      img.onload = () => {
+        console.log(`[v0] Image preloaded successfully: ${mediaItem.media.name}`)
+        setPreloadedMedia({ index: targetIndex, ready: true })
       }
 
-      setTimeout(() => {
-        console.log(`[v0] Preload timeout for: ${item.media.name}`)
-        setPreloadStatus(`Timeout: ${item.media.name} (will show anyway)`)
-        setPreloadedMedia({ index, ready: true })
-        resolve()
-      }, 5000)
-    })
+      img.onerror = () => {
+        console.error(`[v0] Failed to preload image: ${mediaItem.media.name}`)
+        setPreloadedMedia({ index: targetIndex, ready: false })
+      }
+
+      img.src = mediaItem.media.url
+    } else if (mimeType.startsWith("video/")) {
+      const video = document.createElement("video")
+      preloadElementRef.current = video
+      video.preload = "auto"
+      video.muted = true
+
+      const onCanPlayThrough = () => {
+        console.log(`[v0] Video preloaded successfully: ${mediaItem.media.name}`)
+        setPreloadedMedia({ index: targetIndex, ready: true })
+        video.removeEventListener("canplaythrough", onCanPlayThrough)
+        video.removeEventListener("error", onError)
+      }
+
+      const onError = () => {
+        console.error(`[v0] Failed to preload video: ${mediaItem.media.name}`)
+        setPreloadedMedia({ index: targetIndex, ready: false })
+        video.removeEventListener("canplaythrough", onCanPlayThrough)
+        video.removeEventListener("error", onError)
+      }
+
+      video.addEventListener("canplaythrough", onCanPlayThrough)
+      video.addEventListener("error", onError)
+      video.src = mediaItem.media.url
+      video.load()
+    } else {
+      // For YouTube/embeds, mark as ready immediately (no preload needed)
+      console.log(`[v0] Non-preloadable media type: ${mimeType}`)
+      setPreloadedMedia({ index: targetIndex, ready: true })
+    }
   }, [])
 
   const advanceToNextMedia = useCallback(() => {
     const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+    const contentLength = contentToDisplay.length
 
-    if (contentToDisplay.length === 0) return
+    if (contentLength === 0) return
 
-    const nextIndex = (currentMediaIndex + 1) % contentToDisplay.length
+    const nextIndex = (currentMediaIndex + 1) % contentLength
 
     // Check if next media is preloaded and ready
     if (preloadedMedia.index === nextIndex && preloadedMedia.ready) {
@@ -749,64 +689,67 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }, [currentMediaIndex, shuffledContent, config, preloadMedia])
 
-  useEffect(() => {
-    if (!config) return
+  const fetchScreenData = async () => {
+    try {
+      console.log(`[v0] Fetching screen data for device: ${params.deviceCode}`)
+      const response = await fetch(`/api/devices/config/${params.deviceCode}`)
 
-    const contentHash = JSON.stringify(
-      config.screen.content?.map((item) => ({
-        id: item.id,
-        media_id: item.media?.id,
-        position: item.position,
-      })),
-    )
+      if (!response.ok) {
+        throw new Error(`Failed to fetch config: ${response.statusText}`)
+      }
 
-    console.log("[v0] Content hash:", contentHash)
+      const data: ScreenConfig = await response.json()
 
-    if (configHash && configHash !== contentHash) {
-      console.log("[v0] Content has changed! Old hash:", configHash, "New hash:", contentHash)
-      setPreloadStatus(`New content detected!`)
+      if (data.screen.content && data.screen.content.length > 0) {
+        const firstItem = data.screen.content[0]
+        console.log(`[v0] New content received, preloading first item: ${firstItem.media.name}`)
 
-      const timer = setTimeout(() => {
-        console.log("[v0] Applying new content...")
+        // Wait for first item to preload before updating config
+        await new Promise<void>((resolve) => {
+          const checkPreload = () => {
+            if (preloadedMedia.index === 0 && preloadedMedia.ready) {
+              console.log(`[v0] First item preloaded, switching to new content`)
+              resolve()
+            } else {
+              // Retry or timeout after 5 seconds
+              setTimeout(() => {
+                console.log(`[v0] Preload timeout, switching anyway`)
+                resolve()
+              }, 5000)
+            }
+          }
 
-        if (config.screen.playlist?.shuffle) {
-          const shuffled = shuffleArray(config.screen.content)
-          setShuffledContent(shuffled)
-        } else {
-          setShuffledContent(config.screen.content)
-        }
+          // Trigger preload
+          preloadMedia(firstItem, 0)
 
-        setCurrentMediaIndex(0)
-        setPreloadedMedia({ index: -1, ready: false })
+          // Check if already loaded or wait
+          setTimeout(checkPreload, 100)
+        })
+      }
 
-        if (config.screen.content && config.screen.content.length > 0) {
-          preloadMedia(config.screen.content[0], 0)
-        }
+      console.log(`[v0] Screen configuration fetched successfully`)
+      setConfig(data)
+      configRef.current = data
+      lastUpdatedAtRef.current = data.screen.updated_at
 
-        setHasPendingUpdate(false)
-        setPreloadStatus(`Content updated successfully`)
+      if (data.screen.shuffle_content) {
+        const shuffled = [...data.screen.content].sort(() => Math.random() - 0.5)
+        setShuffledContent(shuffled)
+      } else {
+        setShuffledContent([])
+      }
 
-        setTimeout(() => setPreloadStatus(""), 3000)
-      }, 2000) // Wait 2 seconds before applying
-
-      return () => clearTimeout(timer)
+      // Reset to first item when new content arrives
+      setCurrentMediaIndex(0)
+      setLoading(false)
+      setHasPendingUpdate(false)
+      setPendingUpdate(null)
+    } catch (err) {
+      console.error("[v0] Error fetching screen data:", err)
+      setError(err instanceof Error ? err.message : "Failed to load screen configuration")
+      setLoading(false)
     }
-
-    setConfigHash(contentHash)
-  }, [config, configHash, preloadMedia])
-
-  useEffect(() => {
-    if (config?.screen?.content && contentHashRef.current === "") {
-      const initialHash = JSON.stringify(
-        config.screen.content.map((item) => ({
-          id: item.id,
-          media_id: item.media_id,
-        })),
-      )
-      contentHashRef.current = initialHash
-      console.log("[v0] Content hash initialized on mount:", initialHash.substring(0, 100) + "...")
-    }
-  }, [config])
+  }
 
   if (loading) {
     return (
@@ -913,12 +856,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }}
       onMouseMove={handleMouseMove}
     >
-      {preloadStatus && (
-        <div className="fixed bottom-4 left-4 bg-black/60 backdrop-blur-sm text-white/70 px-3 py-1.5 rounded text-xs font-mono z-50 max-w-xs truncate">
-          {preloadStatus}
-        </div>
-      )}
-
       {pendingUpdate && updateProgress > 0 && (
         <div className="fixed top-2 right-2 text-[10px] text-white/40 font-mono z-50">
           {Math.round(updateProgress)}%

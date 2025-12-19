@@ -84,7 +84,7 @@ public class MainActivity extends Activity {
         
         // Set user agent to identify as Fire TV
         String userAgent = settings.getUserAgentString();
-        settings.setUserAgentString(userAgent + " PointerTV/1.0 FireTV");
+        settings.setUserAgentString(userAgent + " XkreenPlayer/1.0 FireTV");
         
         // Allow mixed content (if needed)
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);

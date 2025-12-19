@@ -1,12 +1,15 @@
+import { Button } from "@/components/ui/button"
 export const dynamic = "force-dynamic"
 
-import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { CreditCard, Package, Receipt } from "lucide-react"
 import BillingClient from "./billing-client"
+import { revalidatePath } from "next/cache"
 
 export default async function BillingSettingsPage() {
+  revalidatePath("/dashboard/settings/billing")
+
   const supabase = await createClient()
 
   if (!supabase) {
@@ -22,7 +25,7 @@ export default async function BillingSettingsPage() {
     redirect("/auth/login")
   }
 
-  const { data: subscription, error: subError } = await supabase
+  const { data: subscription } = await supabase
     .from("user_subscriptions")
     .select(`
       *,
@@ -30,11 +33,7 @@ export default async function BillingSettingsPage() {
       subscription_prices (*)
     `)
     .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (subError) {
-    console.error("[v0] Subscription query error:", subError)
-  }
+    .single()
 
   let plan = subscription?.subscription_plans
   let priceInfo = subscription?.subscription_prices
@@ -45,7 +44,7 @@ export default async function BillingSettingsPage() {
       .select("*")
       .eq("name", "Free")
       .eq("is_active", true)
-      .maybeSingle()
+      .single()
 
     if (freePlan) {
       plan = freePlan
@@ -57,7 +56,7 @@ export default async function BillingSettingsPage() {
         .eq("plan_id", freePlan.id)
         .eq("billing_cycle", "monthly")
         .eq("is_active", true)
-        .maybeSingle()
+        .single()
 
       if (freePrice) {
         priceInfo = freePrice
@@ -76,17 +75,6 @@ export default async function BillingSettingsPage() {
 
   const displayPrice = priceInfo?.price ? Number(priceInfo.price).toFixed(0) : "0"
   const billingCycle = priceInfo?.billing_cycle === "yearly" ? "year" : "month"
-
-  const formatStorage = (bytes: number, unit: string) => {
-    if (unit === "GB") {
-      const gb = bytes / (1024 * 1024 * 1024)
-      return gb.toFixed(gb < 10 ? 1 : 0) // Show 1 decimal for values < 10GB
-    } else if (unit === "MB") {
-      const mb = bytes / (1024 * 1024)
-      return mb.toFixed(mb < 10 ? 1 : 0)
-    }
-    return bytes.toString()
-  }
 
   return (
     <div className="space-y-6">
@@ -111,7 +99,7 @@ export default async function BillingSettingsPage() {
                   <p>Max Screens: {plan.max_screens === -1 ? "Unlimited" : plan.max_screens}</p>
                   <p>Max Playlists: {plan.max_playlists === -1 ? "Unlimited" : plan.max_playlists}</p>
                   <p>
-                    Storage: {formatStorage(plan.max_media_storage, plan.storage_unit)} {plan.storage_unit}
+                    Storage: {plan.max_media_storage} {plan.storage_unit}
                   </p>
                 </div>
               )}
