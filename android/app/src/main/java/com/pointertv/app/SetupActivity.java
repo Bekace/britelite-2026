@@ -11,8 +11,8 @@ import android.widget.TextView;
 import android.util.Log;
 
 public class SetupActivity extends Activity {
-    private static final String TAG = "XkreenTV_Setup";
-    private static final String PREFS_NAME = "PointerTVPrefs";
+    private static final String TAG = "XkreenPlayer_Setup";
+    private static final String PREFS_NAME = "XkreenPlayerPrefs";
     private static final String KEY_APP_URL = "app_url";
     private static final String DEFAULT_BASE_URL = "https://v0-xkreen-ai.vercel.app";
     

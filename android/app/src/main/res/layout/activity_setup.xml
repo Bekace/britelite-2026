@@ -11,7 +11,7 @@
         android:id="@+id/title_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Pointer TV Setup"
+        android:text="Xkreen Player Setup"
         android:textSize="48sp"
         android:textColor="@android:color/white"
         android:textStyle="bold"

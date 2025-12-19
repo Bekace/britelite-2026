@@ -15,8 +15,8 @@ import android.util.Log;
 import android.graphics.Color;
 
 public class MainActivity extends Activity {
-    private static final String TAG = "XkreenTV";
-    private static final String PREFS_NAME = "PointerTVPrefs";
+    private static final String TAG = "XkreenPlayer";
+    private static final String PREFS_NAME = "XkreenPlayerPrefs";
     private static final String KEY_APP_URL = "app_url";
     
     private WebView webView;

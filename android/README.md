@@ -1,6 +1,6 @@
-# Pointer TV - Android TV / Fire TV Wrapper
+# Xkreen Player - Android TV / Fire TV Wrapper
 
-This directory contains the native Android application that wraps the Pointer TV web app in a WebView for Fire TV devices.
+This directory contains the native Android application that wraps the Xkreen Player web app in a WebView for Fire TV devices.
 
 ## Prerequisites
 
@@ -121,7 +121,7 @@ adb shell am start -n com.pointertv.app/.MainActivity
 adb connect [FIRE_TV_IP]:5555
 
 # View app logs
-adb logcat -s PointerTV:* chromium:* WebView:*
+adb logcat -s XkreenPlayer:* chromium:* WebView:*
 ```
 
 ### Uninstall App
@@ -156,7 +156,7 @@ For Amazon Appstore submission:
 
 1. Create a keystore:
 ```bash
-keytool -genkey -v -keystore pointer-tv.keystore -alias pointer-tv -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkey -v -keystore xkreen-player.keystore -alias xkreen-player -keyalg RSA -keysize 2048 -validity 10000
 ```
 
 2. Update `android/app/build.gradle` with signing config
