@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, Monitor, Wifi, Copy, CheckCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { PlayerSplash } from "@/components/player-splash"
 
 export default function PlayerSetupPage() {
+  const [showSplash, setShowSplash] = useState(true)
   const [deviceCode, setDeviceCode] = useState("")
   const [isRegistering, setIsRegistering] = useState(true)
   const [isPaired, setIsPaired] = useState(false)
@@ -14,6 +16,16 @@ export default function PlayerSetupPage() {
   const router = useRouter()
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false)
+    }, 3000) // 3 seconds
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    if (showSplash) return
+
     const generateAndRegisterDevice = async () => {
       console.log("[v0] Generating device code and registering device")
 
@@ -58,7 +70,7 @@ export default function PlayerSetupPage() {
     }
 
     generateAndRegisterDevice()
-  }, [])
+  }, [showSplash])
 
   const startPairingPoll = (code: string) => {
     let pollCount = 0
@@ -135,6 +147,10 @@ export default function PlayerSetupPage() {
     } catch (err) {
       console.log("[v0] Failed to copy to clipboard:", err)
     }
+  }
+
+  if (showSplash) {
+    return <PlayerSplash />
   }
 
   if (isPaired) {
