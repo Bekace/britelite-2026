@@ -39,6 +39,8 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
     console.log("[v0] Screen lookup result:", { screen, screenError })
 
+    console.log("[v0] Screen details - media_id:", screen?.media_id, "content_type:", screen?.content_type)
+
     if (screenError || !screen) {
       return NextResponse.json({ error: "Screen not found" }, { status: 404 })
     }
@@ -48,11 +50,15 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
     // Check for individual asset first
     if (screen.media_id) {
+      console.log("[v0] Looking up individual asset with media_id:", screen.media_id)
+
       const { data: mediaItem, error: mediaError } = await supabase
         .from("media")
         .select("id, name, file_path, mime_type, file_size, duration")
         .eq("id", screen.media_id)
         .single()
+
+      console.log("[v0] Media item lookup:", { mediaItem, mediaError })
 
       if (!mediaError && mediaItem) {
         playlistContent = [
@@ -82,6 +88,8 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
     }
     // If no asset, check for playlist
     else {
+      console.log("[v0] No media_id, checking for active playlist for screen:", screen.id)
+
       const { data: screenPlaylist, error: playlistError } = await supabase
         .from("screen_playlists")
         .select(`
@@ -102,8 +110,12 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         .eq("is_active", true)
         .maybeSingle()
 
+      console.log("[v0] Screen playlist lookup:", { screenPlaylist, playlistError })
+
       if (screenPlaylist?.playlists) {
         activePlaylist = screenPlaylist.playlists
+
+        console.log("[v0] Found active playlist, fetching items for playlist_id:", activePlaylist.id)
 
         const { data: playlistItems, error: itemsError } = await supabase
           .from("playlist_items")
@@ -125,9 +137,18 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
           .eq("playlist_id", activePlaylist.id)
           .order("position")
 
+        console.log("[v0] Playlist items lookup:", {
+          itemsCount: playlistItems?.length,
+          itemsError,
+          items: playlistItems,
+        })
+
         if (!itemsError && playlistItems) {
           playlistContent = playlistItems.filter((item) => item.media)
+          console.log("[v0] Filtered playlist content count:", playlistContent.length)
         }
+      } else {
+        console.log("[v0] No active playlist found for screen")
       }
     }
 
@@ -143,6 +164,8 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       deviceId: device.id,
       screenId: screen.id,
       contentCount: playlistContent.length,
+      hasPlaylist: !!activePlaylist,
+      playlistId: activePlaylist?.id,
     })
 
     const responseData = {
