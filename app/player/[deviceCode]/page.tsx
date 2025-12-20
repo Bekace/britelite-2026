@@ -170,6 +170,13 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
       const data = await response.json()
       console.log("[v0] API response data:", data)
+      console.log("[v0] === DETAILED API RESPONSE DEBUG ===")
+      console.log("[v0] Response has screen:", !!data.screen)
+      console.log("[v0] Screen object:", JSON.stringify(data.screen, null, 2))
+      console.log("[v0] Screen.content type:", typeof data.screen?.content)
+      console.log("[v0] Screen.content is array:", Array.isArray(data.screen?.content))
+      console.log("[v0] Screen.content length:", data.screen?.content?.length)
+      console.log("[v0] Screen.content value:", data.screen?.content)
 
       if (data.screen?.content) {
         console.log("[v0] Content array length:", data.screen.content.length)
@@ -204,9 +211,16 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }
 
       console.log("[v0] Mapped config data:", mappedConfig)
+      console.log("[v0] === MAPPED CONFIG DEBUG ===")
+      console.log("[v0] Mapped config.screen.content type:", typeof mappedConfig.screen.content)
+      console.log("[v0] Mapped config.screen.content is array:", Array.isArray(mappedConfig.screen.content))
+      console.log("[v0] Mapped config.screen.content length:", mappedConfig.screen.content.length)
+      console.log("[v0] Mapped config.screen.content:", mappedConfig.screen.content)
 
       setConfig(mappedConfig)
       configRef.current = mappedConfig
+
+      console.log("[v0] Config state updated, new config:", mappedConfig)
 
       if (mappedConfig.screen?.updated_at) {
         lastUpdatedAtRef.current = mappedConfig.screen.updated_at
@@ -846,6 +860,21 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     screenId: config?.screen.id,
     willRenderAnalytics: !!(config?.screen.id && analyticsEnabled),
   })
+
+  console.log("[v0] === CONTENT DISPLAY DEBUG ===")
+  console.log("[v0] config object:", config)
+  console.log("[v0] screen object:", screen)
+  console.log("[v0] screen.content:", screen.content)
+  console.log("[v0] screen.content type:", typeof screen.content)
+  console.log("[v0] screen.content is array:", Array.isArray(screen.content))
+  console.log("[v0] screen.content length:", screen.content?.length)
+  console.log("[v0] shuffledContent:", shuffledContent)
+  console.log("[v0] shuffledContent length:", shuffledContent.length)
+  console.log("[v0] contentToDisplay:", contentToDisplay)
+  console.log("[v0] contentToDisplay length:", contentToDisplay.length)
+  console.log("[v0] currentMediaIndex:", currentMediaIndex)
+  console.log("[v0] currentMedia:", currentMedia)
+  console.log("[v0] Will show content:", contentToDisplay && contentToDisplay.length > 0)
 
   return (
     <div
