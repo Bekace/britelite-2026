@@ -3,6 +3,13 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { PlayerSplash } from "@/components/player-splash"
 import Image from "next/image"
+import { Inter } from "next/font/google"
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["200"],
+  variable: "--font-inter",
+})
 
 export default function PlayerSetupPage() {
   const [showSplash, setShowSplash] = useState(true)
@@ -153,10 +160,15 @@ export default function PlayerSetupPage() {
 
   if (isPaired) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0a4d4d] via-[#0d5a5a] to-[#0f6666] flex flex-col items-center justify-center p-8 text-white">
-        {/* Logo */}
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 text-white relative">
+        {/* Background Image */}
+        <div className="absolute inset-0 -z-10">
+          <Image src="/images/desktop-20-204.png" alt="Background" fill className="object-cover" priority />
+        </div>
+
+        {/* Logo - 20% bigger */}
         <div className="mb-12">
-          <Image src="/xkreen-logo.svg" alt="Xkreen" width={400} height={80} className="w-auto h-20" priority />
+          <Image src="/xkreen-logo.svg" alt="Xkreen" width={480} height={96} className="w-auto h-24" priority />
         </div>
 
         {/* Instructional Text */}
@@ -166,7 +178,9 @@ export default function PlayerSetupPage() {
 
         {/* Device Code Display */}
         <div className="text-center mb-16">
-          <div className="text-8xl font-thin tracking-[0.3em] text-white mb-4 font-mono">{deviceCode}</div>
+          <div className={`text-8xl tracking-[0.3em] text-white mb-4 ${inter.className}`} style={{ fontWeight: 200 }}>
+            {deviceCode}
+          </div>
         </div>
 
         {/* Instructions */}
@@ -196,10 +210,15 @@ export default function PlayerSetupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a4d4d] via-[#0d5a5a] to-[#0f6666] flex flex-col items-center justify-center p-8 text-white">
-      {/* Logo */}
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 text-white relative">
+      {/* Background Image */}
+      <div className="absolute inset-0 -z-10">
+        <Image src="/images/desktop-20-204.png" alt="Background" fill className="object-cover" priority />
+      </div>
+
+      {/* Logo - 20% bigger */}
       <div className="mb-12">
-        <Image src="/xkreen-logo.svg" alt="Xkreen" width={400} height={80} className="w-auto h-20" priority />
+        <Image src="/xkreen-logo.svg" alt="Xkreen" width={480} height={96} className="w-auto h-24" priority />
       </div>
 
       {/* Instructional Text */}
@@ -210,7 +229,9 @@ export default function PlayerSetupPage() {
       {/* Device Code Display */}
       {!isRegistering && !error && (
         <div className="text-center mb-16">
-          <div className="text-8xl font-thin tracking-[0.3em] text-white mb-4 font-mono">{deviceCode}</div>
+          <div className={`text-8xl tracking-[0.3em] text-white mb-4 ${inter.className}`} style={{ fontWeight: 200 }}>
+            {deviceCode}
+          </div>
         </div>
       )}
 
