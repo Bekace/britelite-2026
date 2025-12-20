@@ -1,10 +1,8 @@
 "use client"
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Monitor, Wifi, Copy, CheckCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { PlayerSplash } from "@/components/player-splash"
+import Image from "next/image"
 
 export default function PlayerSetupPage() {
   const [showSplash, setShowSplash] = useState(true)
@@ -155,108 +153,106 @@ export default function PlayerSetupPage() {
 
   if (isPaired) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-green-200 bg-green-50">
-          <CardContent className="pt-6 text-center space-y-4">
-            <CheckCircle className="h-16 w-16 text-green-600 mx-auto" />
-            <h2 className="text-2xl font-bold text-green-800">Device Paired!</h2>
-            <p className="text-green-700">Redirecting to content player...</p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-[#0a4d4d] via-[#0d5a5a] to-[#0f6666] flex flex-col items-center justify-center p-8 text-white">
+        {/* Logo */}
+        <div className="mb-12">
+          <Image src="/xkreen-logo.svg" alt="Xkreen" width={400} height={80} className="w-auto h-20" priority />
+        </div>
+
+        {/* Instructional Text */}
+        <p className="text-cyan-400 text-xl mb-12 font-light tracking-wide">
+          Enter this code in your dashboard to pair this device
+        </p>
+
+        {/* Device Code Display */}
+        <div className="text-center mb-16">
+          <div className="text-8xl font-thin tracking-[0.3em] text-white mb-4 font-mono">{deviceCode}</div>
+        </div>
+
+        {/* Instructions */}
+        <div className="text-center space-y-3 max-w-xl">
+          <h3 className="text-white text-lg font-normal mb-4">How to pair:</h3>
+          <ol className="text-white text-base font-light space-y-2 text-left list-none">
+            <li className="flex items-start">
+              <span className="mr-3 text-cyan-400">1.</span>
+              <span>Copy the device code shown above</span>
+            </li>
+            <li className="flex items-start">
+              <span className="mr-3 text-cyan-400">2.</span>
+              <span>Go to your dashboard and create a new screen</span>
+            </li>
+            <li className="flex items-start">
+              <span className="mr-3 text-cyan-400">3.</span>
+              <span>Enter this device code when prompted</span>
+            </li>
+            <li className="flex items-start">
+              <span className="mr-3 text-cyan-400">4.</span>
+              <span>Your content will start displaying automatically</span>
+            </li>
+          </ol>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <div className="flex justify-center">
-            <div className="p-4 bg-primary/10 rounded-full">
-              <Monitor className="h-12 w-12 text-primary" />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-foreground">Device Player</h1>
-            <p className="text-muted-foreground">
-              {isRegistering ? "Setting up device..." : "Waiting for pairing from dashboard"}
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-[#0a4d4d] via-[#0d5a5a] to-[#0f6666] flex flex-col items-center justify-center p-8 text-white">
+      {/* Logo */}
+      <div className="mb-12">
+        <Image src="/xkreen-logo.svg" alt="Xkreen" width={400} height={80} className="w-auto h-20" priority />
+      </div>
+
+      {/* Instructional Text */}
+      <p className="text-cyan-400 text-xl mb-12 font-light tracking-wide">
+        Enter this code in your dashboard to pair this device
+      </p>
+
+      {/* Device Code Display */}
+      {!isRegistering && !error && (
+        <div className="text-center mb-16">
+          <div className="text-8xl font-thin tracking-[0.3em] text-white mb-4 font-mono">{deviceCode}</div>
         </div>
+      )}
 
-        {/* Device Code Display */}
-        {!isRegistering && !error && (
-          <Card className="border-border">
-            <CardHeader className="text-center">
-              <CardTitle className="flex items-center justify-center gap-2">
-                <Wifi className="h-5 w-5" />
-                Device Code
-              </CardTitle>
-              <CardDescription>Enter this code in your dashboard to pair this device</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-center space-y-4">
-                <div className="p-4 bg-muted rounded-lg border-2 border-dashed border-border">
-                  <div className="text-3xl font-mono font-bold text-primary tracking-wider">{deviceCode}</div>
-                </div>
+      {/* Loading State */}
+      {isRegistering && (
+        <div className="text-8xl font-thin tracking-[0.3em] text-white/50 mb-16 animate-pulse">••••••</div>
+      )}
 
-                <Button onClick={copyToClipboard} variant="outline" className="w-full bg-transparent" disabled={copied}>
-                  {copied ? (
-                    <>
-                      <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copy Code
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      {/* Error State */}
+      {error && (
+        <div className="text-center mb-16">
+          <p className="text-red-400 text-xl mb-4">Error: {error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-cyan-400 underline hover:text-cyan-300 transition"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
 
-        {/* Loading State */}
-        {isRegistering && (
-          <Card className="border-border">
-            <CardContent className="pt-6 text-center space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-              <p className="text-muted-foreground">Generating device code...</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <Card className="border-destructive bg-destructive/5">
-            <CardContent className="pt-6 text-center space-y-4">
-              <p className="text-destructive font-medium">Error: {error}</p>
-              <Button onClick={() => window.location.reload()} variant="outline">
-                Try Again
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Instructions */}
-        {!isRegistering && !error && (
-          <Card className="border-border bg-muted/50">
-            <CardContent className="pt-6">
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <h3 className="font-semibold text-foreground">How to pair:</h3>
-                <ol className="space-y-2 list-decimal list-inside">
-                  <li>Copy the device code shown above</li>
-                  <li>Go to your dashboard and create a new screen</li>
-                  <li>Enter this device code when prompted</li>
-                  <li>Your content will start displaying automatically</li>
-                </ol>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+      {/* Instructions */}
+      <div className="text-center space-y-3 max-w-xl">
+        <h3 className="text-white text-lg font-normal mb-4">How to pair:</h3>
+        <ol className="text-white text-base font-light space-y-2 text-left list-none">
+          <li className="flex items-start">
+            <span className="mr-3 text-cyan-400">1.</span>
+            <span>Copy the device code shown above</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-3 text-cyan-400">2.</span>
+            <span>Go to your dashboard and create a new screen</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-3 text-cyan-400">3.</span>
+            <span>Enter this device code when prompted</span>
+          </li>
+          <li className="flex items-start">
+            <span className="mr-3 text-cyan-400">4.</span>
+            <span>Your content will start displaying automatically</span>
+          </li>
+        </ol>
       </div>
     </div>
   )
