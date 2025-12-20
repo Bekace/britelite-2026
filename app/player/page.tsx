@@ -34,8 +34,16 @@ export default function PlayerSetupPage() {
     const generateAndRegisterDevice = async () => {
       console.log("[v0] Generating device code and registering device")
 
-      // Generate unique device code
-      const code = `DEV-${Date.now().toString(36).toUpperCase()}`
+      // Generate unique 5-character alphanumeric code (uppercase letters and numbers)
+      const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+      let code = ""
+      for (let i = 0; i < 5; i++) {
+        code += characters.charAt(Math.floor(Math.random() * characters.length))
+      }
+      // Add timestamp-based suffix to ensure uniqueness
+      const timestamp = Date.now().toString(36).toUpperCase()
+      code = (code + timestamp).substring(0, 5)
+
       setDeviceCode(code)
 
       try {

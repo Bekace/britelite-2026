@@ -97,7 +97,7 @@ interface WizardState {
   name: string
   description: string
   location: string
-  resolution: string
+  resolution: "1920x1080" | "3840x2160" | "1366x768" | "1280x720"
   orientation: "landscape" | "rotate-90" | "rotate-180" | "rotate-270"
   advancedOptions: {
     locationEnabled: boolean
@@ -517,7 +517,7 @@ export default function ScreensPage() {
           <Label htmlFor="pairing-code">Device Pairing Code</Label>
           <Input
             id="pairing-code"
-            placeholder="Enter code from device (e.g., DEV-ABC123)"
+            placeholder="Enter code from device (e.g., APG13)"
             value={wizardState.pairingCode}
             onChange={(e) => setWizardState((prev) => ({ ...prev, pairingCode: e.target.value.toUpperCase() }))}
             className="font-mono"
@@ -709,7 +709,7 @@ export default function ScreensPage() {
           <Label htmlFor="screen-resolution">Resolution</Label>
           <Select
             value={wizardState.resolution}
-            onValueChange={(value) => setWizardState((prev) => ({ ...prev, resolution: value }))}
+            onValueChange={(value) => setWizardState((prev) => ({ ...prev, resolution: value as any }))}
           >
             <SelectTrigger>
               <SelectValue />
@@ -1317,7 +1317,7 @@ export default function ScreensPage() {
                   <Label htmlFor="edit-resolution">Resolution</Label>
                   <Select
                     value={editingScreen.resolution}
-                    onValueChange={(value) => setEditingScreen({ ...editingScreen, resolution: value })}
+                    onValueChange={(value) => setEditingScreen({ ...editingScreen, resolution: value as any })}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -1384,7 +1384,7 @@ export default function ScreensPage() {
                           playlists.map((playlist) => (
                             <div
                               key={playlist.id}
-                              className={`p-3 rounded-lg cursor-pointer transition-all bg-[rgba(142,142,148,1)] ${
+                              className={`p-3 rounded-lg cursor-pointer transition-all ${
                                 editingSelectedContentIds.includes(playlist.id)
                                   ? "bg-cyan-50 ring-2 ring-cyan-500"
                                   : "bg-white hover:bg-gray-50"
