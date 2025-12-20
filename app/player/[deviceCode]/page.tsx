@@ -10,6 +10,8 @@ import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
 import { useTVNavigation } from "@/hooks/use-tv-navigation"
 import { createClient } from "@/lib/supabase/client" // Fixed import path to use correct Supabase client location
+import ReactPlayer from "react-player"
+import "@/components/ui/spinner.css"
 
 interface MediaItem {
   id: string
@@ -80,6 +82,23 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const [preloadedMedia, setPreloadedMedia] = useState<{ index: number; ready: boolean }>({ index: -1, ready: false })
   const preloadElementRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
 
+  const [debugInfo, setDebugInfo] = useState<{
+    apiCalled: boolean
+    apiResponse: any
+    configSet: boolean
+    contentLength: number
+    shuffledLength: number
+    error: string | null
+  }>({
+    apiCalled: false,
+    apiResponse: null,
+    configSet: false,
+    contentLength: 0,
+    shuffledLength: 0,
+    error: null,
+  })
+  const [showDebug, setShowDebug] = useState(true) // Show by default for TV debugging
+
   const { isTVMode } = useTVNavigation({
     onUp: () => {
       if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
@@ -145,53 +164,35 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const fetchConfig = async () => {
     try {
-      console.log("[v0] Fetching config for:", params.deviceCode)
+      setDebugInfo((prev) => ({ ...prev, apiCalled: true, error: null }))
+
       const isScreenCode = params.deviceCode.startsWith("SCR-")
-      console.log("[v0] Is screen code:", isScreenCode)
+      const apiUrl = isScreenCode ? `/api/screen/${params.deviceCode}` : `/api/devices/config/${params.deviceCode}`
 
-      const apiEndpoint = isScreenCode
-        ? `/api/screens/config/${params.deviceCode}`
-        : `/api/devices/config/${params.deviceCode}`
-
-      console.log("[v0] API endpoint:", apiEndpoint)
-
-      const response = await fetch(apiEndpoint, {
-        cache: "no-store",
-      })
-
-      console.log("[v0] Response status:", response.status)
-      console.log("[v0] Response ok:", response.ok)
+      const response = await fetch(apiUrl)
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error("[v0] API error response:", errorText)
-        throw new Error(`Failed to fetch config: ${response.status}`)
+        const errorMsg = `Failed to fetch config: ${response.statusText}`
+        setDebugInfo((prev) => ({ ...prev, error: errorMsg }))
+        throw new Error(errorMsg)
       }
 
       const data = await response.json()
-      console.log("[v0] API response data:", data)
-      console.log("[v0] === DETAILED API RESPONSE DEBUG ===")
-      console.log("[v0] Response has screen:", !!data.screen)
-      console.log("[v0] Screen object:", JSON.stringify(data.screen, null, 2))
-      console.log("[v0] Screen.content type:", typeof data.screen?.content)
-      console.log("[v0] Screen.content is array:", Array.isArray(data.screen?.content))
-      console.log("[v0] Screen.content length:", data.screen?.content?.length)
-      console.log("[v0] Screen.content value:", data.screen?.content)
 
-      if (data.screen?.content) {
-        console.log("[v0] Content array length:", data.screen.content.length)
-        console.log("[v0] Content items:", data.screen.content)
-        data.screen.content.forEach((item: any, index: number) => {
-          console.log(`[v0] Content item ${index}:`, {
-            id: item.id,
-            type: item.media?.type,
-            name: item.media?.name,
-            url: item.media?.url,
-          })
-        })
-      } else {
-        console.log("[v0] No content array in response!")
-      }
+      setDebugInfo((prev) => ({
+        ...prev,
+        apiResponse: {
+          hasScreen: !!data.screen,
+          hasContent: !!data.screen?.content,
+          contentLength: data.screen?.content?.length || 0,
+          contentItems:
+            data.screen?.content?.map((item: any) => ({
+              id: item.id,
+              type: item.media?.type,
+              name: item.media?.name,
+            })) || [],
+        },
+      }))
 
       const mappedConfig: ScreenConfig = {
         device: {
@@ -210,17 +211,14 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         },
       }
 
-      console.log("[v0] Mapped config data:", mappedConfig)
-      console.log("[v0] === MAPPED CONFIG DEBUG ===")
-      console.log("[v0] Mapped config.screen.content type:", typeof mappedConfig.screen.content)
-      console.log("[v0] Mapped config.screen.content is array:", Array.isArray(mappedConfig.screen.content))
-      console.log("[v0] Mapped config.screen.content length:", mappedConfig.screen.content.length)
-      console.log("[v0] Mapped config.screen.content:", mappedConfig.screen.content)
-
       setConfig(mappedConfig)
       configRef.current = mappedConfig
 
-      console.log("[v0] Config state updated, new config:", mappedConfig)
+      setDebugInfo((prev) => ({
+        ...prev,
+        configSet: true,
+        contentLength: mappedConfig.screen.content?.length || 0,
+      }))
 
       if (mappedConfig.screen?.updated_at) {
         lastUpdatedAtRef.current = mappedConfig.screen.updated_at
@@ -229,8 +227,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       setLoading(false)
       setHasPendingUpdate(false)
     } catch (err) {
-      console.error("[v0] Error fetching config:", err)
-      setError(err instanceof Error ? err.message : "Failed to load configuration")
+      const errorMsg = err instanceof Error ? err.message : "Failed to load configuration"
+      setDebugInfo((prev) => ({ ...prev, error: errorMsg }))
+      setError(errorMsg)
       setLoading(false)
     }
   }
@@ -332,9 +331,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
 
     if (config.screen.content && config.screen.playlist?.shuffle) {
-      setShuffledContent(shuffleArray(config.screen.content))
+      const shuffled = shuffleArray(config.screen.content)
+      setShuffledContent(shuffled)
+      setDebugInfo((prev) => ({ ...prev, shuffledLength: shuffled.length }))
     } else {
       setShuffledContent(config.screen.content || [])
+      setDebugInfo((prev) => ({ ...prev, shuffledLength: config.screen.content?.length || 0 }))
     }
 
     if (config.screen.id) {
@@ -342,56 +344,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       // fetchAnalyticsSettings(config.screen.id)
     }
   }, [config])
-
-  useEffect(() => {
-    if (hasPendingUpdate) {
-      console.log("[v0] Pending update detected, will refresh when media finishes")
-      const contentLength = shuffledContent.length || config?.screen.content?.length || 0
-
-      // Check if we're at the end of a media cycle to apply the update
-      const handleMediaEnd = () => {
-        console.log("[v0] Applying pending update now...")
-        fetchConfig()
-      }
-
-      // Queue the update to happen when current media index changes
-      const timer = setTimeout(() => {
-        handleMediaEnd()
-      }, 1000) // Small delay to allow current media transition
-
-      return () => clearTimeout(timer)
-    }
-  }, [hasPendingUpdate, currentMediaIndex])
-
-  useEffect(() => {
-    // Clear any existing timer
-    if (rotationTimerRef.current) {
-      clearTimeout(rotationTimerRef.current)
-    }
-
-    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
-    const currentMedia = contentToDisplay[currentMediaIndex]
-
-    if (!currentMedia) return
-
-    const isRegularVideo = currentMedia.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
-
-    if (!isRegularVideo) {
-      const duration = getEffectiveDuration(currentMedia)
-      console.log(`[v0] Setting rotation timer for ${currentMedia.media.name}: ${duration}ms`)
-
-      rotationTimerRef.current = setTimeout(() => {
-        console.log(`[v0] Auto-advancing from ${currentMedia.media.name}`)
-        advanceToNextMedia()
-      }, duration)
-    }
-
-    return () => {
-      if (rotationTimerRef.current) {
-        clearTimeout(rotationTimerRef.current)
-      }
-    }
-  }, [currentMediaIndex, shuffledContent, config])
 
   useEffect(() => {
     // Load YouTube IFrame API
@@ -703,67 +655,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }, [currentMediaIndex, shuffledContent, config, preloadMedia])
 
-  const fetchScreenData = async () => {
-    try {
-      console.log(`[v0] Fetching screen data for device: ${params.deviceCode}`)
-      const response = await fetch(`/api/devices/config/${params.deviceCode}`)
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch config: ${response.statusText}`)
-      }
-
-      const data: ScreenConfig = await response.json()
-
-      if (data.screen.content && data.screen.content.length > 0) {
-        const firstItem = data.screen.content[0]
-        console.log(`[v0] New content received, preloading first item: ${firstItem.media.name}`)
-
-        // Wait for first item to preload before updating config
-        await new Promise<void>((resolve) => {
-          const checkPreload = () => {
-            if (preloadedMedia.index === 0 && preloadedMedia.ready) {
-              console.log(`[v0] First item preloaded, switching to new content`)
-              resolve()
-            } else {
-              // Retry or timeout after 5 seconds
-              setTimeout(() => {
-                console.log(`[v0] Preload timeout, switching anyway`)
-                resolve()
-              }, 5000)
-            }
-          }
-
-          // Trigger preload
-          preloadMedia(firstItem, 0)
-
-          // Check if already loaded or wait
-          setTimeout(checkPreload, 100)
-        })
-      }
-
-      console.log(`[v0] Screen configuration fetched successfully`)
-      setConfig(data)
-      configRef.current = data
-      lastUpdatedAtRef.current = data.screen.updated_at
-
-      if (data.screen.shuffle_content) {
-        const shuffled = [...data.screen.content].sort(() => Math.random() - 0.5)
-        setShuffledContent(shuffled)
-      } else {
-        setShuffledContent([])
-      }
-
-      // Reset to first item when new content arrives
-      setCurrentMediaIndex(0)
-      setLoading(false)
-      setHasPendingUpdate(false)
-      setPendingUpdate(null)
-    } catch (err) {
-      console.error("[v0] Error fetching screen data:", err)
-      setError(err instanceof Error ? err.message : "Failed to load screen configuration")
-      setLoading(false)
-    }
-  }
+  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+  const currentMedia = contentToDisplay[currentMediaIndex]
 
   if (loading) {
     return (
@@ -839,8 +732,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }
 
   const { screen } = config
-  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : screen.content || []
-  const currentMedia = contentToDisplay[currentMediaIndex]
 
   console.log("[v0] Rendering player with:", {
     totalContent: contentToDisplay.length,
@@ -885,6 +776,63 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       }}
       onMouseMove={handleMouseMove}
     >
+      {showDebug && (
+        <div className="absolute top-4 right-4 z-50 bg-black/90 text-white p-4 rounded-lg text-sm max-w-md border border-cyan-500">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold text-cyan-400">TV Debug Panel</h3>
+            <button onClick={() => setShowDebug(false)} className="text-white hover:text-red-500">
+              ✕
+            </button>
+          </div>
+          <div className="space-y-1">
+            <div>
+              Device Code: <span className="text-cyan-400">{params.deviceCode}</span>
+            </div>
+            <div>
+              API Called:{" "}
+              <span className={debugInfo.apiCalled ? "text-green-400" : "text-red-400"}>
+                {debugInfo.apiCalled ? "✓" : "✗"}
+              </span>
+            </div>
+            <div>
+              Config Set:{" "}
+              <span className={debugInfo.configSet ? "text-green-400" : "text-red-400"}>
+                {debugInfo.configSet ? "✓" : "✗"}
+              </span>
+            </div>
+            <div>
+              Content Items: <span className="text-yellow-400">{debugInfo.contentLength}</span>
+            </div>
+            <div>
+              Shuffled Items: <span className="text-yellow-400">{debugInfo.shuffledLength}</span>
+            </div>
+            <div>
+              Display Array Length: <span className="text-yellow-400">{contentToDisplay.length}</span>
+            </div>
+            {debugInfo.error && <div className="text-red-400 mt-2">Error: {debugInfo.error}</div>}
+            {debugInfo.apiResponse && (
+              <div className="mt-2 border-t border-cyan-700 pt-2">
+                <div className="text-xs">
+                  <div>Has Screen: {debugInfo.apiResponse.hasScreen ? "✓" : "✗"}</div>
+                  <div>Has Content: {debugInfo.apiResponse.hasContent ? "✓" : "✗"}</div>
+                  <div>Content Count: {debugInfo.apiResponse.contentLength}</div>
+                  {debugInfo.apiResponse.contentItems && debugInfo.apiResponse.contentItems.length > 0 && (
+                    <div className="mt-1">
+                      <div className="font-semibold">Items:</div>
+                      {debugInfo.apiResponse.contentItems.map((item: any, idx: number) => (
+                        <div key={idx} className="ml-2 text-gray-300">
+                          {idx + 1}. {item.name} ({item.type})
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {pendingUpdate && updateProgress > 0 && (
         <div className="fixed top-2 right-2 text-[10px] text-white/40 font-mono z-50">
           {Math.round(updateProgress)}%
@@ -963,12 +911,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                   }}
                 />
               ) : currentMedia.media.mime_type.startsWith("video/") ? (
-                <video
-                  src={getMediaUrl(currentMedia.media.file_path)}
+                <ReactPlayer
+                  url={getMediaUrl(currentMedia.media.file_path)}
                   className={`w-full h-full ${getMediaObjectFit("video")}`}
-                  autoPlay
-                  muted
-                  playsInline
+                  playing={isPlaying}
+                  muted={true}
+                  playsinline={true}
                   onEnded={advanceToNextMedia}
                 />
               ) : isGoogleSlides(currentMedia.media) ? (
