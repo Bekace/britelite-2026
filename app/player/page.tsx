@@ -36,12 +36,27 @@ export default function PlayerSetupPage() {
 
       if (storedCode) {
         console.log("[v0] Found existing device code in localStorage:", storedCode)
+
+        // Check if device is already paired by fetching its status
+        try {
+          const statusResponse = await fetch(`/api/devices/status/${storedCode}`)
+          const statusData = await statusResponse.json()
+
+          if (statusResponse.ok && statusData.device?.is_paired && statusData.device?.screen_id) {
+            console.log("[v0] Device already paired, redirecting to player")
+            router.push(`/player/${storedCode}`)
+            return
+          }
+        } catch (err) {
+          console.log("[v0] Error checking device status:", err)
+        }
+
+        // Device exists but not paired yet, show pairing screen
         setDeviceCode(storedCode)
         setIsRegistering(false)
         startPairingPoll(storedCode)
         return
       }
-      // </CHANGE>
 
       console.log("[v0] Generating new device code and registering device")
 
@@ -57,7 +72,6 @@ export default function PlayerSetupPage() {
 
       localStorage.setItem("xkreen_device_code", code)
       console.log("[v0] Stored device code in localStorage:", code)
-      // </CHANGE>
 
       setDeviceCode(code)
 

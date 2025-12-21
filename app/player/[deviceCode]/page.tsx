@@ -655,6 +655,46 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }, [currentMediaIndex, shuffledContent, config, preloadMedia])
 
+  useEffect(() => {
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+
+    if (contentToDisplay.length === 0) return
+    if (!isPlaying) return
+
+    const currentMedia = contentToDisplay[currentMediaIndex]
+
+    if (!currentMedia) return
+
+    // Clear any existing timer
+    if (rotationTimerRef.current) {
+      clearTimeout(rotationTimerRef.current)
+      rotationTimerRef.current = null
+    }
+
+    // For videos, rotation is handled by onEnded callback
+    // Only schedule timer for non-video content (images, etc.)
+    const isVideo = currentMedia.media.mime_type.startsWith("video/")
+    const isYouTube = isYouTubeVideo(currentMedia.media)
+
+    if (!isVideo && !isYouTube) {
+      const duration = getEffectiveDuration(currentMedia)
+      console.log(`[v0] Scheduling rotation for ${currentMedia.media.name} in ${duration}ms`)
+
+      rotationTimerRef.current = setTimeout(() => {
+        console.log(`[v0] Timer expired, advancing to next media`)
+        advanceToNextMedia()
+      }, duration)
+    }
+
+    // Cleanup timer on unmount or when dependencies change
+    return () => {
+      if (rotationTimerRef.current) {
+        clearTimeout(rotationTimerRef.current)
+        rotationTimerRef.current = null
+      }
+    }
+  }, [currentMediaIndex, shuffledContent, config, isPlaying, advanceToNextMedia])
+
   const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
   const currentMedia = contentToDisplay[currentMediaIndex]
 
