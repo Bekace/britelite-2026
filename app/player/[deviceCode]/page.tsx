@@ -935,114 +935,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           )}
         </div>
       ) : (
-        <div className="fixed inset-0 flex items-center justify-center bg-[#0a2a3a] text-white p-8">
-          <div className="max-w-4xl w-full space-y-6">
-            <h1 className="text-4xl font-bold text-center text-cyan-400 mb-8">TV DEBUGGING MODE</h1>
-
-            <div className="bg-black/50 p-6 rounded-lg space-y-4 text-2xl">
-              <div className="border-b border-cyan-700 pb-4">
-                <div className="text-cyan-400 font-bold mb-2">DEVICE INFO:</div>
-                <div>
-                  Device Code: <span className="text-yellow-300">{params.deviceCode}</span>
-                </div>
-                <div>
-                  Is Screen Code:{" "}
-                  <span className="text-yellow-300">{params.deviceCode.startsWith("SCR-") ? "YES" : "NO"}</span>
-                </div>
-              </div>
-
-              <div className="border-b border-cyan-700 pb-4">
-                <div className="text-cyan-400 font-bold mb-2">API STATUS:</div>
-                <div>
-                  API Called:{" "}
-                  <span className={debugInfo.apiCalled ? "text-green-400" : "text-red-400 font-bold"}>
-                    {debugInfo.apiCalled ? "✓ YES" : "✗ NO"}
-                  </span>
-                </div>
-                <div>
-                  Config Set:{" "}
-                  <span className={debugInfo.configSet ? "text-green-400" : "text-red-400 font-bold"}>
-                    {debugInfo.configSet ? "✓ YES" : "✗ NO"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="border-b border-cyan-700 pb-4">
-                <div className="text-cyan-400 font-bold mb-2">CONTENT STATUS:</div>
-                <div>
-                  Screen Content Length: <span className="text-yellow-300">{debugInfo.contentLength}</span>
-                </div>
-                <div>
-                  Shuffled Content Length: <span className="text-yellow-300">{debugInfo.shuffledLength}</span>
-                </div>
-                <div>
-                  Display Array Length: <span className="text-yellow-300">{contentToDisplay?.length || 0}</span>
-                </div>
-                <div>
-                  Screen Object Exists:{" "}
-                  <span className={screen ? "text-green-400" : "text-red-400"}>{screen ? "✓ YES" : "✗ NO"}</span>
-                </div>
-                {screen && (
-                  <div>
-                    Screen Has Content Array:{" "}
-                    <span className={screen.content ? "text-green-400" : "text-red-400"}>
-                      {screen.content ? "✓ YES" : "✗ NO"}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {debugInfo.error && (
-                <div className="border-b border-red-700 pb-4">
-                  <div className="text-red-400 font-bold mb-2">ERROR:</div>
-                  <div className="text-red-300">{debugInfo.error}</div>
-                </div>
-              )}
-
-              {debugInfo.apiResponse && (
-                <div className="border-b border-cyan-700 pb-4">
-                  <div className="text-cyan-400 font-bold mb-2">API RESPONSE:</div>
-                  <div>
-                    Has Screen:{" "}
-                    <span className={debugInfo.apiResponse.hasScreen ? "text-green-400" : "text-red-400"}>
-                      {debugInfo.apiResponse.hasScreen ? "✓ YES" : "✗ NO"}
-                    </span>
-                  </div>
-                  <div>
-                    Has Content:{" "}
-                    <span className={debugInfo.apiResponse.hasContent ? "text-green-400" : "text-red-400"}>
-                      {debugInfo.apiResponse.hasContent ? "✓ YES" : "✗ NO"}
-                    </span>
-                  </div>
-                  <div>
-                    Content Count in Response:{" "}
-                    <span className="text-yellow-300">{debugInfo.apiResponse.contentLength || 0}</span>
-                  </div>
-
-                  {debugInfo.apiResponse.contentItems && debugInfo.apiResponse.contentItems.length > 0 && (
-                    <div className="mt-4">
-                      <div className="text-cyan-300 font-semibold mb-2">CONTENT ITEMS RECEIVED:</div>
-                      {debugInfo.apiResponse.contentItems.slice(0, 5).map((item: any, idx: number) => (
-                        <div key={idx} className="ml-4 text-lg text-gray-200">
-                          {idx + 1}. {item.name || "Unnamed"} - Type: {item.type || "unknown"}
-                        </div>
-                      ))}
-                      {debugInfo.apiResponse.contentItems.length > 5 && (
-                        <div className="ml-4 text-gray-400">
-                          ... and {debugInfo.apiResponse.contentItems.length - 5} more
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="text-center text-gray-400 text-xl pt-4">
-                {!debugInfo.apiCalled && "⏳ Waiting for API call..."}
-                {debugInfo.apiCalled && !debugInfo.configSet && "⏳ Processing response..."}
-                {debugInfo.configSet && contentToDisplay.length === 0 && "❌ NO CONTENT TO DISPLAY"}
-              </div>
-            </div>
+        <div className="fixed inset-0 flex items-center justify-center bg-[#0a2a3a] text-white">
+          <div className="text-center space-y-4">
+            <div className="text-6xl">📺</div>
+            <h2 className="text-3xl font-light">No content assigned</h2>
+            <p className="text-xl text-gray-400">Assign content to this screen in your dashboard</p>
           </div>
         </div>
       )}

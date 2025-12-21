@@ -32,7 +32,18 @@ export default function PlayerSetupPage() {
     if (showSplash) return
 
     const generateAndRegisterDevice = async () => {
-      console.log("[v0] Generating device code and registering device")
+      const storedCode = localStorage.getItem("xkreen_device_code")
+
+      if (storedCode) {
+        console.log("[v0] Found existing device code in localStorage:", storedCode)
+        setDeviceCode(storedCode)
+        setIsRegistering(false)
+        startPairingPoll(storedCode)
+        return
+      }
+      // </CHANGE>
+
+      console.log("[v0] Generating new device code and registering device")
 
       // Generate unique 5-character alphanumeric code (uppercase letters and numbers)
       const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -43,6 +54,10 @@ export default function PlayerSetupPage() {
       // Add timestamp-based suffix to ensure uniqueness
       const timestamp = Date.now().toString(36).toUpperCase()
       code = (code + timestamp).substring(0, 5)
+
+      localStorage.setItem("xkreen_device_code", code)
+      console.log("[v0] Stored device code in localStorage:", code)
+      // </CHANGE>
 
       setDeviceCode(code)
 
