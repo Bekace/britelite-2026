@@ -10,7 +10,6 @@ import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
 import { useTVNavigation } from "@/hooks/use-tv-navigation"
 import { createClient } from "@/lib/supabase/client" // Fixed import path to use correct Supabase client location
-import ReactPlayer from "react-player"
 import "@/components/ui/spinner.css"
 
 interface MediaItem {
@@ -951,13 +950,68 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                   }}
                 />
               ) : currentMedia.media.mime_type.startsWith("video/") ? (
-                <ReactPlayer
-                  url={getMediaUrl(currentMedia.media.file_path)}
+                <video
+                  key={currentMedia.id}
+                  src={getMediaUrl(currentMedia.media.file_path)}
                   className={`w-full h-full ${getMediaObjectFit("video")}`}
-                  playing={isPlaying}
-                  muted={true}
-                  playsinline={true}
+                  autoPlay
+                  muted
+                  playsInline
+                  preload="auto"
+                  controls={false}
+                  webkitPlaysinline="true"
+                  x5Playsinline="true"
                   onEnded={advanceToNextMedia}
+                  onError={(e) => {
+                    const video = e.currentTarget
+                    console.error("[v0] Video playback error:", {
+                      src: video.src,
+                      networkState: video.networkState,
+                      readyState: video.readyState,
+                      error: video.error,
+                    })
+                    // Skip to next media if video fails to play
+                    advanceToNextMedia()
+                  }}
+                  onLoadedMetadata={(e) => {
+                    console.log("[v0] Video metadata loaded:", {
+                      duration: e.currentTarget.duration,
+                      videoWidth: e.currentTarget.videoWidth,
+                      videoHeight: e.currentTarget.videoHeight,
+                    })
+                  }}
+                  onLoadedData={(e) => {
+                    console.log("[v0] Video data loaded and ready to play")
+                    const video = e.currentTarget
+                    // Ensure video plays on TV - use a promise chain
+                    video
+                      .play()
+                      .then(() => {
+                        console.log("[v0] Video playback started successfully")
+                      })
+                      .catch((err) => {
+                        console.error("[v0] Video play() failed:", err.message)
+                        // Try one more time after a short delay
+                        setTimeout(() => {
+                          video.play().catch((retryErr) => {
+                            console.error("[v0] Video play() retry failed:", retryErr.message)
+                            advanceToNextMedia()
+                          })
+                        }, 500)
+                      })
+                  }}
+                  onWaiting={() => {
+                    console.log("[v0] Video is waiting for data (buffering)")
+                  }}
+                  onPlaying={() => {
+                    console.log("[v0] Video is now playing")
+                  }}
+                  onPause={() => {
+                    console.log("[v0] Video paused")
+                  }}
+                  onStalled={() => {
+                    console.error("[v0] Video playback stalled")
+                  }}
                 />
               ) : isGoogleSlides(currentMedia.media) ? (
                 <iframe
