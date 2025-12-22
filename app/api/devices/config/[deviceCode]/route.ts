@@ -94,6 +94,7 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         .from("screen_playlists")
         .select(`
           playlist_id,
+          playlist,
           playlists (
             id,
             name,
@@ -112,8 +113,18 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
       console.log("[v0] Screen playlist lookup:", { screenPlaylist, playlistError })
 
-      if (screenPlaylist?.playlists) {
-        activePlaylist = screenPlaylist.playlists
+      const playlistData = screenPlaylist?.playlist || screenPlaylist?.playlists
+
+      if (playlistData) {
+        activePlaylist = playlistData
+
+        console.log("[v0] Active playlist scale settings:", {
+          playlistId: activePlaylist.id,
+          playlistName: activePlaylist.name,
+          scale_image: activePlaylist.scale_image,
+          scale_video: activePlaylist.scale_video,
+          scale_document: activePlaylist.scale_document,
+        })
 
         console.log("[v0] Found active playlist, fetching items for playlist_id:", activePlaylist.id)
 

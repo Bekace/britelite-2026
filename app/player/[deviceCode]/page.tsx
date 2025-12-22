@@ -178,6 +178,14 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
       const data = await response.json()
 
+      console.log("[v0] Player received config with playlist:", {
+        hasPlaylist: !!data.screen?.playlist,
+        playlistName: data.screen?.playlist?.name,
+        scale_video: data.screen?.playlist?.scale_video,
+        scale_image: data.screen?.playlist?.scale_image,
+        scale_document: data.screen?.playlist?.scale_document,
+      })
+
       setDebugInfo((prev) => ({
         ...prev,
         apiResponse: {
