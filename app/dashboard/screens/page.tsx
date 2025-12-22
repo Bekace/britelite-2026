@@ -354,24 +354,28 @@ export default function ScreensPage() {
       }
 
       if (wizardState.selectedContentIds.length > 0) {
-        // Assign all selected content items
-        for (const contentId of wizardState.selectedContentIds) {
-          // Check if it's a playlist or media item
+        const assignmentPromises = wizardState.selectedContentIds.map(async (contentId) => {
           const isPlaylist = playlists.some((p) => p.id === contentId)
 
           if (isPlaylist) {
-            await fetch(`/api/screens/${screenData.screen.id}/playlists`, {
+            const response = await fetch(`/api/screens/${screenData.screen.id}/playlists`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                playlistId: contentId, // Corrected field name
+                playlist_id: contentId, // Fixed: was "playlistId", should be "playlist_id"
+                is_active: true,
               }),
             })
+
+            if (!response.ok) {
+              const errorData = await response.json()
+              throw new Error(errorData.error || "Failed to assign playlist")
+            }
           } else {
             // It's a media item - update screen's media_id
-            await fetch(`/api/screens/${screenData.screen.id}`, {
+            const response = await fetch(`/api/screens/${screenData.screen.id}`, {
               method: "PUT",
               headers: {
                 "Content-Type": "application/json",
@@ -380,8 +384,15 @@ export default function ScreensPage() {
                 media_id: contentId,
               }),
             })
+
+            if (!response.ok) {
+              const errorData = await response.json()
+              throw new Error(errorData.error || "Failed to assign media")
+            }
           }
-        }
+        })
+
+        await Promise.all(assignmentPromises)
       }
 
       toast({
