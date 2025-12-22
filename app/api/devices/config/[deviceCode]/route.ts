@@ -94,8 +94,7 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         .from("screen_playlists")
         .select(`
           playlist_id,
-          playlist,
-          playlists (
+          playlists!screen_playlists_playlist_id_fkey (
             id,
             name,
             background_color,
@@ -113,7 +112,7 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
       console.log("[v0] Screen playlist lookup:", { screenPlaylist, playlistError })
 
-      const playlistData = screenPlaylist?.playlist || screenPlaylist?.playlists
+      const playlistData = screenPlaylist?.playlists
 
       if (playlistData) {
         activePlaylist = playlistData
