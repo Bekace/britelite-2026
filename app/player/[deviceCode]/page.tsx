@@ -96,7 +96,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     shuffledLength: 0,
     error: null,
   })
-  const [showDebug, setShowDebug] = useState(true) // Show by default for TV debugging
+  const [showDebug, setShowDebug] = useState(false) // Disabled debug panel for production
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
