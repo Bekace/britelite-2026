@@ -962,6 +962,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                   key={currentMedia.id}
                   src={getMediaUrl(currentMedia.media.file_path)}
                   className={`w-full h-full ${getMediaObjectFit("video")}`}
+                  style={{
+                    objectFit: getMediaObjectFit("video") === "object-fill" ? "fill" : undefined,
+                    width: "100%",
+                    height: "100%",
+                  }}
                   autoPlay
                   muted
                   playsInline
