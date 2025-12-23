@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/admin/auth"
 import { logAdminAction } from "@/lib/admin/audit"
 import { createClient } from "@supabase/supabase-js"
-import { del } from "@vercel/blob"
+import { deleteFromGCS } from "@/lib/gcs/rest-client"
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -31,21 +31,33 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "User must be soft-deleted first" }, { status: 400 })
     }
 
-    // 1. Get all media files to delete from blob storage
+    // 1. Get all media files to delete from GCS
     const { data: mediaFiles } = await adminSupabase
       .from("media")
-      .select("id, file_url, thumbnail_url")
+      .select("id, file_path, mime_type")
       .eq("user_id", userId)
 
-    // 2. Delete from blob storage
+    // 2. Delete from GCS storage
     if (mediaFiles && mediaFiles.length > 0) {
-      const blobUrls = mediaFiles.flatMap((m) => [m.file_url, m.thumbnail_url]).filter(Boolean) as string[]
+      const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
 
-      for (const url of blobUrls) {
-        try {
-          await del(url)
-        } catch (e) {
-          console.error("Failed to delete blob:", url, e)
+      for (const media of mediaFiles) {
+        // Skip external media (YouTube, Google Slides)
+        const isExternal =
+          media.mime_type === "video/youtube" ||
+          media.mime_type === "application/vnd.google-apps.presentation" ||
+          media.file_path.includes("youtube.com") ||
+          media.file_path.includes("docs.google.com")
+
+        if (!isExternal && media.file_path) {
+          try {
+            // Extract filename from GCS URL: https://storage.googleapis.com/bucket/filename
+            const url = new URL(media.file_path)
+            const filename = url.pathname.split("/").slice(2).join("/")
+            await deleteFromGCS(bucketName, filename)
+          } catch (e) {
+            console.error("Failed to delete from GCS:", media.file_path, e)
+          }
         }
       }
     }
