@@ -404,9 +404,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const getMediaUrl = (filePath: string) => {
     if (!filePath) return "/placeholder.svg"
-    if (filePath.startsWith("http")) return filePath
-    if (filePath.startsWith("blob/")) return `https://blob.vercel-storage.com/${filePath}`
-    return filePath
+    if (filePath.startsWith("http")) return filePath // GCS URLs are already full: https://storage.googleapis.com/...
+    return filePath // Fallback for relative paths
   }
 
   const isGoogleSlides = (media: MediaItem["media"]) => {
