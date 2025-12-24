@@ -315,6 +315,12 @@ export default function ScreensPage() {
     setCreating(true)
 
     try {
+      console.log("[v0] Creating screen with content:", {
+        name: wizardState.name,
+        selectedContentIds: wizardState.selectedContentIds,
+        contentCount: wizardState.selectedContentIds.length,
+      })
+
       const screenResponse = await fetch("/api/screens", {
         method: "POST",
         headers: {
@@ -325,7 +331,7 @@ export default function ScreensPage() {
           description: wizardState.description,
           location: wizardState.location,
           orientation: wizardState.orientation,
-          content_type: wizardState.selectedContentIds.length > 0 ? "playlist" : "none", // Assuming selectedContentIds are playlists for simplicity here
+          content_type: wizardState.selectedContentIds.length > 0 ? "playlist" : "none",
         }),
       })
 
@@ -334,6 +340,8 @@ export default function ScreensPage() {
       if (!screenResponse.ok) {
         throw new Error(screenData.error || "Failed to create screen")
       }
+
+      console.log("[v0] Screen created successfully:", screenData.screen.id)
 
       // Pair device to screen
       const pairResponse = await fetch("/api/devices/pair", {
@@ -353,9 +361,18 @@ export default function ScreensPage() {
         throw new Error(pairData.error || "Failed to pair device")
       }
 
+      console.log("[v0] Device paired successfully")
+
       if (wizardState.selectedContentIds.length > 0) {
-        const assignmentPromises = wizardState.selectedContentIds.map(async (contentId) => {
+        console.log("[v0] Starting content assignment for", wizardState.selectedContentIds.length, "items")
+
+        const assignmentPromises = wizardState.selectedContentIds.map(async (contentId, index) => {
           const isPlaylist = playlists.some((p) => p.id === contentId)
+
+          console.log(`[v0] Assigning content ${index + 1}/${wizardState.selectedContentIds.length}:`, {
+            contentId,
+            isPlaylist,
+          })
 
           if (isPlaylist) {
             const response = await fetch(`/api/screens/${screenData.screen.id}/playlists`, {
@@ -364,15 +381,18 @@ export default function ScreensPage() {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                playlist_id: contentId, // Fixed: was "playlistId", should be "playlist_id"
+                playlist_id: contentId,
                 is_active: true,
               }),
             })
 
             if (!response.ok) {
               const errorData = await response.json()
+              console.error("[v0] Failed to assign playlist:", errorData)
               throw new Error(errorData.error || "Failed to assign playlist")
             }
+
+            console.log("[v0] Playlist assigned successfully")
           } else {
             // It's a media item - update screen's media_id
             const response = await fetch(`/api/screens/${screenData.screen.id}`, {
@@ -387,12 +407,18 @@ export default function ScreensPage() {
 
             if (!response.ok) {
               const errorData = await response.json()
+              console.error("[v0] Failed to assign media:", errorData)
               throw new Error(errorData.error || "Failed to assign media")
             }
+
+            console.log("[v0] Media assigned successfully")
           }
         })
 
         await Promise.all(assignmentPromises)
+        console.log("[v0] All content assigned successfully")
+      } else {
+        console.log("[v0] No content selected to assign")
       }
 
       toast({
@@ -405,6 +431,7 @@ export default function ScreensPage() {
       setIsCreateDialogOpen(false)
       fetchScreens()
     } catch (error) {
+      console.error("[v0] Screen creation error:", error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to create screen",
