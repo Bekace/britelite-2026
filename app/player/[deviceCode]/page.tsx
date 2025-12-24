@@ -684,8 +684,39 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }, [config, shuffledContent, preloadMedia])
 
+  useEffect(() => {
+    if (rotationTimerRef.current) {
+      clearTimeout(rotationTimerRef.current)
+    }
+
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+    const currentMedia = contentToDisplay[currentMediaIndex]
+
+    if (!currentMedia) return
+
+    const isRegularVideo = currentMedia.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
+
+    if (!isRegularVideo) {
+      const duration = getEffectiveDuration(currentMedia)
+      console.log(`[v0] Setting rotation timer for ${currentMedia.media.name}: ${duration}ms`)
+
+      rotationTimerRef.current = setTimeout(() => {
+        console.log(`[v0] Auto-advancing from ${currentMedia.media.name}`)
+        advanceToNextMedia()
+      }, duration)
+    }
+
+    return () => {
+      if (rotationTimerRef.current) {
+        clearTimeout(rotationTimerRef.current)
+      }
+    }
+  }, [currentMediaIndex, shuffledContent, config, advanceToNextMedia])
+
   const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
   const currentMedia = contentToDisplay[currentMediaIndex]
+
+  const effectiveDuration = currentMedia ? getEffectiveDuration(currentMedia) : 10000
 
   if (loading) {
     return (
