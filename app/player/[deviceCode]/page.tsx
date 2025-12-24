@@ -80,7 +80,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const youtubePlayerRef = useRef<any>(null)
   const [preloadedMedia, setPreloadedMedia] = useState<{ index: number; ready: boolean }>({ index: -1, ready: false })
   const preloadElementRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
-
+  const [currentMediaReady, setCurrentMediaReady] = useState(false)
   const [debugInfo, setDebugInfo] = useState<{
     apiCalled: boolean
     apiResponse: any
@@ -353,6 +353,17 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [config])
 
   useEffect(() => {
+    if (hasPendingUpdate) {
+      console.log("[v0] Pending update detected, refreshing config...")
+      const timer = setTimeout(() => {
+        fetchConfig()
+        setHasPendingUpdate(false)
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [hasPendingUpdate])
+
+  useEffect(() => {
     // Load YouTube IFrame API
     if (!window.YT) {
       const tag = document.createElement("script")
@@ -578,7 +589,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     // Only preload images and videos, skip YouTube/embeds
     if (mimeType.startsWith("image/")) {
-      const img = new window.Image() // Use window.Image instead of Image to avoid Next.js import conflict
+      const img = new window.Image()
       preloadElementRef.current = img
 
       img.onload = () => {
@@ -588,10 +599,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
       img.onerror = () => {
         console.error(`[v0] Failed to preload image: ${mediaItem.media.name}`)
-        setPreloadedMedia({ index: targetIndex, ready: false })
+        setPreloadedMedia({ index: targetIndex, ready: true })
       }
 
-      img.src = mediaItem.media.url
+      img.src = getMediaUrl(mediaItem.media.file_path)
     } else if (mimeType.startsWith("video/")) {
       const video = document.createElement("video")
       preloadElementRef.current = video
@@ -607,14 +618,14 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
       const onError = () => {
         console.error(`[v0] Failed to preload video: ${mediaItem.media.name}`)
-        setPreloadedMedia({ index: targetIndex, ready: false })
+        setPreloadedMedia({ index: targetIndex, ready: true })
         video.removeEventListener("canplaythrough", onCanPlayThrough)
         video.removeEventListener("error", onError)
       }
 
       video.addEventListener("canplaythrough", onCanPlayThrough)
       video.addEventListener("error", onError)
-      video.src = mediaItem.media.url
+      video.src = getMediaUrl(mediaItem.media.file_path)
       video.load()
     } else {
       // For YouTube/embeds, mark as ready immediately (no preload needed)
@@ -631,10 +642,13 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     const nextIndex = (currentMediaIndex + 1) % contentLength
 
+    setCurrentMediaReady(false)
+
     // Check if next media is preloaded and ready
     if (preloadedMedia.index === nextIndex && preloadedMedia.ready) {
       console.log(`[v0] Advancing to preloaded media at index ${nextIndex}`)
       setCurrentMediaIndex(nextIndex)
+      setCurrentMediaReady(true)
     } else {
       // If not ready, wait briefly and retry (or skip if still not ready)
       console.log(`[v0] Next media not ready, checking status...`)
@@ -643,7 +657,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       setTimeout(() => {
         console.log(`[v0] Advancing to index ${nextIndex} (preload status: ${preloadedMedia.ready})`)
         setCurrentMediaIndex(nextIndex)
-      }, 500) // Small delay to give preload a chance
+      }, 500)
     }
   }, [currentMediaIndex, shuffledContent, config, preloadedMedia])
 
@@ -663,43 +677,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   useEffect(() => {
     const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
-
-    if (contentToDisplay.length === 0) return
-    if (!isPlaying) return
-
-    const currentMedia = contentToDisplay[currentMediaIndex]
-
-    if (!currentMedia) return
-
-    // Clear any existing timer
-    if (rotationTimerRef.current) {
-      clearTimeout(rotationTimerRef.current)
-      rotationTimerRef.current = null
+    if (contentToDisplay.length > 0 && currentMediaIndex === 0) {
+      const firstMedia = contentToDisplay[0]
+      console.log("[v0] Preloading first media on mount")
+      preloadMedia(firstMedia, 0)
     }
-
-    // For videos, rotation is handled by onEnded callback
-    // Only schedule timer for non-video content (images, etc.)
-    const isVideo = currentMedia.media.mime_type.startsWith("video/")
-    const isYouTube = isYouTubeVideo(currentMedia.media)
-
-    if (!isVideo && !isYouTube) {
-      const duration = getEffectiveDuration(currentMedia)
-      console.log(`[v0] Scheduling rotation for ${currentMedia.media.name} in ${duration}ms`)
-
-      rotationTimerRef.current = setTimeout(() => {
-        console.log(`[v0] Timer expired, advancing to next media`)
-        advanceToNextMedia()
-      }, duration)
-    }
-
-    // Cleanup timer on unmount or when dependencies change
-    return () => {
-      if (rotationTimerRef.current) {
-        clearTimeout(rotationTimerRef.current)
-        rotationTimerRef.current = null
-      }
-    }
-  }, [currentMediaIndex, shuffledContent, config, isPlaying, advanceToNextMedia])
+  }, [config, shuffledContent, preloadMedia])
 
   const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
   const currentMedia = contentToDisplay[currentMediaIndex]
@@ -931,6 +914,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         <div className="w-full h-full flex items-center justify-center">
           {currentMedia && (
             <div className="w-full h-full relative">
+              {!currentMediaReady && !isYouTubeVideo(currentMedia.media) && !isGoogleSlides(currentMedia.media) && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black z-10">
+                  <div className="spinner" />
+                </div>
+              )}
               {currentMedia.media.mime_type.startsWith("image/") ? (
                 <Image
                   src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}
@@ -939,6 +927,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                   className={getMediaObjectFit("image")}
                   priority
                   unoptimized
+                  onLoad={() => {
+                    console.log("[v0] Image loaded and ready to display")
+                    setCurrentMediaReady(true)
+                  }}
                 />
               ) : isYouTubeVideo(currentMedia.media) ? (
                 <iframe
@@ -965,6 +957,14 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                   muted
                   playsInline
                   onEnded={advanceToNextMedia}
+                  onLoadedData={() => {
+                    console.log("[v0] Video loaded and ready to display")
+                    setCurrentMediaReady(true)
+                  }}
+                  onCanPlay={() => {
+                    console.log("[v0] Video can play")
+                    setCurrentMediaReady(true)
+                  }}
                 />
               ) : isGoogleSlides(currentMedia.media) ? (
                 <iframe
