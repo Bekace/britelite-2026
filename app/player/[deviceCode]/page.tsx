@@ -514,15 +514,48 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }
 
   const advanceToNextMedia = useCallback(() => {
-    if (!config || config.screen.content.length === 0) return
+    if (!config || !config.screen.content || config.screen.content.length === 0) return
 
-    const nextIndex = (currentIndex + 1) % config.screen.content.length
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config.screen.content
+    const nextIndex = (currentIndex + 1) % contentToDisplay.length
+
     setCurrentIndex(nextIndex)
-  }, [currentIndex, config])
+  }, [currentIndex, shuffledContent, config])
 
   const contentToDisplay = config?.screen.content || []
 
   const currentMedia = contentToDisplay[currentIndex]
+
+  useEffect(() => {
+    if (rotationTimerRef.current) {
+      clearTimeout(rotationTimerRef.current)
+    }
+
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+    const currentMedia = contentToDisplay[currentIndex]
+
+    if (!currentMedia) return
+
+    const isRegularVideo = currentMedia.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
+
+    if (!isRegularVideo) {
+      const duration = currentMedia.duration_override
+        ? currentMedia.duration_override * 1000
+        : currentMedia.media.duration
+          ? currentMedia.media.duration * 1000
+          : 10000
+
+      rotationTimerRef.current = setTimeout(() => {
+        advanceToNextMedia()
+      }, duration)
+    }
+
+    return () => {
+      if (rotationTimerRef.current) {
+        clearTimeout(rotationTimerRef.current)
+      }
+    }
+  }, [currentIndex, shuffledContent, config])
 
   if (loading) {
     return (
