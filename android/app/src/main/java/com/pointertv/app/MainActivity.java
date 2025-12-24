@@ -14,7 +14,7 @@ import android.graphics.Color;
 
 public class MainActivity extends Activity {
     private static final String TAG = "XkreenPlayer";
-    private static final String WEB_PLAYER_URL = "https://xkreen.vercel.app/player";
+    private static final String WEB_PLAYER_URL = "https://v0-xkreen-ai.vercel.app/player?tv=true";
     
     private WebView webView;
 
@@ -69,10 +69,12 @@ public class MainActivity extends Activity {
         // Set background color to black
         webView.setBackgroundColor(Color.BLACK);
         
-        // These settings force viewport scaling that constrains high-resolution videos
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
+        
+        // settings.setLoadWithOverviewMode(true);  // REMOVED
+        // settings.setUseWideViewPort(true);       // REMOVED
         
         // Set WebViewClient to handle page navigation
         webView.setWebViewClient(new WebViewClient() {
