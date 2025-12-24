@@ -642,24 +642,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     const nextIndex = (currentMediaIndex + 1) % contentLength
 
-    setCurrentMediaReady(false)
+    console.log(`[v0] Advancing from index ${currentMediaIndex} to ${nextIndex}`)
 
-    // Check if next media is preloaded and ready
-    if (preloadedMedia.index === nextIndex && preloadedMedia.ready) {
-      console.log(`[v0] Advancing to preloaded media at index ${nextIndex}`)
-      setCurrentMediaIndex(nextIndex)
-      setCurrentMediaReady(true)
-    } else {
-      // If not ready, wait briefly and retry (or skip if still not ready)
-      console.log(`[v0] Next media not ready, checking status...`)
-
-      // If preload failed or timed out, advance anyway (graceful degradation)
-      setTimeout(() => {
-        console.log(`[v0] Advancing to index ${nextIndex} (preload status: ${preloadedMedia.ready})`)
-        setCurrentMediaIndex(nextIndex)
-      }, 500)
-    }
-  }, [currentMediaIndex, shuffledContent, config, preloadedMedia])
+    // Advance immediately without waiting for preload
+    setCurrentMediaIndex(nextIndex)
+    setCurrentMediaReady(false) // Will be set to true by onLoadedData/onCanPlay handlers
+  }, [currentMediaIndex, shuffledContent, config])
 
   useEffect(() => {
     const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
