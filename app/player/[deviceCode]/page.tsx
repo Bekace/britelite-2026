@@ -520,7 +520,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     setPreloadStatus(`Preloading: ${item.media.name}`)
 
     return new Promise<void>((resolve) => {
-      // Skip YouTube and Google Slides - can't preload
+      // Skip YouTube and Google Slides - can't preload but mark as ready
       if (isYouTubeVideo(item.media) || isGoogleSlides(item.media)) {
         console.log(`[v0] Preloader: Skipping non-preloadable type: ${item.media.mime_type}`)
         setReadyQueue((prev) => new Set(prev).add(index))
@@ -542,9 +542,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
         img.onerror = (error) => {
           console.error(`[v0] Preloader: ✗ Image failed "${item.media.name}"`, error)
-          setPreloadStatus(`Failed: ${item.media.name} (will show anyway)`)
-          // Still mark as ready - will try to show it anyway
-          setReadyQueue((prev) => new Set(prev).add(index))
+          setPreloadStatus(`Failed: ${item.media.name}`)
+          // Do NOT add to ready queue - it's not ready
           resolve()
         }
 
@@ -563,9 +562,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
         video.onerror = (error) => {
           console.error(`[v0] Preloader: ✗ Video failed "${item.media.name}"`, error)
-          setPreloadStatus(`Failed: ${item.media.name} (will show anyway)`)
-          // Still mark as ready - will try to show it anyway
-          setReadyQueue((prev) => new Set(prev).add(index))
+          setPreloadStatus(`Failed: ${item.media.name}`)
+          // Do NOT add to ready queue - it's not ready
           resolve()
         }
 
@@ -577,11 +575,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         resolve()
       }
 
-      // Timeout after 8 seconds
+      // Timeout after 8 seconds - item not ready
       setTimeout(() => {
-        console.log(`[v0] Preloader: ⏱ Timeout "${item.media.name}" (will show anyway)`)
-        setPreloadStatus(`Timeout: ${item.media.name} (will show anyway)`)
-        setReadyQueue((prev) => new Set(prev).add(index))
+        console.log(`[v0] Preloader: ⏱ Timeout "${item.media.name}" - not adding to ready queue`)
+        setPreloadStatus(`Timeout: ${item.media.name}`)
+        // Do NOT add to ready queue - it timed out
         resolve()
       }, 8000)
     })
@@ -622,8 +620,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     if (readyQueue.has(nextIndex)) {
       console.log(`[v0] Advancement: ✓ Next item ready, advancing to ${nextIndex}`)
       setCurrentIndex(nextIndex)
-      setImageExtensionCount(0) // Reset extension counter
-      setVideoLoopCount(0) // Reset loop counter
+      setImageExtensionCount(0)
+      setVideoLoopCount(0)
       return
     }
 
@@ -633,9 +631,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     // Strategy 1: Extend image duration up to 3 seconds
     if (isImage && imageExtensionCount < 1) {
-      console.log(`[v0] Advancement: ⏱ Extending image duration by 3 seconds (attempt ${imageExtensionCount + 1}/1)`)
+      console.log(`[v0] Advancement: ⏱ Extending image duration by 3 seconds`)
       setImageExtensionCount((prev) => prev + 1)
-      // Set timer to try again in 3 seconds
       setTimeout(() => {
         advanceToNextMedia()
       }, 3000)
@@ -644,7 +641,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     // Strategy 2: Loop video once
     if (isVideo && videoLoopCount < 1) {
-      console.log(`[v0] Advancement: 🔁 Looping video once (attempt ${videoLoopCount + 1}/1)`)
+      console.log(`[v0] Advancement: 🔁 Looping video once`)
       setVideoLoopCount((prev) => prev + 1)
       if (videoRef.current) {
         videoRef.current.currentTime = 0
@@ -653,23 +650,24 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       return
     }
 
-    // Strategy 3: Find any ready item from the queue
-    const readyIndices = Array.from(readyQueue)
+    // Strategy 3: Find any ready item from the queue (ONLY ready items)
+    const readyIndices = Array.from(readyQueue).filter((idx) => idx !== currentIndex)
     if (readyIndices.length > 0) {
-      // Pick the closest ready item after current index
-      const fallbackIndex = readyIndices.find((idx) => idx > currentIndex) || readyIndices[0]
-      console.log(`[v0] Advancement: 📦 Falling back to ready item at index ${fallbackIndex}`)
-      setCurrentIndex(fallbackIndex)
+      // Pick the next ready item in sequence, or wrap to first ready item
+      const nextReadyIndex = readyIndices.find((idx) => idx > currentIndex) || readyIndices[0]
+      console.log(`[v0] Advancement: 📦 Switching to ready item at index ${nextReadyIndex}`)
+      setCurrentIndex(nextReadyIndex)
       setImageExtensionCount(0)
       setVideoLoopCount(0)
       return
     }
 
-    // Strategy 4: Last resort - advance anyway (graceful degradation)
-    console.log(`[v0] Advancement: ⚠ No strategies left, advancing to ${nextIndex} anyway`)
-    setCurrentIndex(nextIndex)
-    setImageExtensionCount(0)
-    setVideoLoopCount(0)
+    // No ready items at all - stay on current item and keep trying
+    console.log(`[v0] Advancement: ⚠ No ready items available, staying on current item`)
+    // Try again in 3 seconds
+    setTimeout(() => {
+      advanceToNextMedia()
+    }, 3000)
   }, [currentIndex, shuffledContent, config, readyQueue, imageExtensionCount, videoLoopCount])
 
   useEffect(() => {
