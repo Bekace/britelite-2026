@@ -541,11 +541,17 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       if (item.media.mime_type.startsWith("image/")) {
         const img = new window.Image()
         img.crossOrigin = "anonymous"
+        // Attach to DOM for Android WebView
+        img.style.position = "absolute"
+        img.style.left = "-9999px"
+        img.style.opacity = "0"
+        document.body.appendChild(img)
 
         img.onload = () => {
           console.log(`[v0] Successfully preloaded image: ${item.media.name}`)
           setPreloadStatus(`Ready: ${item.media.name}`)
           setPreloadedMedia({ index, ready: true })
+          document.body.removeChild(img)
           resolve()
         }
 
@@ -556,6 +562,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           })
           setPreloadStatus(`Preload failed: ${item.media.name}`)
           setPreloadedMedia({ index, ready: true })
+          document.body.removeChild(img)
           resolve()
         }
 
@@ -564,11 +571,19 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         const video = document.createElement("video")
         video.crossOrigin = "anonymous"
         video.preload = "auto"
+        // Attach to DOM for Android WebView
+        video.style.position = "absolute"
+        video.style.left = "-9999px"
+        video.style.opacity = "0"
+        video.style.width = "1px"
+        video.style.height = "1px"
+        document.body.appendChild(video)
 
         video.onloadeddata = () => {
           console.log(`[v0] Successfully preloaded video: ${item.media.name}`)
           setPreloadStatus(`Ready: ${item.media.name}`)
           setPreloadedMedia({ index, ready: true })
+          document.body.removeChild(video)
           resolve()
         }
 
@@ -579,6 +594,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           })
           setPreloadStatus(`Preload failed: ${item.media.name}`)
           setPreloadedMedia({ index, ready: true })
+          document.body.removeChild(video)
           resolve()
         }
 
