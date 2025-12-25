@@ -516,13 +516,13 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const advanceToNextMedia = useCallback(() => {
     if (!config || !config.screen.content || config.screen.content.length === 0) return
 
-    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config.screen.content
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
     const nextIndex = (currentIndex + 1) % contentToDisplay.length
 
     setCurrentIndex(nextIndex)
   }, [currentIndex, shuffledContent, config])
 
-  const contentToDisplay = config?.screen.content || []
+  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
 
   const currentMedia = contentToDisplay[currentIndex]
 
