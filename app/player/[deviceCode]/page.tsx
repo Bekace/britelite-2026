@@ -78,7 +78,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const configRef = useRef<ScreenConfig | null>(null)
   const rotationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const youtubePlayerRef = useRef<any>(null)
+  const [preloadedMedia, setPreloadedMedia] = useState<{ index: number; ready: boolean }>({ index: -1, ready: false })
   const preloadElementRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
+  const [preloadStatus, setPreloadStatus] = useState<string>("")
   const [showDebug, setShowDebug] = useState(false) // Disabled debug panel for production
 
   const { isTVMode } = useTVNavigation({
@@ -519,12 +521,98 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
     const nextIndex = (currentIndex + 1) % contentToDisplay.length
 
-    setCurrentIndex(nextIndex)
-  }, [currentIndex, shuffledContent, config])
+    if (preloadedMedia.index === nextIndex && preloadedMedia.ready) {
+      console.log(`[v0] Advancing to preloaded media at index ${nextIndex}`)
+      setCurrentIndex(nextIndex)
+    } else {
+      console.log(`[v0] Advancing to media at index ${nextIndex} (not preloaded yet, will show anyway)`)
+      setCurrentIndex(nextIndex)
+    }
+  }, [currentIndex, shuffledContent, config, preloadedMedia])
+
+  const preloadMedia = useCallback((item: MediaItem, index: number) => {
+    console.log(`[v0] Starting preload for: ${item.media.name} (index: ${index})`)
+    setPreloadStatus(`Preloading: ${item.media.name}`)
+
+    return new Promise<void>((resolve) => {
+      if (item.media.mime_type.startsWith("image/")) {
+        const img = new window.Image()
+        img.crossOrigin = "anonymous"
+
+        img.onload = () => {
+          console.log(`[v0] Successfully preloaded image: ${item.media.name}`)
+          setPreloadStatus(`Ready: ${item.media.name}`)
+          setPreloadedMedia({ index, ready: true })
+          resolve()
+        }
+
+        img.onerror = (error) => {
+          console.error(`[v0] Failed to preload image: ${item.media.name}`, {
+            url: item.media.file_path,
+            error: error,
+          })
+          setPreloadStatus(`Preload failed: ${item.media.name} (will show anyway)`)
+          setPreloadedMedia({ index, ready: true })
+          resolve()
+        }
+
+        img.src = getMediaUrl(item.media.file_path)
+      } else if (item.media.mime_type.startsWith("video/") && !isYouTubeVideo(item.media)) {
+        const video = document.createElement("video")
+        video.crossOrigin = "anonymous"
+        video.preload = "auto"
+
+        video.onloadeddata = () => {
+          console.log(`[v0] Successfully preloaded video: ${item.media.name}`)
+          setPreloadStatus(`Ready: ${item.media.name}`)
+          setPreloadedMedia({ index, ready: true })
+          resolve()
+        }
+
+        video.onerror = (error) => {
+          console.error(`[v0] Failed to preload video: ${item.media.name}`, {
+            url: item.media.file_path,
+            error: video.error,
+          })
+          setPreloadStatus(`Preload failed: ${item.media.name} (will show anyway)`)
+          setPreloadedMedia({ index, ready: true })
+          resolve()
+        }
+
+        video.src = getMediaUrl(item.media.file_path)
+      } else {
+        console.log(`[v0] Non-preloadable media type: ${item.media.mime_type}`)
+        setPreloadStatus(`Ready: ${item.media.name}`)
+        setPreloadedMedia({ index, ready: true })
+        resolve()
+      }
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        console.log(`[v0] Preload timeout for: ${item.media.name}`)
+        setPreloadStatus(`Timeout: ${item.media.name} (will show anyway)`)
+        setPreloadedMedia({ index, ready: true })
+        resolve()
+      }, 5000)
+    })
+  }, [])
 
   const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
-
   const currentMedia = contentToDisplay[currentIndex]
+
+  useEffect(() => {
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+
+    if (contentToDisplay.length === 0) return
+
+    const nextIndex = (currentIndex + 1) % contentToDisplay.length
+    const nextMedia = contentToDisplay[nextIndex]
+
+    if (nextMedia) {
+      // Start preloading next item in background
+      preloadMedia(nextMedia, nextIndex)
+    }
+  }, [currentIndex, shuffledContent, config, preloadMedia])
 
   useEffect(() => {
     if (rotationTimerRef.current) {
@@ -555,7 +643,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         clearTimeout(rotationTimerRef.current)
       }
     }
-  }, [currentIndex, shuffledContent, config])
+  }, [currentIndex, shuffledContent, config, advanceToNextMedia])
 
   if (loading) {
     return (
@@ -836,6 +924,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
             <h2 className="text-3xl font-light">No content assigned</h2>
             <p className="text-xl text-gray-400">Assign content to this screen in your dashboard</p>
           </div>
+        </div>
+      )}
+      {preloadStatus && (
+        <div className="fixed bottom-4 left-4 bg-black/60 backdrop-blur-sm text-white/70 px-3 py-1.5 rounded text-xs font-mono z-50 max-w-xs truncate">
+          {preloadStatus}
         </div>
       )}
     </div>
