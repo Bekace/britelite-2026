@@ -9,6 +9,7 @@ import Image from "next/image"
 import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
 import { useTVNavigation } from "@/hooks/use-tv-navigation"
+import { useSmartPreloader } from "@/hooks/use-smart-preloader"
 import { createClient } from "@/lib/supabase/client" // Fixed import path to use correct Supabase client location
 import "@/components/ui/spinner.css"
 
@@ -60,6 +61,10 @@ interface PlayerPageProps {
   params: { deviceCode: string }
 }
 
+const FEATURE_FLAGS = {
+  USE_SMART_PRELOADER: false, // Set to true to enable multi-item preloading with ready queue
+}
+
 export default function PlayerPage({ params }: PlayerPageProps) {
   const [config, setConfig] = useState<ScreenConfig | null>(null)
   const [loading, setLoading] = useState(true)
@@ -84,6 +89,19 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const [preloadStatus, setPreloadStatus] = useState<string>("")
   const [showDebug, setShowDebug] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
+
+  const smartPreloader = useSmartPreloader(
+    shuffledContent.length > 0 ? shuffledContent : config?.screen.content || [],
+    currentIndex,
+    FEATURE_FLAGS.USE_SMART_PRELOADER,
+  )
+
+  useEffect(() => {
+    if (FEATURE_FLAGS.USE_SMART_PRELOADER && smartPreloader.preloadStatus.length > 0) {
+      const latestStatus = smartPreloader.preloadStatus[smartPreloader.preloadStatus.length - 1]
+      setPreloadStatus(latestStatus.message)
+    }
+  }, [smartPreloader.preloadStatus])
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -606,9 +624,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   useEffect(() => {
     const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
-
-    if (contentToDisplay.length === 0) return
-
     const nextIndex = (currentIndex + 1) % contentToDisplay.length
     const nextMedia = contentToDisplay[nextIndex]
 
