@@ -605,6 +605,13 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     })
   }, [currentIndex, shuffledContent, config, preloadMedia, readyQueue])
 
+  useEffect(() => {
+    if (config?.screen.content && config.screen.content.length > 0) {
+      console.log(`[v0] Initial load: Adding first item (index 0) to ready queue`)
+      setReadyQueue(new Set([0]))
+    }
+  }, [config])
+
   const advanceToNextMedia = useCallback(() => {
     if (!config || !config.screen.content || config.screen.content.length === 0) return
 
