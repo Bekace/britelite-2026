@@ -78,16 +78,17 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const configRef = useRef<ScreenConfig | null>(null)
   const rotationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const youtubePlayerRef = useRef<any>(null)
-  const [preloadedMedia, setPreloadedMedia] = useState<{ index: number; ready: boolean }>({ index: -1, ready: false })
-  const preloadElementRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
+  const [readyQueue, setReadyQueue] = useState<Set<number>>(new Set())
   const [preloadStatus, setPreloadStatus] = useState<string>("")
-  const [showDebug, setShowDebug] = useState(false) // Disabled debug panel for production
+  const [showDebug, setShowDebug] = useState(false)
+  const [imageExtensionCount, setImageExtensionCount] = useState(0)
+  const [videoLoopCount, setVideoLoopCount] = useState(0)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
       if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
         console.log("[v0] TV Navigation - Up pressed")
-        // Navigate to previous media
         setCurrentIndex((prev) => {
           const newIndex = prev - 1
           return newIndex < 0 ? (shuffledContent.length || config?.screen.content?.length || 1) - 1 : newIndex
@@ -97,7 +98,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     onDown: () => {
       if (!showCameraSetup && !showLeftPanel && !showRightPanel) {
         console.log("[v0] TV Navigation - Down pressed")
-        // Navigate to next media
         const contentLength = shuffledContent.length || config?.screen.content?.length || 0
         setCurrentIndex((prev) => {
           const newIndex = prev + 1
@@ -515,104 +515,162 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     lastUpdatedAtRef.current = updatedAt
   }
 
-  const advanceToNextMedia = useCallback(() => {
-    if (!config || !config.screen.content || config.screen.content.length === 0) return
-
-    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
-    const nextIndex = (currentIndex + 1) % contentToDisplay.length
-
-    if (preloadedMedia.index === nextIndex && preloadedMedia.ready) {
-      console.log(`[v0] Advancing to preloaded media at index ${nextIndex}`)
-      setCurrentIndex(nextIndex)
-    } else {
-      console.log(`[v0] Advancing to media at index ${nextIndex} (not preloaded yet, will show anyway)`)
-      setCurrentIndex(nextIndex)
-    }
-  }, [currentIndex, shuffledContent, config, preloadedMedia])
-
   const preloadMedia = useCallback((item: MediaItem, index: number) => {
-    console.log(`[v0] Starting preload for: ${item.media.name} (index: ${index})`)
+    console.log(`[v0] Preloader: Starting preload for "${item.media.name}" (index: ${index})`)
     setPreloadStatus(`Preloading: ${item.media.name}`)
 
     return new Promise<void>((resolve) => {
+      // Skip YouTube and Google Slides - can't preload
+      if (isYouTubeVideo(item.media) || isGoogleSlides(item.media)) {
+        console.log(`[v0] Preloader: Skipping non-preloadable type: ${item.media.mime_type}`)
+        setReadyQueue((prev) => new Set(prev).add(index))
+        setPreloadStatus(`Ready: ${item.media.name}`)
+        resolve()
+        return
+      }
+
       if (item.media.mime_type.startsWith("image/")) {
         const img = new window.Image()
         img.crossOrigin = "anonymous"
 
         img.onload = () => {
-          console.log(`[v0] Successfully preloaded image: ${item.media.name}`)
+          console.log(`[v0] Preloader: ✓ Image ready "${item.media.name}"`)
+          setReadyQueue((prev) => new Set(prev).add(index))
           setPreloadStatus(`Ready: ${item.media.name}`)
-          setPreloadedMedia({ index, ready: true })
           resolve()
         }
 
         img.onerror = (error) => {
-          console.error(`[v0] Failed to preload image: ${item.media.name}`, {
-            url: item.media.file_path,
-            error: error,
-          })
-          setPreloadStatus(`Preload failed: ${item.media.name} (will show anyway)`)
-          setPreloadedMedia({ index, ready: true })
+          console.error(`[v0] Preloader: ✗ Image failed "${item.media.name}"`, error)
+          setPreloadStatus(`Failed: ${item.media.name} (will show anyway)`)
+          // Still mark as ready - will try to show it anyway
+          setReadyQueue((prev) => new Set(prev).add(index))
           resolve()
         }
 
         img.src = getMediaUrl(item.media.file_path)
-      } else if (item.media.mime_type.startsWith("video/") && !isYouTubeVideo(item.media)) {
+      } else if (item.media.mime_type.startsWith("video/")) {
         const video = document.createElement("video")
         video.crossOrigin = "anonymous"
         video.preload = "auto"
 
         video.onloadeddata = () => {
-          console.log(`[v0] Successfully preloaded video: ${item.media.name}`)
+          console.log(`[v0] Preloader: ✓ Video ready "${item.media.name}"`)
+          setReadyQueue((prev) => new Set(prev).add(index))
           setPreloadStatus(`Ready: ${item.media.name}`)
-          setPreloadedMedia({ index, ready: true })
           resolve()
         }
 
         video.onerror = (error) => {
-          console.error(`[v0] Failed to preload video: ${item.media.name}`, {
-            url: item.media.file_path,
-            error: video.error,
-          })
-          setPreloadStatus(`Preload failed: ${item.media.name} (will show anyway)`)
-          setPreloadedMedia({ index, ready: true })
+          console.error(`[v0] Preloader: ✗ Video failed "${item.media.name}"`, error)
+          setPreloadStatus(`Failed: ${item.media.name} (will show anyway)`)
+          // Still mark as ready - will try to show it anyway
+          setReadyQueue((prev) => new Set(prev).add(index))
           resolve()
         }
 
         video.src = getMediaUrl(item.media.file_path)
       } else {
-        console.log(`[v0] Non-preloadable media type: ${item.media.mime_type}`)
+        console.log(`[v0] Preloader: Non-media type, marking ready: ${item.media.mime_type}`)
+        setReadyQueue((prev) => new Set(prev).add(index))
         setPreloadStatus(`Ready: ${item.media.name}`)
-        setPreloadedMedia({ index, ready: true })
         resolve()
       }
 
-      // Timeout after 5 seconds
+      // Timeout after 8 seconds
       setTimeout(() => {
-        console.log(`[v0] Preload timeout for: ${item.media.name}`)
+        console.log(`[v0] Preloader: ⏱ Timeout "${item.media.name}" (will show anyway)`)
         setPreloadStatus(`Timeout: ${item.media.name} (will show anyway)`)
-        setPreloadedMedia({ index, ready: true })
+        setReadyQueue((prev) => new Set(prev).add(index))
         resolve()
-      }, 5000)
+      }, 8000)
     })
   }, [])
 
-  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
-  const currentMedia = contentToDisplay[currentIndex]
-
   useEffect(() => {
     const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
-
     if (contentToDisplay.length === 0) return
 
-    const nextIndex = (currentIndex + 1) % contentToDisplay.length
-    const nextMedia = contentToDisplay[nextIndex]
+    // Preload next 3 items for safety buffer
+    const itemsToPreload = [1, 2, 3].map((offset) => {
+      const targetIndex = (currentIndex + offset) % contentToDisplay.length
+      return { item: contentToDisplay[targetIndex], index: targetIndex }
+    })
 
-    if (nextMedia) {
-      // Start preloading next item in background
-      preloadMedia(nextMedia, nextIndex)
+    console.log(`[v0] Preloader: Starting aggressive preload for next 3 items from index ${currentIndex}`)
+
+    // Preload all 3 simultaneously
+    itemsToPreload.forEach(({ item, index }) => {
+      if (!readyQueue.has(index)) {
+        preloadMedia(item, index)
+      }
+    })
+  }, [currentIndex, shuffledContent, config, preloadMedia, readyQueue])
+
+  const advanceToNextMedia = useCallback(() => {
+    if (!config || !config.screen.content || config.screen.content.length === 0) return
+
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+    const nextIndex = (currentIndex + 1) % contentToDisplay.length
+    const currentMedia = contentToDisplay[currentIndex]
+
+    console.log(`[v0] Advancement: Attempting to advance from index ${currentIndex} to ${nextIndex}`)
+    console.log(`[v0] Advancement: Ready queue contains: [${Array.from(readyQueue).join(", ")}]`)
+    console.log(`[v0] Advancement: Next item ${nextIndex} ready? ${readyQueue.has(nextIndex)}`)
+
+    // Check if next sequential item is ready
+    if (readyQueue.has(nextIndex)) {
+      console.log(`[v0] Advancement: ✓ Next item ready, advancing to ${nextIndex}`)
+      setCurrentIndex(nextIndex)
+      setImageExtensionCount(0) // Reset extension counter
+      setVideoLoopCount(0) // Reset loop counter
+      return
     }
-  }, [currentIndex, shuffledContent, config, preloadMedia])
+
+    // Next item not ready - apply adaptive strategies
+    const isVideo = currentMedia?.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
+    const isImage = currentMedia?.media.mime_type.startsWith("image/")
+
+    // Strategy 1: Extend image duration up to 3 seconds
+    if (isImage && imageExtensionCount < 1) {
+      console.log(`[v0] Advancement: ⏱ Extending image duration by 3 seconds (attempt ${imageExtensionCount + 1}/1)`)
+      setImageExtensionCount((prev) => prev + 1)
+      // Set timer to try again in 3 seconds
+      setTimeout(() => {
+        advanceToNextMedia()
+      }, 3000)
+      return
+    }
+
+    // Strategy 2: Loop video once
+    if (isVideo && videoLoopCount < 1) {
+      console.log(`[v0] Advancement: 🔁 Looping video once (attempt ${videoLoopCount + 1}/1)`)
+      setVideoLoopCount((prev) => prev + 1)
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0
+        videoRef.current.play()
+      }
+      return
+    }
+
+    // Strategy 3: Find any ready item from the queue
+    const readyIndices = Array.from(readyQueue)
+    if (readyIndices.length > 0) {
+      // Pick the closest ready item after current index
+      const fallbackIndex = readyIndices.find((idx) => idx > currentIndex) || readyIndices[0]
+      console.log(`[v0] Advancement: 📦 Falling back to ready item at index ${fallbackIndex}`)
+      setCurrentIndex(fallbackIndex)
+      setImageExtensionCount(0)
+      setVideoLoopCount(0)
+      return
+    }
+
+    // Strategy 4: Last resort - advance anyway (graceful degradation)
+    console.log(`[v0] Advancement: ⚠ No strategies left, advancing to ${nextIndex} anyway`)
+    setCurrentIndex(nextIndex)
+    setImageExtensionCount(0)
+    setVideoLoopCount(0)
+  }, [currentIndex, shuffledContent, config, readyQueue, imageExtensionCount, videoLoopCount])
 
   useEffect(() => {
     if (rotationTimerRef.current) {
@@ -626,6 +684,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     const isRegularVideo = currentMedia.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
 
+    // Only set timer for non-video content
     if (!isRegularVideo) {
       const duration = currentMedia.duration_override
         ? currentMedia.duration_override * 1000
@@ -633,7 +692,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           ? currentMedia.media.duration * 1000
           : 10000
 
+      console.log(`[v0] Timer: Setting ${duration}ms timer for "${currentMedia.media.name}"`)
       rotationTimerRef.current = setTimeout(() => {
+        console.log(`[v0] Timer: Timer expired for "${currentMedia.media.name}"`)
         advanceToNextMedia()
       }, duration)
     }
@@ -721,13 +782,13 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const { screen } = config
 
   console.log("[v0] Rendering player with:", {
-    totalContent: contentToDisplay.length,
+    totalContent: screen.content.length,
     currentIndex: currentIndex,
-    currentMedia: currentMedia
+    currentMedia: screen.content[currentIndex]
       ? {
-          id: currentMedia.id,
-          type: currentMedia.media?.type,
-          name: currentMedia.media?.name,
+          id: screen.content[currentIndex].id,
+          type: screen.content[currentIndex].media?.type,
+          name: screen.content[currentIndex].media?.name,
         }
       : null,
   })
@@ -748,11 +809,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   console.log("[v0] screen.content length:", screen.content?.length)
   console.log("[v0] shuffledContent:", shuffledContent)
   console.log("[v0] shuffledContent length:", shuffledContent.length)
-  console.log("[v0] contentToDisplay:", contentToDisplay)
-  console.log("[v0] contentToDisplay length:", contentToDisplay.length)
+  console.log("[v0] contentToDisplay:", screen.content)
+  console.log("[v0] contentToDisplay length:", screen.content?.length)
   console.log("[v0] currentIndex:", currentIndex)
-  console.log("[v0] currentMedia:", currentMedia)
-  console.log("[v0] Will show content:", contentToDisplay && contentToDisplay.length > 0)
+  console.log("[v0] currentMedia:", screen.content[currentIndex])
+  console.log("[v0] Will show content:", screen.content && screen.content.length > 0)
 
   return (
     <div
@@ -782,13 +843,13 @@ export default function PlayerPage({ params }: PlayerPageProps) {
               Config Set: <span className={true ? "text-green-400" : "text-red-400"}>{true ? "✓" : "✗"}</span>
             </div>
             <div>
-              Content Items: <span className="text-yellow-400">{config?.screen.content?.length}</span>
+              Content Items: <span className="text-yellow-400">{screen.content?.length}</span>
             </div>
             <div>
               Shuffled Items: <span className="text-yellow-400">{shuffledContent.length}</span>
             </div>
             <div>
-              Display Array Length: <span className="text-yellow-400">{contentToDisplay.length}</span>
+              Display Array Length: <span className="text-yellow-400">{screen.content?.length}</span>
             </div>
             {null && <div className="text-red-400 mt-2">Error: {null}</div>}
             {true && (
@@ -796,11 +857,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                 <div className="text-xs">
                   <div>Has Screen: {true ? "✓" : "✗"}</div>
                   <div>Has Content: {true ? "✓" : "✗"}</div>
-                  <div>Content Count: {config?.screen.content?.length}</div>
+                  <div>Content Count: {screen.content?.length}</div>
                   {true && (
                     <div className="mt-1">
                       <div className="font-semibold">Items:</div>
-                      {config?.screen.content?.map((item: any, idx: number) => (
+                      {screen.content?.map((item: any, idx: number) => (
                         <div key={idx} className="ml-2 text-gray-300">
                           {idx + 1}. {item.media.name} ({item.media.mime_type})
                         </div>
@@ -862,48 +923,49 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           )}
         </div>
       </div>
-      {contentToDisplay && contentToDisplay.length > 0 ? (
+      {screen.content && screen.content.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
-          {currentMedia && (
+          {screen.content[currentIndex] && (
             <div className="w-full h-full relative">
-              {isGoogleSlides(currentMedia.media) ? (
+              {isGoogleSlides(screen.content[currentIndex].media) ? (
                 <iframe
-                  key={currentMedia.id}
-                  src={currentMedia.media.file_path}
+                  key={screen.content[currentIndex].id}
+                  src={screen.content[currentIndex].media.file_path}
                   className="w-full h-full border-0"
                   allow="autoplay"
-                  title={currentMedia.media.name}
+                  title={screen.content[currentIndex].media.name}
                 />
-              ) : isYouTubeVideo(currentMedia.media) ? (
+              ) : isYouTubeVideo(screen.content[currentIndex].media) ? (
                 <iframe
-                  key={currentMedia.id}
-                  id={`youtube-player-${currentMedia.id}`}
-                  src={getYouTubeUrlWithAutoplay(currentMedia.media.file_path)}
+                  key={screen.content[currentIndex].id}
+                  id={`youtube-player-${screen.content[currentIndex].id}`}
+                  src={getYouTubeUrlWithAutoplay(screen.content[currentIndex].media.file_path)}
                   className="w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
-                  title={currentMedia.media.name}
+                  title={screen.content[currentIndex].media.name}
                   onLoad={() => {
                     setTimeout(() => {
-                      onYouTubeIframeAPIReady(`youtube-player-${currentMedia.id}`)
+                      onYouTubeIframeAPIReady(`youtube-player-${screen.content[currentIndex].id}`)
                     }, 1000)
                   }}
                 />
-              ) : currentMedia.media.mime_type.startsWith("video/") ? (
+              ) : screen.content[currentIndex].media.mime_type.startsWith("video/") ? (
                 <video
-                  key={currentMedia.id}
-                  src={getMediaUrl(currentMedia.media.file_path)}
+                  ref={videoRef}
+                  key={screen.content[currentIndex].id}
+                  src={getMediaUrl(screen.content[currentIndex].media.file_path)}
                   className={`w-full h-full ${getMediaObjectFit("video")}`}
                   autoPlay
                   muted
                   playsInline
                   onEnded={advanceToNextMedia}
                 />
-              ) : currentMedia.media.mime_type.startsWith("image/") ? (
+              ) : screen.content[currentIndex].media.mime_type.startsWith("image/") ? (
                 <Image
-                  src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}
-                  alt={currentMedia.media.name}
+                  src={getMediaUrl(screen.content[currentIndex].media.file_path) || "/placeholder.svg"}
+                  alt={screen.content[currentIndex].media.name}
                   fill
                   className={getMediaObjectFit("image")}
                   priority
@@ -911,7 +973,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-white">
-                  <p className="text-2xl">{currentMedia.media.name}</p>
+                  <p className="text-2xl">{screen.content[currentIndex].media.name}</p>
                 </div>
               )}
             </div>
