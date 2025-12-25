@@ -25,6 +25,7 @@ interface MediaItem {
     mime_type: string
     file_size: number
     duration: number | null
+    media_type: string // Added media_type field
   }
 }
 
@@ -515,73 +516,42 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     lastUpdatedAtRef.current = updatedAt
   }
 
-  const preloadMedia = useCallback((item: MediaItem, index: number) => {
-    console.log(`[v0] Preloader: Starting preload for "${item.media.name}" (index: ${index})`)
-    setPreloadStatus(`Preloading: ${item.media.name}`)
+  const preloadMedia = useCallback(async (item: any, index: number) => {
+    // Videos load on-demand - browser handles buffering naturally
+    if (item.media.media_type === "video") {
+      console.log(`[v0] Preloader: 📹 Skipping preload for video "${item.media.name}" - will load on-demand`)
+      setReadyQueue((prev) => new Set(prev).add(index))
+      return
+    }
 
+    // Preload images and documents
     return new Promise<void>((resolve) => {
-      // Skip YouTube and Google Slides - can't preload but mark as ready
-      if (isYouTubeVideo(item.media) || isGoogleSlides(item.media)) {
-        console.log(`[v0] Preloader: Skipping non-preloadable type: ${item.media.mime_type}`)
-        setReadyQueue((prev) => new Set(prev).add(index))
+      console.log(`[v0] Preloader: 🔄 Starting preload "${item.media.name}" at index ${index}`)
+      setPreloadStatus(`Preloading: ${item.media.name}`)
+
+      const element = item.media.media_type === "image" ? new Image() : document.createElement("img")
+
+      element.onload = () => {
+        console.log(`[v0] Preloader: ✓ Ready "${item.media.name}"`)
         setPreloadStatus(`Ready: ${item.media.name}`)
-        resolve()
-        return
-      }
-
-      if (item.media.mime_type.startsWith("image/")) {
-        const img = new window.Image()
-        img.crossOrigin = "anonymous"
-
-        img.onload = () => {
-          console.log(`[v0] Preloader: ✓ Image ready "${item.media.name}"`)
-          setReadyQueue((prev) => new Set(prev).add(index))
-          setPreloadStatus(`Ready: ${item.media.name}`)
-          resolve()
-        }
-
-        img.onerror = (error) => {
-          console.error(`[v0] Preloader: ✗ Image failed "${item.media.name}"`, error)
-          setPreloadStatus(`Failed: ${item.media.name}`)
-          // Do NOT add to ready queue - it's not ready
-          resolve()
-        }
-
-        img.src = getMediaUrl(item.media.file_path)
-      } else if (item.media.mime_type.startsWith("video/")) {
-        const video = document.createElement("video")
-        video.crossOrigin = "anonymous"
-        video.preload = "auto"
-
-        video.onloadeddata = () => {
-          console.log(`[v0] Preloader: ✓ Video ready "${item.media.name}"`)
-          setReadyQueue((prev) => new Set(prev).add(index))
-          setPreloadStatus(`Ready: ${item.media.name}`)
-          resolve()
-        }
-
-        video.onerror = (error) => {
-          console.error(`[v0] Preloader: ✗ Video failed "${item.media.name}"`, error)
-          setPreloadStatus(`Failed: ${item.media.name}`)
-          // Do NOT add to ready queue - it's not ready
-          resolve()
-        }
-
-        video.src = getMediaUrl(item.media.file_path)
-      } else {
-        console.log(`[v0] Preloader: Non-media type, marking ready: ${item.media.mime_type}`)
         setReadyQueue((prev) => new Set(prev).add(index))
-        setPreloadStatus(`Ready: ${item.media.name}`)
         resolve()
       }
 
-      // Timeout after 8 seconds - item not ready
+      element.onerror = () => {
+        console.log(`[v0] Preloader: ✗ Failed "${item.media.name}" - not adding to ready queue`)
+        setPreloadStatus(`Failed: ${item.media.name}`)
+        resolve()
+      }
+
+      // 20 second timeout for large files
       setTimeout(() => {
         console.log(`[v0] Preloader: ⏱ Timeout "${item.media.name}" - not adding to ready queue`)
         setPreloadStatus(`Timeout: ${item.media.name}`)
-        // Do NOT add to ready queue - it timed out
         resolve()
-      }, 8000)
+      }, 20000)
+
+      element.src = getMediaUrl(item.media.file_path)
     })
   }, [])
 
@@ -606,11 +576,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [currentIndex, shuffledContent, config, preloadMedia, readyQueue])
 
   useEffect(() => {
-    if (config?.screen.content && config.screen.content.length > 0) {
-      console.log(`[v0] Initial load: Adding first item (index 0) to ready queue`)
+    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+    if (contentToDisplay.length > 0) {
+      console.log(`[v0] Preloader: ⚡ Adding first item (index 0) to ready queue immediately`)
       setReadyQueue(new Set([0]))
     }
-  }, [config])
+  }, [shuffledContent, config])
 
   const advanceToNextMedia = useCallback(() => {
     if (!config || !config.screen.content || config.screen.content.length === 0) return
