@@ -595,7 +595,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         setPreloadStatus(`Timeout: ${item.media.name}`)
         setPreloadedMedia({ index, ready: true })
         resolve()
-      }, 5000)
+      }, 15000) // 15 second timeout for Android TV WebView
     })
   }, [])
 
