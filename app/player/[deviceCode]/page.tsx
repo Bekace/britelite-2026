@@ -79,11 +79,10 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const configRef = useRef<ScreenConfig | null>(null)
   const rotationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const youtubePlayerRef = useRef<any>(null)
-  const [readyQueue, setReadyQueue] = useState<Set<number>>(new Set())
+  const [preloadedMedia, setPreloadedMedia] = useState<{ index: number; ready: boolean }>({ index: -1, ready: false })
+  const preloadElementRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null)
   const [preloadStatus, setPreloadStatus] = useState<string>("")
   const [showDebug, setShowDebug] = useState(false)
-  const [imageExtensionCount, setImageExtensionCount] = useState(0)
-  const [videoLoopCount, setVideoLoopCount] = useState(0)
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const { isTVMode } = useTVNavigation({
@@ -516,137 +515,108 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     lastUpdatedAtRef.current = updatedAt
   }
 
-  const preloadMedia = useCallback(async (item: any, index: number) => {
-    // Videos load on-demand - browser handles buffering naturally
-    if (item.media.media_type === "video") {
-      console.log(`[v0] Preloader: 📹 Skipping preload for video "${item.media.name}" - will load on-demand`)
-      setReadyQueue((prev) => new Set(prev).add(index))
-      return
-    }
+  const preloadMedia = useCallback((item: any, index: number) => {
+    console.log(`[v0] Starting preload for: ${item.media.name} (index: ${index})`)
+    setPreloadStatus(`Preloading: ${item.media.name}`)
 
-    // Preload images and documents
     return new Promise<void>((resolve) => {
-      console.log(`[v0] Preloader: 🔄 Starting preload "${item.media.name}" at index ${index}`)
-      setPreloadStatus(`Preloading: ${item.media.name}`)
+      if (item.media.mime_type.startsWith("image/")) {
+        const img = new window.Image()
+        img.crossOrigin = "anonymous"
 
-      const element = item.media.media_type === "image" ? new Image() : document.createElement("img")
+        img.onload = () => {
+          console.log(`[v0] Successfully preloaded image: ${item.media.name}`)
+          setPreloadStatus(`Ready: ${item.media.name}`)
+          setPreloadedMedia({ index, ready: true })
+          resolve()
+        }
 
-      element.onload = () => {
-        console.log(`[v0] Preloader: ✓ Ready "${item.media.name}"`)
+        img.onerror = (error) => {
+          console.error(`[v0] Failed to preload image: ${item.media.name}`, {
+            url: getMediaUrl(item.media.file_path),
+            error: error,
+          })
+          setPreloadStatus(`Preload failed: ${item.media.name}`)
+          setPreloadedMedia({ index, ready: true })
+          resolve()
+        }
+
+        img.src = getMediaUrl(item.media.file_path)
+      } else if (item.media.mime_type.startsWith("video/") && !isYouTubeVideo(item.media)) {
+        const video = document.createElement("video")
+        video.crossOrigin = "anonymous"
+        video.preload = "auto"
+
+        video.onloadeddata = () => {
+          console.log(`[v0] Successfully preloaded video: ${item.media.name}`)
+          setPreloadStatus(`Ready: ${item.media.name}`)
+          setPreloadedMedia({ index, ready: true })
+          resolve()
+        }
+
+        video.onerror = (error) => {
+          console.error(`[v0] Failed to preload video: ${item.media.name}`, {
+            url: getMediaUrl(item.media.file_path),
+            error: video.error,
+          })
+          setPreloadStatus(`Preload failed: ${item.media.name}`)
+          setPreloadedMedia({ index, ready: true })
+          resolve()
+        }
+
+        video.src = getMediaUrl(item.media.file_path)
+      } else {
+        console.log(`[v0] Non-preloadable media type: ${item.media.mime_type}`)
         setPreloadStatus(`Ready: ${item.media.name}`)
-        setReadyQueue((prev) => new Set(prev).add(index))
+        setPreloadedMedia({ index, ready: true })
         resolve()
       }
 
-      element.onerror = () => {
-        console.log(`[v0] Preloader: ✗ Failed "${item.media.name}" - not adding to ready queue`)
-        setPreloadStatus(`Failed: ${item.media.name}`)
-        resolve()
-      }
-
-      // 20 second timeout for large files
       setTimeout(() => {
-        console.log(`[v0] Preloader: ⏱ Timeout "${item.media.name}" - not adding to ready queue`)
+        console.log(`[v0] Preload timeout for: ${item.media.name}`)
         setPreloadStatus(`Timeout: ${item.media.name}`)
+        setPreloadedMedia({ index, ready: true })
         resolve()
-      }, 20000)
-
-      element.src = getMediaUrl(item.media.file_path)
+      }, 5000)
     })
   }, [])
 
-  useEffect(() => {
+  const advanceToNextMedia = useCallback(() => {
     const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+
     if (contentToDisplay.length === 0) return
 
-    // Preload next 3 items for safety buffer
-    const itemsToPreload = [1, 2, 3].map((offset) => {
-      const targetIndex = (currentIndex + offset) % contentToDisplay.length
-      return { item: contentToDisplay[targetIndex], index: targetIndex }
-    })
+    const nextIndex = (currentIndex + 1) % contentToDisplay.length
 
-    console.log(`[v0] Preloader: Starting aggressive preload for next 3 items from index ${currentIndex}`)
+    // Check if next media is preloaded and ready
+    if (preloadedMedia.index === nextIndex && preloadedMedia.ready) {
+      console.log(`[v0] Advancing to preloaded media at index ${nextIndex}`)
+      setCurrentIndex(nextIndex)
+    } else {
+      // If not ready, wait briefly and retry (or skip if still not ready)
+      console.log(`[v0] Next media not ready, checking status...`)
 
-    // Preload all 3 simultaneously
-    itemsToPreload.forEach(({ item, index }) => {
-      if (!readyQueue.has(index)) {
-        preloadMedia(item, index)
-      }
-    })
-  }, [currentIndex, shuffledContent, config, preloadMedia, readyQueue])
+      // If preload failed or timed out, advance anyway (graceful degradation)
+      setTimeout(() => {
+        console.log(`[v0] Advancing to index ${nextIndex} (preload status: ${preloadedMedia.ready})`)
+        setCurrentIndex(nextIndex)
+      }, 500) // Small delay to give preload a chance
+    }
+  }, [currentIndex, shuffledContent, config, preloadedMedia])
 
   useEffect(() => {
     const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
-    if (contentToDisplay.length > 0) {
-      console.log(`[v0] Preloader: ⚡ Adding first item (index 0) to ready queue immediately`)
-      setReadyQueue(new Set([0]))
-    }
-  }, [shuffledContent, config])
 
-  const advanceToNextMedia = useCallback(() => {
-    if (!config || !config.screen.content || config.screen.content.length === 0) return
+    if (contentToDisplay.length === 0) return
 
-    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
     const nextIndex = (currentIndex + 1) % contentToDisplay.length
-    const currentMedia = contentToDisplay[currentIndex]
+    const nextMedia = contentToDisplay[nextIndex]
 
-    console.log(`[v0] Advancement: Attempting to advance from index ${currentIndex} to ${nextIndex}`)
-    console.log(`[v0] Advancement: Ready queue contains: [${Array.from(readyQueue).join(", ")}]`)
-    console.log(`[v0] Advancement: Next item ${nextIndex} ready? ${readyQueue.has(nextIndex)}`)
-
-    // Check if next sequential item is ready
-    if (readyQueue.has(nextIndex)) {
-      console.log(`[v0] Advancement: ✓ Next item ready, advancing to ${nextIndex}`)
-      setCurrentIndex(nextIndex)
-      setImageExtensionCount(0)
-      setVideoLoopCount(0)
-      return
+    if (nextMedia) {
+      // Start preloading next item in background
+      preloadMedia(nextMedia, nextIndex)
     }
-
-    // Next item not ready - apply adaptive strategies
-    const isVideo = currentMedia?.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
-    const isImage = currentMedia?.media.mime_type.startsWith("image/")
-
-    // Strategy 1: Extend image duration up to 3 seconds
-    if (isImage && imageExtensionCount < 1) {
-      console.log(`[v0] Advancement: ⏱ Extending image duration by 3 seconds`)
-      setImageExtensionCount((prev) => prev + 1)
-      setTimeout(() => {
-        advanceToNextMedia()
-      }, 3000)
-      return
-    }
-
-    // Strategy 2: Loop video once
-    if (isVideo && videoLoopCount < 1) {
-      console.log(`[v0] Advancement: 🔁 Looping video once`)
-      setVideoLoopCount((prev) => prev + 1)
-      if (videoRef.current) {
-        videoRef.current.currentTime = 0
-        videoRef.current.play()
-      }
-      return
-    }
-
-    // Strategy 3: Find any ready item from the queue (ONLY ready items)
-    const readyIndices = Array.from(readyQueue).filter((idx) => idx !== currentIndex)
-    if (readyIndices.length > 0) {
-      // Pick the next ready item in sequence, or wrap to first ready item
-      const nextReadyIndex = readyIndices.find((idx) => idx > currentIndex) || readyIndices[0]
-      console.log(`[v0] Advancement: 📦 Switching to ready item at index ${nextReadyIndex}`)
-      setCurrentIndex(nextReadyIndex)
-      setImageExtensionCount(0)
-      setVideoLoopCount(0)
-      return
-    }
-
-    // No ready items at all - stay on current item and keep trying
-    console.log(`[v0] Advancement: ⚠ No ready items available, staying on current item`)
-    // Try again in 3 seconds
-    setTimeout(() => {
-      advanceToNextMedia()
-    }, 3000)
-  }, [currentIndex, shuffledContent, config, readyQueue, imageExtensionCount, videoLoopCount])
+  }, [currentIndex, shuffledContent, config, preloadMedia])
 
   useEffect(() => {
     if (rotationTimerRef.current) {
