@@ -151,6 +151,44 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const youtubePlayerRef = useRef<any>(null)
 
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch(`/api/player/${params.deviceCode}`)
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            router.push(`/player?error=device-not-found`)
+            return
+          }
+          throw new Error("Failed to fetch configuration")
+        }
+
+        const data = await response.json()
+        setConfig(data)
+
+        // Handle shuffle
+        if (data.screen.playlist?.shuffle && data.screen.content.length > 0) {
+          const shuffled = [...data.screen.content].sort(() => Math.random() - 0.5)
+          setShuffledContent(shuffled)
+        }
+
+        setError(null)
+      } catch (err) {
+        console.error("[v0] Error fetching config:", err)
+        setError("Failed to load screen configuration")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchConfig()
+    // Poll for updates every 30 seconds
+    const interval = setInterval(fetchConfig, 30000)
+    return () => clearInterval(interval)
+  }, [params.deviceCode, router])
+
   const onYouTubeIframeAPIReady = (iframeId: string) => {
     if (typeof window !== "undefined" && (window as any).YT && (window as any).YT.Player) {
       try {
