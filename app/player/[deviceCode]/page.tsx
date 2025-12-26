@@ -622,21 +622,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
     const nextIndex = (currentIndex + 1) % contentToDisplay.length
 
-    // Check if next media is preloaded and ready
-    if (preloadedMedia.index === nextIndex && preloadedMedia.ready) {
-      console.log(`[v0] Advancing to preloaded media at index ${nextIndex}`)
-      setCurrentIndex(nextIndex)
-    } else {
-      // If not ready, wait briefly and retry (or skip if still not ready)
-      console.log(`[v0] Next media not ready, checking status...`)
-
-      // If preload failed or timed out, advance anyway (graceful degradation)
-      setTimeout(() => {
-        console.log(`[v0] Advancing to index ${nextIndex} (preload status: ${preloadedMedia.ready})`)
-        setCurrentIndex(nextIndex)
-      }, 500) // Small delay to give preload a chance
-    }
-  }, [currentIndex, shuffledContent, config, preloadedMedia])
+    console.log(`[v0] Advancing to index ${nextIndex}`)
+    setCurrentIndex(nextIndex)
+  }, [currentIndex, shuffledContent, config])
 
   useEffect(() => {
     const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
@@ -792,6 +780,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   console.log("[v0] currentMedia:", screen.content[currentIndex])
   console.log("[v0] Will show content:", screen.content && screen.content.length > 0)
 
+  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : screen.content
+  const currentMedia = contentToDisplay[currentIndex]
+
   return (
     <div
       className={`relative w-screen h-screen overflow-hidden ${isTVMode ? "tv-mode" : ""}`}
@@ -900,49 +891,49 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           )}
         </div>
       </div>
-      {screen.content && screen.content.length > 0 ? (
+      {contentToDisplay && contentToDisplay.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
-          {screen.content[currentIndex] && (
+          {currentMedia && (
             <div className="w-full h-full relative">
-              {isGoogleSlides(screen.content[currentIndex].media) ? (
+              {isGoogleSlides(currentMedia.media) ? (
                 <iframe
-                  key={screen.content[currentIndex].id}
-                  src={screen.content[currentIndex].media.file_path}
+                  key={currentMedia.id}
+                  src={currentMedia.media.file_path}
                   className="w-full h-full border-0"
                   allow="autoplay"
-                  title={screen.content[currentIndex].media.name}
+                  title={currentMedia.media.name}
                 />
-              ) : isYouTubeVideo(screen.content[currentIndex].media) ? (
+              ) : isYouTubeVideo(currentMedia.media) ? (
                 <iframe
-                  key={screen.content[currentIndex].id}
-                  id={`youtube-player-${screen.content[currentIndex].id}`}
-                  src={getYouTubeUrlWithAutoplay(screen.content[currentIndex].media.file_path)}
+                  key={currentMedia.id}
+                  id={`youtube-player-${currentMedia.id}`}
+                  src={getYouTubeUrlWithAutoplay(currentMedia.media.file_path)}
                   className="w-full h-full border-0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
-                  title={screen.content[currentIndex].media.name}
+                  title={currentMedia.media.name}
                   onLoad={() => {
                     setTimeout(() => {
-                      onYouTubeIframeAPIReady(`youtube-player-${screen.content[currentIndex].id}`)
+                      onYouTubeIframeAPIReady(`youtube-player-${currentMedia.id}`)
                     }, 1000)
                   }}
                 />
-              ) : screen.content[currentIndex].media.mime_type.startsWith("video/") ? (
+              ) : currentMedia.media.mime_type.startsWith("video/") ? (
                 <video
                   ref={videoRef}
-                  key={screen.content[currentIndex].id}
-                  src={getMediaUrl(screen.content[currentIndex].media.file_path)}
+                  key={currentMedia.id}
+                  src={getMediaUrl(currentMedia.media.file_path)}
                   className={`w-full h-full ${getMediaObjectFit("video")}`}
                   autoPlay
                   muted
                   playsInline
                   onEnded={advanceToNextMedia}
                 />
-              ) : screen.content[currentIndex].media.mime_type.startsWith("image/") ? (
+              ) : currentMedia.media.mime_type.startsWith("image/") ? (
                 <Image
-                  src={getMediaUrl(screen.content[currentIndex].media.file_path) || "/placeholder.svg"}
-                  alt={screen.content[currentIndex].media.name}
+                  src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}
+                  alt={currentMedia.media.name}
                   fill
                   className={getMediaObjectFit("image")}
                   priority
@@ -950,7 +941,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-white">
-                  <p className="text-2xl">{screen.content[currentIndex].media.name}</p>
+                  <p className="text-2xl">{currentMedia.media.name}</p>
                 </div>
               )}
             </div>
