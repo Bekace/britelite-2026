@@ -19,6 +19,17 @@ export function useWebViewPreloader({ content, currentIndex, getMediaUrl, preloa
   const [preloadQueue, setPreloadQueue] = useState<Map<number, PreloadItem>>(new Map())
   const [preloadStatus, setPreloadStatus] = useState<string>("")
   const preloadingRef = useRef<Set<number>>(new Set())
+  const previousIndexRef = useRef<number>(currentIndex)
+
+  useEffect(() => {
+    // If we jumped from end to beginning, clear the queue for fresh cycle
+    if (previousIndexRef.current > currentIndex && currentIndex === 0 && content.length > 1) {
+      console.log("[v0] Playlist restarted, clearing preload queue")
+      setPreloadQueue(new Map())
+      preloadingRef.current.clear()
+    }
+    previousIndexRef.current = currentIndex
+  }, [currentIndex, content.length])
 
   // Preload multiple items ahead
   useEffect(() => {
@@ -32,6 +43,10 @@ export function useWebViewPreloader({ content, currentIndex, getMediaUrl, preloa
       if (!preloadQueue.has(nextIndex) && !preloadingRef.current.has(nextIndex)) {
         itemsToPreload.push(nextIndex)
       }
+    }
+
+    if (itemsToPreload.length < preloadCount) {
+      console.log("[v0] Skipping already preloaded items. Queue size:", preloadQueue.size)
     }
 
     // Preload each item
