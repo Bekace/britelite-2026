@@ -31,6 +31,9 @@ export function usePlaylistTimer(contentList: MediaItem[], currentIndex: number,
     }
   }, [currentMedia, getDuration])
 
+  // Stabilize onAdvance reference
+  const stableOnAdvance = useCallback(onAdvance, [])
+
   // Countdown timer for images and iframes
   useEffect(() => {
     if (!isPlaying || !currentMedia) return
@@ -48,7 +51,7 @@ export function usePlaylistTimer(contentList: MediaItem[], currentIndex: number,
       setTimeRemaining((prev) => {
         if (prev <= 1) {
           console.log("[v0] Timer expired, advancing")
-          onAdvance()
+          stableOnAdvance()
           return getDuration(currentMedia)
         }
         return prev - 1
@@ -56,7 +59,7 @@ export function usePlaylistTimer(contentList: MediaItem[], currentIndex: number,
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [isPlaying, currentMedia, onAdvance, getDuration])
+  }, [isPlaying, currentMedia, stableOnAdvance, getDuration])
 
   return {
     timeRemaining,
