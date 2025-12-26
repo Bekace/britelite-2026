@@ -20,13 +20,14 @@ export function useWebViewPreloader({ content, currentIndex, getMediaUrl, preloa
   const [preloadStatus, setPreloadStatus] = useState<string>("")
   const preloadingRef = useRef<Set<number>>(new Set())
   const previousIndexRef = useRef<number>(currentIndex)
+  const failedItemsRef = useRef<Set<number>>(new Set())
 
   useEffect(() => {
-    // If we jumped from end to beginning, clear the queue for fresh cycle
     if (previousIndexRef.current > currentIndex && currentIndex === 0 && content.length > 1) {
-      console.log("[v0] Playlist restarted, clearing preload queue")
-      setPreloadQueue(new Map())
+      console.log("[v0] Playlist restarted, clearing failed items only")
+      failedItemsRef.current.clear()
       preloadingRef.current.clear()
+      // Keep preloadQueue intact - successful items stay ready
     }
     previousIndexRef.current = currentIndex
   }, [currentIndex, content.length])
@@ -40,13 +41,17 @@ export function useWebViewPreloader({ content, currentIndex, getMediaUrl, preloa
     // Calculate next N items to preload
     for (let i = 1; i <= preloadCount; i++) {
       const nextIndex = (currentIndex + i) % content.length
-      if (!preloadQueue.has(nextIndex) && !preloadingRef.current.has(nextIndex)) {
+      if (
+        !preloadQueue.has(nextIndex) &&
+        !preloadingRef.current.has(nextIndex) &&
+        !failedItemsRef.current.has(nextIndex)
+      ) {
         itemsToPreload.push(nextIndex)
       }
     }
 
-    if (itemsToPreload.length < preloadCount) {
-      console.log("[v0] Skipping already preloaded items. Queue size:", preloadQueue.size)
+    if (itemsToPreload.length === 0) {
+      console.log("[v0] All next items already preloaded. Queue size:", preloadQueue.size)
     }
 
     // Preload each item
@@ -74,18 +79,17 @@ export function useWebViewPreloader({ content, currentIndex, getMediaUrl, preloa
         await preloadVideo(getMediaUrl(mediaItem.media.file_path), timeout)
       }
 
-      // Success - mark as ready
       setPreloadQueue((prev) => {
         const newQueue = new Map(prev)
         newQueue.set(index, { index, ready: true, name: mediaName })
         return newQueue
       })
       setPreloadStatus(`Ready: ${mediaName}`)
-      console.log("[v0] Preload success for index", index)
+      console.log("[v0] ✓ Preload SUCCESS for index", index, "- Item will stay ready")
     } catch (error) {
-      // Failure - do NOT mark as ready (this is key difference)
-      console.log("[v0] Preload failed for index", index, error)
-      setPreloadStatus(`Failed: ${mediaName}`)
+      console.log("[v0] ✗ Preload FAILED for index", index, error)
+      failedItemsRef.current.add(index)
+      setPreloadStatus(`Timeout: ${mediaName}`)
     } finally {
       preloadingRef.current.delete(index)
     }
