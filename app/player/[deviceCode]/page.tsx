@@ -155,7 +155,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     const fetchConfig = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`/api/player/${params.deviceCode}`)
+        const response = await fetch(`/api/devices/config/${params.deviceCode}`)
 
         if (!response.ok) {
           if (response.status === 404) {
