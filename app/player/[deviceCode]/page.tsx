@@ -10,7 +10,9 @@ import { CameraAnalytics } from "@/components/camera-analytics"
 import CameraSetup from "@/components/camera-setup"
 import { useTVNavigation } from "@/hooks/use-tv-navigation"
 import { useSmartPreloader } from "@/hooks/use-smart-preloader"
-import { createClient } from "@/lib/supabase/client" // Fixed import path to use correct Supabase client location
+import { useMediaRotation } from "@/hooks/use-media-rotation"
+import { useWebViewPreloader } from "@/hooks/use-webview-preloader"
+import { createClient } from "@/lib/supabase/client"
 import "@/components/ui/spinner.css"
 import { useRotationDiagnostic } from "@/hooks/use-rotation-diagnostic"
 
@@ -65,6 +67,8 @@ interface PlayerPageProps {
 const FEATURE_FLAGS = {
   USE_SMART_PRELOADER: false, // Set to true to enable multi-item preloading with ready queue
   USE_ROTATION_DIAGNOSTIC: true, // Enable rotation diagnostic
+  USE_MEDIA_ROTATION: false, // Set to true to enable stable rotation without timer resets
+  USE_WEBVIEW_PRELOADER: false, // Set to true to enable Android WebView optimized preloader
 }
 
 export default function PlayerPage({ params }: PlayerPageProps) {
@@ -91,6 +95,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const [preloadStatus, setPreloadStatus] = useState<string>("")
   const [showDebug, setShowDebug] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
+
+  const getMediaUrl = (filePath: string) => {
+    if (!filePath) return "/placeholder.svg"
+    if (filePath.startsWith("http")) return filePath // GCS URLs are already full: https://storage.googleapis.com/...
+    return filePath // Fallback for relative paths
+  }
 
   const smartPreloader = useSmartPreloader(
     shuffledContent.length > 0 ? shuffledContent : config?.screen.content || [],
@@ -159,6 +169,25 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     currentMedia?.media.mime_type || "unknown",
     currentMedia?.media.name || "unknown",
   )
+
+  const mediaRotation = useMediaRotation({
+    currentIndex,
+    contentLength: contentToDisplay.length,
+    currentMediaType: currentMedia?.media.mime_type,
+    currentMediaDuration: currentMedia?.duration_override || currentMedia?.media.duration || 10,
+    onAdvance: (nextIndex) => {
+      if (FEATURE_FLAGS.USE_MEDIA_ROTATION) {
+        setCurrentIndex(nextIndex)
+      }
+    },
+  })
+
+  const webViewPreloader = useWebViewPreloader({
+    content: contentToDisplay,
+    currentIndex,
+    getMediaUrl,
+    preloadCount: 3,
+  })
 
   useEffect(() => {
     if (FEATURE_FLAGS.USE_SMART_PRELOADER && smartPreloader.preloadStatus.length > 0) {
@@ -395,12 +424,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     if (analyticsEnabled && config?.screen.id) {
       fetchAnalyticsSettings(config.screen.id)
     }
-  }
-
-  const getMediaUrl = (filePath: string) => {
-    if (!filePath) return "/placeholder.svg"
-    if (filePath.startsWith("http")) return filePath // GCS URLs are already full: https://storage.googleapis.com/...
-    return filePath // Fallback for relative paths
   }
 
   const isGoogleSlides = (media: MediaItem["media"]) => {
