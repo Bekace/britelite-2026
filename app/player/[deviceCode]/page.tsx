@@ -1,8 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { useMediaSwitcher } from "@/hooks/use-media-switcher"
+import { useMediaPreloader } from "@/hooks/use-media-preloader"
+import { usePlaylistTimer } from "@/hooks/use-playlist-timer"
 import "@/components/ui/spinner.css"
 
 interface MediaItem {
@@ -76,6 +79,10 @@ const isYouTubeVideo = (media: MediaItem["media"]) => {
   )
 }
 
+const isRegularVideo = (media: MediaItem["media"]) => {
+  return media.mime_type.startsWith("video/") && !isYouTubeVideo(media)
+}
+
 const getYouTubeUrlWithAutoplay = (url: string) => {
   try {
     let embedUrl = url
@@ -144,12 +151,43 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(true)
-  const [timeRemaining, setTimeRemaining] = useState(10)
   const [shuffledContent, setShuffledContent] = useState<MediaItem[]>([])
   const router = useRouter()
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const youtubePlayerRef = useRef<any>(null)
+
+  const {
+    activeElement,
+    switchToNext,
+    videoARef,
+    videoBRef,
+    iframeARef,
+    iframeBRef,
+    getInactiveVideoRef,
+    getInactiveIframeRef,
+  } = useMediaSwitcher()
+
+  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+  const currentMedia = contentToDisplay[currentIndex]
+
+  const advanceToNext = useCallback(() => {
+    console.log("[v0] advanceToNext called, currentIndex:", currentIndex, "total:", contentToDisplay.length)
+
+    if (contentToDisplay.length === 0) return
+
+    const nextIndex = currentIndex + 1 < contentToDisplay.length ? currentIndex + 1 : 0
+    console.log("[v0] Moving to index:", nextIndex)
+
+    setCurrentIndex(nextIndex)
+    switchToNext()
+  }, [currentIndex, contentToDisplay.length, switchToNext])
+
+  const { preloadStatus } = useMediaPreloader(
+    contentToDisplay,
+    currentIndex,
+    getInactiveVideoRef(),
+    getInactiveIframeRef(),
+  )
+
+  const { timeRemaining } = usePlaylistTimer(contentToDisplay, currentIndex, advanceToNext)
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -168,7 +206,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         const data = await response.json()
         setConfig(data)
 
-        // Handle shuffle
         if (data.screen.playlist?.shuffle && data.screen.content.length > 0) {
           const shuffled = [...data.screen.content].sort(() => Math.random() - 0.5)
           setShuffledContent(shuffled)
@@ -184,75 +221,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
 
     fetchConfig()
-    // Poll for updates every 30 seconds
     const interval = setInterval(fetchConfig, 30000)
     return () => clearInterval(interval)
   }, [params.deviceCode, router])
-
-  const onYouTubeIframeAPIReady = (iframeId: string) => {
-    if (typeof window !== "undefined" && (window as any).YT && (window as any).YT.Player) {
-      try {
-        youtubePlayerRef.current = new (window as any).YT.Player(iframeId, {
-          events: {
-            onReady: (event: any) => {
-              event.target.playVideo()
-            },
-          },
-        })
-      } catch (e) {
-        console.error("[v0] Error initializing YouTube player:", e)
-      }
-    }
-  }
-
-  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
-  const currentMedia = contentToDisplay[currentIndex]
-
-  const goToNext = useCallback(() => {
-    console.log("[v0] goToNext called, currentIndex:", currentIndex, "total items:", contentToDisplay.length)
-
-    if (contentToDisplay.length === 0) {
-      console.log("[v0] No items to advance to")
-      return
-    }
-
-    const nextIndex = currentIndex + 1 < contentToDisplay.length ? currentIndex + 1 : 0
-
-    console.log("[v0] Moving to next item, index:", nextIndex)
-    setCurrentIndex(nextIndex)
-
-    const nextItem = contentToDisplay[nextIndex]
-    const duration = nextItem?.duration_override || nextItem?.media.duration || 10
-    setTimeRemaining(duration)
-  }, [currentIndex, contentToDisplay])
-
-  useEffect(() => {
-    if (isPlaying && timeRemaining > 0 && currentMedia) {
-      const timer = setTimeout(() => {
-        setTimeRemaining((prev) => prev - 1)
-      }, 1000)
-      return () => clearTimeout(timer)
-    } else if (isPlaying && timeRemaining === 0) {
-      console.log("[v0] Timer finished, calling goToNext")
-      goToNext()
-    }
-  }, [isPlaying, timeRemaining, goToNext, currentMedia])
-
-  useEffect(() => {
-    if (currentMedia) {
-      const duration = currentMedia.duration_override || currentMedia.media.duration || 10
-      setTimeRemaining(duration)
-    }
-  }, [currentMedia])
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && !(window as any).YT) {
-      const tag = document.createElement("script")
-      tag.src = "https://www.youtube.com/iframe_api"
-      const firstScriptTag = document.getElementsByTagName("script")[0]
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag)
-    }
-  }, [])
 
   return (
     <div
@@ -264,44 +235,69 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       {contentToDisplay && contentToDisplay.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
           {currentMedia && (
-            <div className="w-full h-full relative">
-              {isGoogleSlides(currentMedia.media) ? (
-                <iframe
-                  key={currentMedia.id}
-                  src={currentMedia.media.file_path}
-                  className="w-full h-full border-0"
-                  allow="autoplay"
-                  title={currentMedia.media.name}
-                />
-              ) : isYouTubeVideo(currentMedia.media) ? (
-                <iframe
-                  key={currentMedia.id}
-                  id={`youtube-player-${currentMedia.id}`}
-                  src={getYouTubeUrlWithAutoplay(currentMedia.media.file_path)}
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allowFullScreen
-                  title={currentMedia.media.name}
-                  onLoad={() => {
-                    setTimeout(() => {
-                      onYouTubeIframeAPIReady(`youtube-player-${currentMedia.id}`)
-                    }, 1000)
-                  }}
-                />
-              ) : currentMedia.media.mime_type.startsWith("video/") ? (
-                <video
-                  ref={videoRef}
-                  key={currentMedia.id}
-                  src={getMediaUrl(currentMedia.media.file_path)}
-                  className={`w-full h-full ${getMediaObjectFit("video", config?.screen.playlist)}`}
-                  autoPlay
-                  muted
-                  playsInline
-                  onEnded={goToNext}
-                />
-              ) : currentMedia.media.mime_type.startsWith("image/") ? (
+            <>
+              {isRegularVideo(currentMedia.media) && (
+                <>
+                  <video
+                    ref={videoARef}
+                    className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${
+                      activeElement === "A" ? "opacity-100 z-10" : "opacity-0 z-0"
+                    } ${getMediaObjectFit("video", config?.screen.playlist)}`}
+                    autoPlay
+                    muted
+                    playsInline
+                    onEnded={advanceToNext}
+                  />
+                  <video
+                    ref={videoBRef}
+                    className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${
+                      activeElement === "B" ? "opacity-100 z-10" : "opacity-0 z-0"
+                    } ${getMediaObjectFit("video", config?.screen.playlist)}`}
+                    autoPlay
+                    muted
+                    playsInline
+                    onEnded={advanceToNext}
+                  />
+                </>
+              )}
+
+              {(isGoogleSlides(currentMedia.media) || isYouTubeVideo(currentMedia.media)) && (
+                <>
+                  <iframe
+                    ref={iframeARef}
+                    className={`absolute inset-0 w-full h-full border-0 transition-opacity duration-300 ${
+                      activeElement === "A" ? "opacity-100 z-10" : "opacity-0 z-0"
+                    }`}
+                    allow="autoplay; accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title={currentMedia.media.name}
+                    src={
+                      isYouTubeVideo(currentMedia.media)
+                        ? getYouTubeUrlWithAutoplay(currentMedia.media.file_path)
+                        : currentMedia.media.file_path
+                    }
+                  />
+                  <iframe
+                    ref={iframeBRef}
+                    className={`absolute inset-0 w-full h-full border-0 transition-opacity duration-300 ${
+                      activeElement === "B" ? "opacity-100 z-10" : "opacity-0 z-0"
+                    }`}
+                    allow="autoplay; accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title={currentMedia.media.name}
+                    src={
+                      isYouTubeVideo(currentMedia.media)
+                        ? getYouTubeUrlWithAutoplay(currentMedia.media.file_path)
+                        : currentMedia.media.file_path
+                    }
+                  />
+                </>
+              )}
+
+              {/* Images don't need dual elements, they load instantly */}
+              {currentMedia.media.mime_type.startsWith("image/") && (
                 <Image
+                  key={currentMedia.id}
                   src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}
                   alt={currentMedia.media.name}
                   fill
@@ -309,12 +305,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                   priority
                   unoptimized
                 />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-white">
-                  <p className="text-2xl">{currentMedia.media.name}</p>
-                </div>
               )}
-            </div>
+            </>
           )}
         </div>
       ) : (
@@ -326,6 +318,13 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           </div>
         </div>
       )}
+
+      {preloadStatus && (
+        <div className="fixed bottom-4 left-4 bg-black/50 text-white px-4 py-2 rounded text-sm">{preloadStatus}</div>
+      )}
+
+      {/* Debug timer */}
+      <div className="fixed top-4 right-4 bg-black/50 text-white px-4 py-2 rounded text-sm">{timeRemaining}s</div>
     </div>
   )
 }
