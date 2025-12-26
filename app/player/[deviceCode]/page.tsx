@@ -12,6 +12,7 @@ import { useTVNavigation } from "@/hooks/use-tv-navigation"
 import { useSmartPreloader } from "@/hooks/use-smart-preloader"
 import { createClient } from "@/lib/supabase/client" // Fixed import path to use correct Supabase client location
 import "@/components/ui/spinner.css"
+import { useRotationDiagnostic } from "@/hooks/use-rotation-diagnostic"
 
 interface MediaItem {
   id: string
@@ -63,6 +64,7 @@ interface PlayerPageProps {
 
 const FEATURE_FLAGS = {
   USE_SMART_PRELOADER: false, // Set to true to enable multi-item preloading with ready queue
+  USE_ROTATION_DIAGNOSTIC: true, // Enable rotation diagnostic
 }
 
 export default function PlayerPage({ params }: PlayerPageProps) {
@@ -95,13 +97,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     currentIndex,
     FEATURE_FLAGS.USE_SMART_PRELOADER,
   )
-
-  useEffect(() => {
-    if (FEATURE_FLAGS.USE_SMART_PRELOADER && smartPreloader.preloadStatus.length > 0) {
-      const latestStatus = smartPreloader.preloadStatus[smartPreloader.preloadStatus.length - 1]
-      setPreloadStatus(latestStatus.message)
-    }
-  }, [smartPreloader.preloadStatus])
 
   const { isTVMode } = useTVNavigation({
     onUp: () => {
@@ -154,6 +149,23 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     },
     enabled: !loading && !error,
   })
+
+  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+  const currentMedia = contentToDisplay[currentIndex]
+
+  const useRotationDiagnosticHook = useRotationDiagnostic(
+    currentIndex,
+    contentToDisplay.length,
+    currentMedia?.media.mime_type || "unknown",
+    currentMedia?.media.name || "unknown",
+  )
+
+  useEffect(() => {
+    if (FEATURE_FLAGS.USE_SMART_PRELOADER && smartPreloader.preloadStatus.length > 0) {
+      const latestStatus = smartPreloader.preloadStatus[smartPreloader.preloadStatus.length - 1]
+      setPreloadStatus(latestStatus.message)
+    }
+  }, [smartPreloader.preloadStatus])
 
   const shuffleArray = (array: MediaItem[]) => {
     const shuffled = [...array]
@@ -447,7 +459,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
   }
 
-  const getGoogleSlidesEmbedUrl = (media: MediaItem["media"]) => {
+  const getGoogleSlidesEmbedEmbed = (media: MediaItem["media"]) => {
     let presentationId = ""
 
     if (media.file_path.includes("docs.google.com/presentation")) {
@@ -627,7 +639,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   }, [currentIndex, shuffledContent, config])
 
   useEffect(() => {
-    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
     const nextIndex = (currentIndex + 1) % contentToDisplay.length
     const nextMedia = contentToDisplay[nextIndex]
 
@@ -642,24 +653,19 @@ export default function PlayerPage({ params }: PlayerPageProps) {
       clearTimeout(rotationTimerRef.current)
     }
 
-    const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
-    const currentMedia = contentToDisplay[currentIndex]
-
-    if (!currentMedia) return
-
-    const isRegularVideo = currentMedia.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
+    const isRegularVideo = currentMedia?.media.mime_type.startsWith("video/") && !isYouTubeVideo(currentMedia.media)
 
     // Only set timer for non-video content
     if (!isRegularVideo) {
-      const duration = currentMedia.duration_override
+      const duration = currentMedia?.duration_override
         ? currentMedia.duration_override * 1000
-        : currentMedia.media.duration
+        : currentMedia?.media.duration
           ? currentMedia.media.duration * 1000
           : 10000
 
-      console.log(`[v0] Timer: Setting ${duration}ms timer for "${currentMedia.media.name}"`)
+      console.log(`[v0] Timer: Setting ${duration}ms timer for "${currentMedia?.media.name}"`)
       rotationTimerRef.current = setTimeout(() => {
-        console.log(`[v0] Timer: Timer expired for "${currentMedia.media.name}"`)
+        console.log(`[v0] Timer: Timer expired for "${currentMedia?.media.name}"`)
         advanceToNextMedia()
       }, duration)
     }
@@ -774,14 +780,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   console.log("[v0] screen.content length:", screen.content?.length)
   console.log("[v0] shuffledContent:", shuffledContent)
   console.log("[v0] shuffledContent length:", shuffledContent.length)
-  console.log("[v0] contentToDisplay:", screen.content)
-  console.log("[v0] contentToDisplay length:", screen.content?.length)
+  console.log("[v0] contentToDisplay:", contentToDisplay)
+  console.log("[v0] contentToDisplay length:", contentToDisplay.length)
   console.log("[v0] currentIndex:", currentIndex)
-  console.log("[v0] currentMedia:", screen.content[currentIndex])
+  console.log("[v0] currentMedia:", currentMedia)
   console.log("[v0] Will show content:", screen.content && screen.content.length > 0)
-
-  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : screen.content
-  const currentMedia = contentToDisplay[currentIndex]
 
   return (
     <div
@@ -817,7 +820,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
               Shuffled Items: <span className="text-yellow-400">{shuffledContent.length}</span>
             </div>
             <div>
-              Display Array Length: <span className="text-yellow-400">{screen.content?.length}</span>
+              Display Array Length: <span className="text-yellow-400">{contentToDisplay.length}</span>
             </div>
             {null && <div className="text-red-400 mt-2">Error: {null}</div>}
             {true && (
@@ -877,7 +880,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         }`}
       >
         <div className="p-4 h-full overflow-y-auto">
-          {config?.screen.id && analyticsEnabled && (
+          {config?.screen.playlist && analyticsEnabled && (
             <>
               {console.log("[v0] Rendering CameraAnalytics in right panel with screenId:", config.screen.id)}
               <CameraAnalytics
