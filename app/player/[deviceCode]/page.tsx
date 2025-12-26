@@ -64,12 +64,7 @@ interface PlayerPageProps {
   params: { deviceCode: string }
 }
 
-const FEATURE_FLAGS = {
-  USE_SMART_PRELOADER: false, // Set to true to enable multi-item preloading with ready queue
-  USE_ROTATION_DIAGNOSTIC: true, // Enable rotation diagnostic
-  USE_MEDIA_ROTATION: false, // Set to true to enable stable rotation without timer resets
-  USE_WEBVIEW_PRELOADER: false, // Set to true to enable Android WebView optimized preloader
-}
+const USE_ROTATION_DIAGNOSTIC = true // Enable rotation diagnostic
 
 export default function PlayerPage({ params }: PlayerPageProps) {
   const [config, setConfig] = useState<ScreenConfig | null>(null)
@@ -105,7 +100,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const smartPreloader = useSmartPreloader(
     shuffledContent.length > 0 ? shuffledContent : config?.screen.content || [],
     currentIndex,
-    FEATURE_FLAGS.USE_SMART_PRELOADER,
+    true, // Always active
   )
 
   const { isTVMode } = useTVNavigation({
@@ -176,9 +171,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     currentMediaType: currentMedia?.media.mime_type,
     currentMediaDuration: currentMedia?.duration_override || currentMedia?.media.duration || 10,
     onAdvance: (nextIndex) => {
-      if (FEATURE_FLAGS.USE_MEDIA_ROTATION) {
-        setCurrentIndex(nextIndex)
-      }
+      setCurrentIndex(nextIndex)
     },
   })
 
@@ -190,7 +183,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   })
 
   useEffect(() => {
-    if (FEATURE_FLAGS.USE_SMART_PRELOADER && smartPreloader.preloadStatus.length > 0) {
+    if (true && smartPreloader.preloadStatus.length > 0) {
       const latestStatus = smartPreloader.preloadStatus[smartPreloader.preloadStatus.length - 1]
       setPreloadStatus(latestStatus.message)
     }
