@@ -14,6 +14,7 @@ import { Bell, Search, LogOut, Moon, Sun } from "lucide-react"
 import { signOut } from "@/lib/actions"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useTheme } from "next-themes"
+import { useEffect, useState } from "react"
 
 interface DashboardHeaderProps {
   user: SupabaseUser
@@ -22,6 +23,17 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ user }: DashboardHeaderProps) {
   const userInitials = user.email?.charAt(0).toUpperCase() || "U"
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const handleThemeChange = (newTheme: string) => {
+    console.log("[v0] Changing theme to:", newTheme)
+    setTheme(newTheme)
+    console.log("[v0] Theme changed, current theme:", theme)
+  }
 
   return (
     <header className="bg-card border-b border-border px-6 py-4">
@@ -60,13 +72,15 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-xs text-muted-foreground">Theme</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => setTheme("light")}>
+              <DropdownMenuItem onClick={() => handleThemeChange("light")}>
                 <Sun className="w-4 h-4 mr-2" />
                 Light Mode
+                {mounted && theme === "light" && <span className="ml-auto text-xs">✓</span>}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("dark")}>
+              <DropdownMenuItem onClick={() => handleThemeChange("dark")}>
                 <Moon className="w-4 h-4 mr-2" />
                 Dark Mode
+                {mounted && theme === "dark" && <span className="ml-auto text-xs">✓</span>}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
