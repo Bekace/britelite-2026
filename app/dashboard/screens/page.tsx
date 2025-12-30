@@ -1,7 +1,7 @@
 "use client"
 
 import { Switch } from "@/components/ui/switch"
-import { X } from "lucide-react" // Import X icon for closing modals
+import { X, Plus } from "lucide-react" // Import X icon for closing modals, and Plus for button
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,8 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { transformScreenData } from "@/utils/transformScreenData"
 import { ScreenPreviewModal } from "@/components/screen-preview-modal" // Import the real ScreenPreviewModal component instead of using placeholder
+import { useRouter } from "next/navigation" // Import useRouter
+// import { DashboardLayout } from "@/components/dashboard/layout" // Import DashboardLayout - REMOVED AS PER UPDATES
 
 // Placeholder for the ScreenPreviewModal component
 // In a real application, this would be imported from a separate file
@@ -108,6 +110,7 @@ interface WizardState {
     preloadAssets: boolean
     showOfflineIndicator: boolean
     mute: boolean
+    notificationsEnabled: boolean // Added notificationsEnabled
   }
 }
 
@@ -127,6 +130,13 @@ export default function ScreensPage() {
   const [editingContentType, setEditingContentType] = useState<"playlist" | "asset">("playlist")
   const [previewingScreen, setPreviewingScreen] = useState<Screen | null>(null)
   const [editingSelectedContentIds, setEditingSelectedContentIds] = useState<string[]>([])
+
+  const [screenLimits, setScreenLimits] = useState<{
+    current: number
+    limit: number
+    canCreate: boolean
+    plan: string
+  } | null>(null)
 
   const [wizardState, setWizardState] = useState<WizardState>({
     step: 1,
@@ -148,16 +158,31 @@ export default function ScreensPage() {
       preloadAssets: false,
       showOfflineIndicator: true,
       mute: false,
+      notificationsEnabled: true, // Added notificationsEnabled
     },
   })
 
   const { toast } = useToast()
+  const router = useRouter() // Import useRouter
 
   useEffect(() => {
+    fetchScreenLimits()
     fetchScreens()
     fetchPlaylists()
     fetchMediaItems()
   }, [])
+
+  const fetchScreenLimits = async () => {
+    try {
+      const response = await fetch("/api/screen-limits")
+      if (response.ok) {
+        const data = await response.json()
+        setScreenLimits(data)
+      }
+    } catch (error) {
+      console.error("Error fetching screen limits:", error)
+    }
+  }
 
   const fetchScreens = async () => {
     try {
@@ -289,11 +314,21 @@ export default function ScreensPage() {
         preloadAssets: false,
         showOfflineIndicator: true,
         mute: false,
+        notificationsEnabled: true, // Reset notificationsEnabled
       },
     })
   }
 
   const handleCreateScreen = async () => {
+    if (screenLimits && !screenLimits.canCreate) {
+      toast({
+        title: "Screen Limit Reached",
+        description: `Your ${screenLimits.plan} plan allows ${screenLimits.limit} screen${screenLimits.limit > 1 ? "s" : ""}. Please upgrade to create more screens.`,
+        variant: "destructive",
+      })
+      return
+    }
+
     if (!wizardState.name.trim()) {
       toast({
         title: "Error",
@@ -430,6 +465,7 @@ export default function ScreensPage() {
       resetWizard()
       setIsCreateDialogOpen(false)
       fetchScreens()
+      fetchScreenLimits()
     } catch (error) {
       console.error("[v0] Screen creation error:", error)
       toast({
@@ -537,6 +573,7 @@ export default function ScreensPage() {
           preloadAssets: false,
           showOfflineIndicator: true,
           mute: false,
+          notificationsEnabled: true, // Reset notificationsEnabled
         },
       })
     }
@@ -905,6 +942,22 @@ export default function ScreensPage() {
             }
           />
         </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>Notifications</Label>
+            <p className="text-sm text-gray-600">Enable screen notifications</p>
+          </div>
+          <Switch
+            checked={wizardState.advancedOptions.notificationsEnabled}
+            onCheckedChange={(checked) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, notificationsEnabled: checked },
+              }))
+            }
+          />
+        </div>
       </div>
     </div>
   )
@@ -971,6 +1024,8 @@ export default function ScreensPage() {
 
       if (response.ok) {
         setScreens((prev) => prev.filter((screen) => screen.id !== id))
+        // Refresh limits after deleting screen
+        fetchScreenLimits()
         toast({
           title: "Success",
           description: "Screen deleted successfully",
@@ -1050,21 +1105,28 @@ export default function ScreensPage() {
   }
 
   return (
+    // <DashboardLayout> - REMOVED AS PER UPDATES
     <div className="space-y-6">
       {/* Header Section */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Screens</h1>
-          <p className="text-gray-600 mt-1">Manage your digital signage displays</p>
+          <h1 className="text-3xl font-bold tracking-tight">Screens</h1>
+          <p className="text-muted-foreground">Manage your digital signage screens</p>
+          {screenLimits && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {screenLimits.limit === -1
+                ? `${screenLimits.current} screens (Unlimited)`
+                : `${screenLimits.current} / ${screenLimits.limit} screens used`}
+            </p>
+          )}
         </div>
         <Button
-          onClick={() => {
-            resetWizard()
-            setIsCreateDialogOpen(true)
-          }}
+          onClick={() => setIsCreateDialogOpen(true)}
           className="bg-cyan-500 hover:bg-cyan-600"
+          disabled={screenLimits ? !screenLimits.canCreate : false}
         >
-          Add Screen
+          <Plus className="h-4 w-4 mr-2" />
+          {screenLimits && !screenLimits.canCreate ? "Limit Reached" : "Create Screen"}
         </Button>
       </div>
 
@@ -1184,24 +1246,6 @@ export default function ScreensPage() {
                 </div>
 
                 <div className="flex gap-2 mt-4">
-                  {/* <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setEditingScreen(screen)
-                      // Initialize editingSelectedContentIds with the screen's current playlists/media
-                      const currentContentIds = screen.playlists ? screen.playlists.map((p) => p.id) : []
-                      // If there's a media_id, add it too, assuming it's treated as a single asset
-                      if (screen.media_id && !currentContentIds.includes(screen.media_id)) {
-                        currentContentIds.push(screen.media_id)
-                      }
-                      setEditingSelectedContentIds(currentContentIds)
-                    }}
-                    className="flex-1"
-                  >
-                    Edit
-                  </Button> */}
-
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" className="flex-1 bg-transparent">
@@ -1524,5 +1568,6 @@ export default function ScreensPage() {
         onClose={() => setPreviewingScreen(null)}
       />
     </div>
+    // </DashboardLayout> - REMOVED AS PER UPDATES
   )
 }
