@@ -62,6 +62,7 @@ interface SubscriptionPlan {
   price: number
   billing_cycle: string
   is_active: boolean
+  max_playlists?: number
 }
 
 interface UserManagementProps {
