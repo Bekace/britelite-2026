@@ -30,9 +30,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
   }, [])
 
   const handleThemeChange = (newTheme: string) => {
-    console.log("[v0] Changing theme to:", newTheme)
     setTheme(newTheme)
-    console.log("[v0] Theme changed, current theme:", theme)
   }
 
   return (
