@@ -5,11 +5,8 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { CreditCard, Package, Receipt } from "lucide-react"
 import BillingClient from "./billing-client"
-import { revalidatePath } from "next/cache"
 
 export default async function BillingSettingsPage() {
-  revalidatePath("/dashboard/settings/billing")
-
   const supabase = await createClient()
 
   if (!supabase) {
