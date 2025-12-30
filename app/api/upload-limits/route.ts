@@ -36,7 +36,7 @@ export async function GET() {
         )
       `)
       .eq("user_id", user.id)
-      .eq("status", "active")
+      .in("status", ["active", "trialing"])
       .not("plan_id", "is", null)
       .maybeSingle()
 

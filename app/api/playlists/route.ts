@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
           )
         `)
         .eq("user_id", user.id)
-        .eq("status", "active")
+        .in("status", ["active", "trialing"])
         .maybeSingle()
 
       if (subscriptionResult && subscriptionResult.subscription_plans) {
@@ -127,7 +127,6 @@ export async function POST(request: NextRequest) {
         { status: 403 },
       )
     }
-    // </CHANGE>
 
     const {
       name,

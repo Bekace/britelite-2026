@@ -64,7 +64,7 @@ export async function GET() {
       `,
       )
       .eq("user_id", user.id)
-      .eq("status", "active")
+      .in("status", ["active", "trialing"])
       .single()
 
     let maxScreens = 1 // Default Free plan limit
