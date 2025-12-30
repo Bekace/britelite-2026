@@ -25,39 +25,52 @@ export default async function BillingSettingsPage() {
     redirect("/auth/login")
   }
 
-  const { data: subscription } = await supabase
-    .from("user_subscriptions")
-    .select(`
-      *,
-      subscription_plans (*)
-    `)
-    .eq("user_id", user.id)
-    .in("status", ["active", "trialing"])
-    .single()
+  let subscription = null
+  let plan = null
+  let allPlans = []
 
-  let plan = subscription?.subscription_plans
-
-  if (!subscription || !plan) {
-    const { data: freePlan } = await supabase
-      .from("subscription_plans")
-      .select("*")
-      .eq("name", "Free")
-      .eq("is_active", true)
+  try {
+    const { data: subData } = await supabase
+      .from("user_subscriptions")
+      .select(`
+        *,
+        subscription_plans (*)
+      `)
+      .eq("user_id", user.id)
+      .in("status", ["active", "trialing"])
       .single()
 
-    if (freePlan) {
-      plan = freePlan
-    }
-  }
+    subscription = subData
+    plan = subscription?.subscription_plans
 
-  const { data: allPlans } = await supabase
-    .from("subscription_plans")
-    .select("*")
-    .eq("is_active", true)
-    .order("price", { ascending: true })
+    if (!subscription || !plan) {
+      const { data: freePlan } = await supabase
+        .from("subscription_plans")
+        .select("*")
+        .eq("name", "Free")
+        .eq("is_active", true)
+        .single()
+
+      if (freePlan) {
+        plan = freePlan
+      }
+    }
+
+    const { data: plans } = await supabase
+      .from("subscription_plans")
+      .select("*")
+      .eq("is_active", true)
+      .order("name", { ascending: true })
+
+    allPlans = plans || []
+  } catch (err) {
+    console.error("[v0] Billing page error:", err)
+  }
 
   const displayPrice = plan?.price ? Number(plan.price).toFixed(0) : "0"
   const billingCycle = plan?.billing_cycle === "yearly" ? "year" : "month"
+
+  const storageGB = plan?.max_media_storage ? Math.round(plan.max_media_storage / 1024 / 1024 / 1024) : 0
 
   return (
     <div className="space-y-6">
@@ -79,11 +92,12 @@ export default async function BillingSettingsPage() {
               </div>
               {plan && (
                 <div className="text-sm text-muted-foreground space-y-1">
-                  <p>Max Screens: {plan.max_screens === -1 ? "Unlimited" : plan.max_screens}</p>
-                  <p>Max Playlists: {plan.max_playlists === 999999 ? "Unlimited" : plan.max_playlists}</p>
+                  <p>Max Screens: {plan.max_screens === -1 ? "Unlimited" : plan.max_screens || 0}</p>
                   <p>
-                    Storage: {plan.max_media_storage} {plan.storage_unit || "GB"}
+                    Max Playlists:{" "}
+                    {plan.max_playlists === 999999 || plan.max_playlists === -1 ? "Unlimited" : plan.max_playlists || 0}
                   </p>
+                  <p>Storage: {storageGB} GB</p>
                 </div>
               )}
             </div>
@@ -95,7 +109,7 @@ export default async function BillingSettingsPage() {
               ? "Active subscription"
               : "No active subscription"}
           </p>
-          <BillingClient plans={allPlans || []} currentPlanId={plan?.id} />
+          <BillingClient plans={allPlans} currentPlanId={plan?.id} />
         </div>
       </div>
 
