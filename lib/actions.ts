@@ -106,8 +106,8 @@ export async function signUp(prevState: { error?: string; success?: boolean; mes
             quantity: 1,
           },
         ],
-        success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/pricing`,
+        success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/auth/checkout-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/pricing`,
         metadata: {
           email: email.toString(),
           plan_id: planId?.toString() || "",
@@ -143,7 +143,7 @@ export async function signUp(prevState: { error?: string; success?: boolean; mes
         email: email.toString(),
         password: password.toString(),
         options: {
-          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "https://xkreen.vercel.app"}/auth/callback`,
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/auth/callback`,
           data: {
             full_name: fullName?.toString() || "",
             company_name: companyName?.toString() || "",
