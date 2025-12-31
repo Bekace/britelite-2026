@@ -103,7 +103,7 @@ export default async function GeneralSettingsPage() {
             <div className="bg-background/50 rounded-md p-3">
               <p className="text-xs text-muted-foreground mb-1">Storage</p>
               <p className="text-lg font-semibold">
-                {plan.max_media_storage} {plan.storage_unit}
+                {plan.max_media_storage === -1 ? "Unlimited" : `${Math.round(plan.max_media_storage / 1073741824)} GB`}
               </p>
             </div>
           </div>
