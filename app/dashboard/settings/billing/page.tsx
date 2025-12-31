@@ -55,11 +55,27 @@ export default async function BillingSettingsPage() {
 
     const { data: plans } = await supabase
       .from("subscription_plans")
-      .select("*")
+      .select(`
+        *,
+        subscription_prices (
+          id,
+          plan_id,
+          billing_cycle,
+          price,
+          stripe_price_id,
+          trial_days,
+          is_active
+        )
+      `)
       .eq("is_active", true)
       .order("name", { ascending: true })
 
-    allPlans = plans || []
+    // Map the subscription_prices array to prices array expected by the component
+    allPlans =
+      plans?.map((plan) => ({
+        ...plan,
+        prices: plan.subscription_prices || [],
+      })) || []
   } catch (err) {
     console.error("[v0] Billing page error:", err)
   }
