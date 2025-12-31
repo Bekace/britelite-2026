@@ -31,7 +31,10 @@ export default async function BillingSettingsPage() {
       .from("user_subscriptions")
       .select(`
         *,
-        subscription_plans (*)
+        subscription_plans (
+          *,
+          subscription_prices (*)
+        )
       `)
       .eq("user_id", user.id)
       .in("status", ["active", "trialing"])
@@ -43,7 +46,10 @@ export default async function BillingSettingsPage() {
     if (!subscription || !plan) {
       const { data: freePlan } = await supabase
         .from("subscription_plans")
-        .select("*")
+        .select(`
+          *,
+          subscription_prices (*)
+        `)
         .eq("name", "Free")
         .eq("is_active", true)
         .single()
@@ -80,8 +86,10 @@ export default async function BillingSettingsPage() {
     console.error("[v0] Billing page error:", err)
   }
 
-  const displayPrice = plan?.price ? Number(plan.price).toFixed(0) : "0"
-  const billingCycle = plan?.billing_cycle === "yearly" ? "year" : "month"
+  const userBillingCycle = subscription?.billing_cycle || "monthly"
+  const currentPrice = plan?.subscription_prices?.find((p: any) => p.billing_cycle === userBillingCycle && p.is_active)
+  const displayPrice = currentPrice?.price ? Number(currentPrice.price).toFixed(0) : "0"
+  const billingCycle = userBillingCycle === "yearly" ? "year" : "month"
 
   const storageGB = plan?.max_media_storage ? Math.round(plan.max_media_storage / 1024 / 1024 / 1024) : 0
 
