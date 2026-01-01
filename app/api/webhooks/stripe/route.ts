@@ -129,21 +129,61 @@ export async function POST(req: NextRequest) {
 
           // If not found by customer ID, try by email
           if (!userId && customerEmail) {
-            const { data: profile } = await supabase.from("profiles").select("id").eq("email", customerEmail).single()
+            console.log("[v0] Looking up user by email:", customerEmail)
+
+            const { data: profile, error: profileError } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("email", customerEmail)
+              .single()
 
             if (profile) {
               userId = profile.id
               console.log("[v0] Found existing user by email:", userId)
 
-              // Update profile with Stripe customer ID
               if (session.customer) {
-                await supabase
+                const { error: updateError } = await supabase
                   .from("profiles")
                   .update({ stripe_customer_id: session.customer.toString() })
                   .eq("id", userId)
+
+                if (updateError) {
+                  console.error("[v0] Failed to update profile with customer ID:", updateError)
+                } else {
+                  console.log("[v0] Updated profile with stripe_customer_id:", session.customer.toString())
+                }
               }
             } else {
-              console.error("[v0] No user found for email:", customerEmail)
+              console.error("[v0] No user found for email:", customerEmail, "Error:", profileError)
+            }
+          }
+
+          if (!userId && session.customer) {
+            console.log("[v0] Attempting to fetch customer from Stripe:", session.customer)
+            try {
+              const customer = await stripe.customers.retrieve(session.customer.toString())
+              if (!customer.deleted && customer.email) {
+                console.log("[v0] Found customer email from Stripe:", customer.email)
+
+                const { data: profile } = await supabase
+                  .from("profiles")
+                  .select("id")
+                  .eq("email", customer.email)
+                  .single()
+
+                if (profile) {
+                  userId = profile.id
+                  console.log("[v0] Found user by Stripe customer email:", userId)
+
+                  // Update profile with customer ID
+                  await supabase
+                    .from("profiles")
+                    .update({ stripe_customer_id: session.customer.toString() })
+                    .eq("id", userId)
+                }
+              }
+            } catch (error) {
+              console.error("[v0] Failed to retrieve Stripe customer:", error)
             }
           }
         }
