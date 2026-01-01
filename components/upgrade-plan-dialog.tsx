@@ -76,13 +76,34 @@ function extractFeatures(plan: Plan): string[] {
   return displayFeatures
 }
 
+function getPlanTier(plan: Plan): number {
+  // Assign tier based on plan limits (higher number = higher tier)
+  // Free: tier 1, Pro: tier 2, Enterprise: tier 3
+  if (plan.name.toLowerCase() === "free") return 1
+  if (plan.name.toLowerCase() === "pro") return 2
+  if (plan.name.toLowerCase() === "enterprise") return 3
+
+  // Fallback: use max_screens as tier indicator
+  // -1 (unlimited) is highest tier
+  if (plan.max_screens === -1) return 999
+  return plan.max_screens
+}
+
 export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPlanId }: UpgradePlanDialogProps) {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly")
   const [isLoading, setIsLoading] = useState<string | null>(null)
   const { toast } = useToast()
 
-  // Filter out the current plan and only show upgrade options
-  const availablePlans = plans.filter((plan) => plan.id !== currentPlanId)
+  const currentPlan = plans.find((plan) => plan.id === currentPlanId)
+  const currentTier = currentPlan ? getPlanTier(currentPlan) : 0
+
+  const availablePlans = plans.filter((plan) => {
+    // Never show Free plan as an upgrade option
+    if (plan.name.toLowerCase() === "free") return false
+
+    // Only show plans with higher tier than current
+    return getPlanTier(plan) > currentTier
+  })
 
   const getPrice = (plan: Plan, cycle: "monthly" | "yearly"): Price | undefined => {
     return plan.prices.find((p) => p.billing_cycle === cycle && p.is_active)
