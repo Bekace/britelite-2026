@@ -96,10 +96,7 @@ export function DashboardSidebar() {
         <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
           {!collapsed && (
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-background">
-               
-              </div>
-              <img src="/xkreen-logo.svg" alt="XKREEN" className="h-6 w-auto" />
+                <img src="/xkreen-logo.svg" alt="XKREEN" className="h-6 w-auto" />
             </div>
           )}
           <Button
