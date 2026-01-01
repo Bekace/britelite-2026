@@ -95,9 +95,9 @@ export default function LoginPage() {
             </CardHeader>
             <CardContent>
               {successMessage && (
-                <Alert className="mb-6 border-green-500 bg-green-500/10">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-700">{successMessage}</AlertDescription>
+                <Alert className="mb-6 border-primary/50 bg-primary/10">
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <AlertDescription className="text-foreground">{successMessage}</AlertDescription>
                 </Alert>
               )}
 
