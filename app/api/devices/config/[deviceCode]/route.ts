@@ -33,11 +33,13 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
     const { data: screen, error: screenError } = await supabase
       .from("screens")
-      .select("id, name, orientation, status, media_id, content_type")
+      .select("id, name, orientation, status, media_id, content_type, enable_audio_management")
       .eq("id", device.screen_id)
       .single()
 
     console.log("[v0] Screen lookup result:", { screen, screenError })
+
+    console.log("[v0] Screen details - media_id:", screen?.media_id, "content_type:", screen?.content_type)
 
     if (screenError || !screen) {
       return NextResponse.json({ error: "Screen not found" }, { status: 404 })
@@ -46,30 +48,42 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
     let playlistContent = []
     let activePlaylist = null
 
-    // Check for individual asset first
-    if (screen.media_id) {
-      const { data: mediaItem, error: mediaError } = await supabase
-        .from("media")
-        .select("id, name, file_path, mime_type, file_size, duration")
-        .eq("id", screen.media_id)
-        .single()
+    if (screen.content_type === "asset") {
+      console.log("[v0] Checking screen_media for multiple assets for screen:", screen.id)
 
-      if (!mediaError && mediaItem) {
-        playlistContent = [
-          {
-            id: `asset-${mediaItem.id}`,
-            position: 1,
+      const { data: screenMedia, error: mediaError } = await supabase
+        .from("screen_media")
+        .select(`
+          id,
+          media (
+            id,
+            name,
+            file_path,
+            mime_type,
+            file_size,
+            duration
+          )
+        `)
+        .eq("screen_id", screen.id)
+
+      console.log("[v0] Screen media lookup:", { count: screenMedia?.length, mediaError })
+
+      if (!mediaError && screenMedia && screenMedia.length > 0) {
+        playlistContent = screenMedia
+          .filter((sm) => sm.media)
+          .map((sm, index) => ({
+            id: `asset-${sm.media.id}`,
+            position: index + 1,
             duration_override: null,
             transition_type: null,
             transition_duration: null,
-            media: mediaItem,
-          },
-        ]
+            media: sm.media,
+          }))
 
-        // Create a virtual playlist for asset display
+        // Create a virtual playlist for multiple assets display
         activePlaylist = {
           id: `asset-playlist-${screen.id}`,
-          name: `Asset: ${mediaItem.name}`,
+          name: `Assets for ${screen.name}`,
           background_color: "#000000",
           is_active: true,
           scale_image: "fit",
@@ -78,15 +92,55 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
           shuffle: false,
           default_transition: "fade",
         }
+
+        console.log("[v0] Loaded multiple assets from screen_media:", playlistContent.length)
+      } else if (screen.media_id) {
+        // Fallback to legacy single media_id if screen_media is empty
+        console.log("[v0] No screen_media entries, falling back to legacy media_id:", screen.media_id)
+
+        const { data: mediaItem, error: singleMediaError } = await supabase
+          .from("media")
+          .select("id, name, file_path, mime_type, file_size, duration")
+          .eq("id", screen.media_id)
+          .single()
+
+        console.log("[v0] Legacy media item lookup:", { mediaItem, singleMediaError })
+
+        if (!singleMediaError && mediaItem) {
+          playlistContent = [
+            {
+              id: `asset-${mediaItem.id}`,
+              position: 1,
+              duration_override: null,
+              transition_type: null,
+              transition_duration: null,
+              media: mediaItem,
+            },
+          ]
+
+          activePlaylist = {
+            id: `asset-playlist-${screen.id}`,
+            name: `Asset: ${mediaItem.name}`,
+            background_color: "#000000",
+            is_active: true,
+            scale_image: "fit",
+            scale_video: "fit",
+            scale_document: "fit",
+            shuffle: false,
+            default_transition: "fade",
+          }
+        }
       }
     }
-    // If no asset, check for playlist
+    // If not asset content, check for playlist
     else {
+      console.log("[v0] No media_id, checking for active playlist for screen:", screen.id)
+
       const { data: screenPlaylist, error: playlistError } = await supabase
         .from("screen_playlists")
         .select(`
           playlist_id,
-          playlists (
+          playlists!screen_playlists_playlist_id_fkey (
             id,
             name,
             background_color,
@@ -102,8 +156,22 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         .eq("is_active", true)
         .maybeSingle()
 
-      if (screenPlaylist?.playlists) {
-        activePlaylist = screenPlaylist.playlists
+      console.log("[v0] Screen playlist lookup:", { screenPlaylist, playlistError })
+
+      const playlistData = screenPlaylist?.playlists
+
+      if (playlistData) {
+        activePlaylist = playlistData
+
+        console.log("[v0] Active playlist scale settings:", {
+          playlistId: activePlaylist.id,
+          playlistName: activePlaylist.name,
+          scale_image: activePlaylist.scale_image,
+          scale_video: activePlaylist.scale_video,
+          scale_document: activePlaylist.scale_document,
+        })
+
+        console.log("[v0] Found active playlist, fetching items for playlist_id:", activePlaylist.id)
 
         const { data: playlistItems, error: itemsError } = await supabase
           .from("playlist_items")
@@ -125,9 +193,18 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
           .eq("playlist_id", activePlaylist.id)
           .order("position")
 
+        console.log("[v0] Playlist items lookup:", {
+          itemsCount: playlistItems?.length,
+          itemsError,
+          items: playlistItems,
+        })
+
         if (!itemsError && playlistItems) {
           playlistContent = playlistItems.filter((item) => item.media)
+          console.log("[v0] Filtered playlist content count:", playlistContent.length)
         }
+      } else {
+        console.log("[v0] No active playlist found for screen")
       }
     }
 
@@ -143,6 +220,8 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
       deviceId: device.id,
       screenId: screen.id,
       contentCount: playlistContent.length,
+      hasPlaylist: !!activePlaylist,
+      playlistId: activePlaylist?.id,
     })
 
     const responseData = {
@@ -157,6 +236,7 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         name: screen.name,
         orientation: screen.orientation,
         status: screen.status,
+        enable_audio_management: screen.enable_audio_management ?? false,
         playlist: activePlaylist,
         content: playlistContent,
       },

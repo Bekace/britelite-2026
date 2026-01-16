@@ -65,7 +65,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const requestData = await request.json()
-    const { name, location, resolution, orientation, selectedContentIds, content_type } = requestData
+    const { name, location, resolution, orientation, selectedContentIds, content_type, enable_audio_management } =
+      requestData
 
     console.log("[v0] Screen update request:")
     console.log(`[v0] - Screen ID: ${params.id}`)
@@ -78,6 +79,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       resolution,
       orientation,
       updated_at: new Date().toISOString(),
+    }
+
+    if (enable_audio_management !== undefined) {
+      updateData.enable_audio_management = enable_audio_management
     }
 
     const { error: deletePlaylistsError } = await supabase.from("screen_playlists").delete().eq("screen_id", params.id)
@@ -112,19 +117,23 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       }
     } else if (content_type === "asset" && selectedContentIds && selectedContentIds.length > 0) {
       updateData.content_type = "asset"
-      updateData.media_id = selectedContentIds[0]
+      updateData.media_id = null
+
+      console.log(`[v0] - Received ${selectedContentIds.length} media IDs:`, selectedContentIds)
 
       const mediaAssignments = selectedContentIds.map((mediaId: string) => ({
         screen_id: params.id,
         media_id: mediaId,
       }))
 
+      console.log(`[v0] - Created ${mediaAssignments.length} media assignments to insert:`, mediaAssignments)
+
       const { data: insertedMedia, error: mediaInsertError } = await supabase
         .from("screen_media")
         .insert(mediaAssignments)
         .select()
 
-      console.log(`[v0] - Inserted ${insertedMedia?.length || 0} media assignments`)
+      console.log(`[v0] - Inserted ${insertedMedia?.length || 0} media assignments, data:`, insertedMedia)
       if (mediaInsertError) {
         console.error("[v0] - Error inserting media:", mediaInsertError)
         return NextResponse.json({ error: "Failed to assign media: " + mediaInsertError.message }, { status: 500 })

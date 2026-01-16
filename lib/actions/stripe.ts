@@ -4,7 +4,7 @@ import { stripe } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
-export async function createCheckoutSession(planId: string) {
+export async function createCheckoutSession(planId: string, priceId: string) {
   const supabase = await createClient()
 
   // Get the current user
@@ -28,11 +28,14 @@ export async function createCheckoutSession(planId: string) {
     return { error: "Invalid plan selected" }
   }
 
-  // Determine which Stripe price ID to use
-  const stripePriceId = plan.billing_cycle === "monthly" ? plan.stripe_price_id_monthly : plan.stripe_price_id_yearly
+  const { data: price, error: priceError } = await supabase
+    .from("subscription_prices")
+    .select("*")
+    .eq("id", priceId)
+    .single()
 
-  if (!stripePriceId) {
-    return { error: "Plan does not have a Stripe price configured" }
+  if (priceError || !price || !price.stripe_price_id) {
+    return { error: "Invalid price selected" }
   }
 
   // Get or create Stripe customer
@@ -72,7 +75,7 @@ export async function createCheckoutSession(planId: string) {
     customer: customerId,
     line_items: [
       {
-        price: stripePriceId,
+        price: price.stripe_price_id,
         quantity: 1,
       },
     ],
@@ -82,13 +85,15 @@ export async function createCheckoutSession(planId: string) {
       metadata: {
         user_id: user.id,
         plan_id: planId,
+        price_id: priceId,
       },
     },
-    success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-pointer-ai-landing-page-psi-six-73.vercel.app"}/auth/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-pointer-ai-landing-page-psi-six-73.vercel.app"}/auth/pricing`,
+    success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/auth/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/auth/pricing`,
     metadata: {
       user_id: user.id,
       plan_id: planId,
+      price_id: priceId,
     },
   })
 
@@ -109,7 +114,7 @@ export async function createCustomerPortalSession() {
   // Get Stripe customer ID
   const { data: subscription } = await supabase
     .from("user_subscriptions")
-    .select("stripe_customer_id")
+    .select("stripe_customer_id, stripe_subscription_id")
     .eq("user_id", user.id)
     .single()
 
@@ -117,11 +122,404 @@ export async function createCustomerPortalSession() {
     return { error: "No active subscription found" }
   }
 
-  // Create portal session
   const session = await stripe.billingPortal.sessions.create({
     customer: subscription.stripe_customer_id,
-    return_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-pointer-ai-landing-page-psi-six-73.vercel.app"}/dashboard/settings/billing`,
+    return_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/dashboard/settings/billing`,
+    // Configure what features are available in the portal
+    flow_data: {
+      type: "subscription_cancel",
+      subscription_cancel: {
+        subscription: subscription.stripe_subscription_id,
+      },
+    },
   })
 
   redirect(session.url)
+}
+
+export async function createUpgradeCheckoutSession(planId: string, priceId: string) {
+  const supabase = await createClient()
+
+  // Get the current user
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { error: "You must be logged in to upgrade" }
+  }
+
+  // Get the selected plan with Stripe price ID
+  const { data: plan, error: planError } = await supabase
+    .from("subscription_plans")
+    .select("*")
+    .eq("id", planId)
+    .single()
+
+  if (planError || !plan) {
+    return { error: "Invalid plan selected" }
+  }
+
+  // Get the selected price
+  const { data: price, error: priceError } = await supabase
+    .from("subscription_prices")
+    .select("*")
+    .eq("id", priceId)
+    .single()
+
+  if (priceError || !price || !price.stripe_price_id) {
+    return { error: "Invalid price selected" }
+  }
+
+  // Get or create Stripe customer
+  const { data: profile } = await supabase.from("profiles").select("email").eq("id", user.id).single()
+
+  let customerId: string
+
+  // Check if user already has a Stripe customer ID
+  const { data: existingSubscription } = await supabase
+    .from("user_subscriptions")
+    .select("stripe_customer_id")
+    .eq("user_id", user.id)
+    .single()
+
+  if (existingSubscription?.stripe_customer_id) {
+    customerId = existingSubscription.stripe_customer_id
+  } else {
+    // Create new Stripe customer
+    const customer = await stripe.customers.create({
+      email: profile?.email || user.email,
+      metadata: {
+        user_id: user.id,
+      },
+    })
+    customerId = customer.id
+
+    // Update user_subscriptions with customer ID
+    if (existingSubscription) {
+      await supabase.from("user_subscriptions").update({ stripe_customer_id: customerId }).eq("user_id", user.id)
+    }
+  }
+
+  // Create checkout session for upgrade (no trial for upgrades)
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    line_items: [
+      {
+        price: price.stripe_price_id,
+        quantity: 1,
+      },
+    ],
+    mode: "subscription",
+    subscription_data: {
+      metadata: {
+        user_id: user.id,
+        plan_id: planId,
+        price_id: priceId,
+      },
+    },
+    success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/dashboard/settings/billing?upgraded=true`,
+    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/dashboard/settings/billing`,
+    metadata: {
+      user_id: user.id,
+      plan_id: planId,
+      price_id: priceId,
+    },
+  })
+
+  if (!session.url) {
+    return { error: "Failed to create checkout session" }
+  }
+
+  redirect(session.url)
+}
+
+export async function cancelSubscription(reason?: string, feedback?: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "Not authenticated" }
+  }
+
+  // Get Stripe subscription ID
+  const { data: subscription } = await supabase
+    .from("user_subscriptions")
+    .select("stripe_subscription_id, status")
+    .eq("user_id", user.id)
+    .in("status", ["active", "trialing"])
+    .single()
+
+  if (!subscription?.stripe_subscription_id) {
+    return { error: "No active subscription found" }
+  }
+
+  try {
+    // Cancel at period end (recommended)
+    await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+      cancel_at_period_end: true,
+      cancellation_details: {
+        comment: feedback || "User requested cancellation",
+        feedback: reason as any,
+      },
+    })
+
+    // Update local database
+    await supabase
+      .from("user_subscriptions")
+      .update({
+        cancel_at_period_end: true,
+        cancellation_reason: reason,
+      })
+      .eq("user_id", user.id)
+      .eq("stripe_subscription_id", subscription.stripe_subscription_id)
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("[v0] Cancel subscription error:", error)
+    return { error: error.message || "Failed to cancel subscription" }
+  }
+}
+
+export async function reactivateSubscription() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "Not authenticated" }
+  }
+
+  // Get Stripe subscription ID
+  const { data: subscription } = await supabase
+    .from("user_subscriptions")
+    .select("stripe_subscription_id, cancel_at_period_end")
+    .eq("user_id", user.id)
+    .single()
+
+  if (!subscription?.stripe_subscription_id) {
+    return { error: "No subscription found" }
+  }
+
+  if (!subscription.cancel_at_period_end) {
+    return { error: "Subscription is not scheduled for cancellation" }
+  }
+
+  try {
+    // Reactivate the subscription
+    await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+      cancel_at_period_end: false,
+    })
+
+    // Update local database
+    await supabase
+      .from("user_subscriptions")
+      .update({
+        cancel_at_period_end: false,
+        cancellation_reason: null,
+      })
+      .eq("user_id", user.id)
+      .eq("stripe_subscription_id", subscription.stripe_subscription_id)
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("[v0] Reactivate subscription error:", error)
+    return { error: error.message || "Failed to reactivate subscription" }
+  }
+}
+
+export async function getInvoices() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "Not authenticated" }
+  }
+
+  // Get Stripe customer ID
+  const { data: subscription } = await supabase
+    .from("user_subscriptions")
+    .select("stripe_customer_id")
+    .eq("user_id", user.id)
+    .single()
+
+  if (!subscription?.stripe_customer_id) {
+    return { error: "No customer found" }
+  }
+
+  try {
+    const invoices = await stripe.invoices.list({
+      customer: subscription.stripe_customer_id,
+      limit: 12,
+    })
+
+    return {
+      success: true,
+      invoices: invoices.data.map((invoice) => ({
+        id: invoice.id,
+        number: invoice.number,
+        status: invoice.status,
+        amount: invoice.amount_paid / 100, // Convert from cents
+        currency: invoice.currency,
+        created: invoice.created,
+        pdfUrl: invoice.invoice_pdf,
+        hostedUrl: invoice.hosted_invoice_url,
+      })),
+    }
+  } catch (error: any) {
+    console.error("[v0] Get invoices error:", error)
+    return { error: error.message || "Failed to fetch invoices" }
+  }
+}
+
+export async function getPaymentMethods() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "Not authenticated" }
+  }
+
+  // Get Stripe customer ID
+  const { data: subscription } = await supabase
+    .from("user_subscriptions")
+    .select("stripe_customer_id")
+    .eq("user_id", user.id)
+    .single()
+
+  if (!subscription?.stripe_customer_id) {
+    return { error: "No customer found" }
+  }
+
+  try {
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: subscription.stripe_customer_id,
+      type: "card",
+    })
+
+    // Get default payment method
+    const customer = await stripe.customers.retrieve(subscription.stripe_customer_id)
+    const defaultPaymentMethodId =
+      typeof customer !== "deleted" && customer.invoice_settings?.default_payment_method
+        ? customer.invoice_settings.default_payment_method
+        : null
+
+    return {
+      success: true,
+      paymentMethods: paymentMethods.data.map((pm) => ({
+        id: pm.id,
+        brand: pm.card?.brand,
+        last4: pm.card?.last4,
+        expMonth: pm.card?.exp_month,
+        expYear: pm.card?.exp_year,
+        isDefault: pm.id === defaultPaymentMethodId,
+      })),
+    }
+  } catch (error: any) {
+    console.error("[v0] Get payment methods error:", error)
+    return { error: error.message || "Failed to fetch payment methods" }
+  }
+}
+
+export async function setDefaultPaymentMethod(paymentMethodId: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "Not authenticated" }
+  }
+
+  // Get Stripe customer ID
+  const { data: subscription } = await supabase
+    .from("user_subscriptions")
+    .select("stripe_customer_id")
+    .eq("user_id", user.id)
+    .single()
+
+  if (!subscription?.stripe_customer_id) {
+    return { error: "No customer found" }
+  }
+
+  try {
+    await stripe.customers.update(subscription.stripe_customer_id, {
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+    })
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("[v0] Set default payment method error:", error)
+    return { error: error.message || "Failed to set default payment method" }
+  }
+}
+
+export async function removePaymentMethod(paymentMethodId: string) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "Not authenticated" }
+  }
+
+  try {
+    await stripe.paymentMethods.detach(paymentMethodId)
+    return { success: true }
+  } catch (error: any) {
+    console.error("[v0] Remove payment method error:", error)
+    return { error: error.message || "Failed to remove payment method" }
+  }
+}
+
+export async function createSetupIntent() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: "Not authenticated" }
+  }
+
+  // Get Stripe customer ID
+  const { data: subscription } = await supabase
+    .from("user_subscriptions")
+    .select("stripe_customer_id")
+    .eq("user_id", user.id)
+    .single()
+
+  if (!subscription?.stripe_customer_id) {
+    return { error: "No customer found" }
+  }
+
+  try {
+    const setupIntent = await stripe.setupIntents.create({
+      customer: subscription.stripe_customer_id,
+      payment_method_types: ["card"],
+    })
+
+    return { success: true, clientSecret: setupIntent.client_secret }
+  } catch (error: any) {
+    console.error("[v0] Create setup intent error:", error)
+    return { error: error.message || "Failed to create setup intent" }
+  }
 }
