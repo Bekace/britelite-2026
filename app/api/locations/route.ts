@@ -118,8 +118,10 @@ export async function GET() {
       _count: {
         screens: location.screen_locations?.length || 0,
       },
-      screens: location.screen_locations?.map((sl: any) => sl.screens) || [],
+      screens: location.screen_locations?.map((sl: any) => sl.screens).filter(Boolean) || [],
     }))
+    
+    console.log("[v0] Sample location screens:", transformedLocations[0]?.screens)
 
     return NextResponse.json({ locations: transformedLocations })
   } catch (error) {
