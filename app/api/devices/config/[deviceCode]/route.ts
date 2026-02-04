@@ -171,29 +171,28 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
           scale_document: activePlaylist.scale_document,
         })
 
-        console.log("[v0] Found active playlist, fetching items for playlist_id:", activePlaylist.id)
+        console.log("[v0] Found active playlist, fetching content for playlist_id:", activePlaylist.id)
 
         const { data: playlistItems, error: itemsError } = await supabase
-          .from("playlist_items")
+          .from("playlist_content")
           .select(`
             id,
             position,
             duration_override,
-            transition_type,
-            transition_duration,
+            mute,
+            media_id,
             media (
               id,
               name,
               file_path,
               mime_type,
-              file_size,
               duration
             )
           `)
           .eq("playlist_id", activePlaylist.id)
           .order("position")
 
-        console.log("[v0] Playlist items lookup:", {
+        console.log("[v0] Playlist content lookup:", {
           itemsCount: playlistItems?.length,
           itemsError,
           items: playlistItems,
