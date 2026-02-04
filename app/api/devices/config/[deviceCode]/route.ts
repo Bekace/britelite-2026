@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { type NextRequest, NextResponse } from "next/server"
 
+// Device configuration endpoint with playlist content and media support
 export async function GET(request: NextRequest, { params }: { params: { deviceCode: string } }) {
   try {
     const { deviceCode } = params
