@@ -1,6 +1,11 @@
 import { createClient } from "@supabase/supabase-js"
 import { type NextRequest, NextResponse } from "next/server"
 
+/**
+ * Device configuration endpoint
+ * Fetches device, screen, and playlist content via screen_playlists junction table
+ * Fixed to properly query playlists relationship and return complete media content
+ */
 export async function GET(request: NextRequest, { params }: { params: { deviceCode: string } }) {
   try {
     const { deviceCode } = params
@@ -136,11 +141,11 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
     else {
       console.log("[v0] No media_id, checking for active playlist for screen:", screen.id)
 
-      const { data: screenPlaylist, error: playlistError } = await supabase
+      const { data: screenPlaylist, error: playlistError} = await supabase
         .from("screen_playlists")
         .select(`
           playlist_id,
-          playlists!screen_playlists_playlist_id_fkey (
+          playlists (
             id,
             name,
             background_color,
@@ -156,7 +161,12 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         .eq("is_active", true)
         .maybeSingle()
 
-      console.log("[v0] Screen playlist lookup:", { screenPlaylist, playlistError })
+      console.log("[v0] Screen playlist lookup:", { 
+        screenPlaylist, 
+        playlistError,
+        hasPlaylist: !!screenPlaylist,
+        playlistData: screenPlaylist?.playlists
+      })
 
       const playlistData = screenPlaylist?.playlists
 
