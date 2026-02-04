@@ -89,49 +89,73 @@ export async function GET() {
       )
     }
 
-    // Fetch locations with full screen details
-    const { data: locations, error } = await supabase
+    // Fetch locations
+    const { data: locations, error: locationsError } = await supabase
       .from("locations")
-      .select(
-        `
-        *,
-        screen_locations(
-          screen_id,
-          screens(
-            id,
-            name,
-            status,
-            orientation,
-            rotation_degrees,
-            shuffle,
-            enable_audio_management,
-            scale_image,
-            scale_video,
-            scale_document,
-            background_color,
-            default_transition,
-            location
-          )
-        )
-      `
-      )
+      .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
 
-    if (error) {
-      console.error("[v0] Error fetching locations:", error)
-      return NextResponse.json({ error: "Failed to fetch locations", details: error.message }, { status: 500 })
+    if (locationsError) {
+      console.error("[v0] Error fetching locations:", locationsError)
+      return NextResponse.json({ error: "Failed to fetch locations", details: locationsError.message }, { status: 500 })
     }
 
-    // Transform data to include screen count in Prisma format
-    const transformedLocations = locations.map((location) => ({
-      ...location,
-      screen_count: location.screen_locations?.length || 0,
-      _count: {
-        screens: location.screen_locations?.length || 0,
-      },
-      screens: location.screen_locations?.map((sl: any) => sl.screens).filter(Boolean) || [],
-    }))
+    // Fetch screen assignments for all locations
+    const locationIds = locations.map((loc: any) => loc.id)
+    
+    const { data: screenLocations, error: screenLocError } = await supabase
+      .from("screen_locations")
+      .select(`
+        location_id,
+        screen_id,
+        screens (
+          id,
+          name,
+          status,
+          orientation,
+          rotation_degrees,
+          shuffle,
+          enable_audio_management,
+          scale_image,
+          scale_video,
+          scale_document,
+          background_color,
+          default_transition,
+          location
+        )
+      `)
+      .in("location_id", locationIds)
+
+    if (screenLocError) {
+      console.error("[v0] Error fetching screen assignments:", screenLocError)
+    }
+
+    // Group screens by location
+    const screensByLocation: Record<string, any[]> = {}
+    if (screenLocations) {
+      screenLocations.forEach((sl: any) => {
+        if (!screensByLocation[sl.location_id]) {
+          screensByLocation[sl.location_id] = []
+        }
+        if (sl.screens) {
+          screensByLocation[sl.location_id].push(sl.screens)
+        }
+      })
+    }
+
+    // Transform locations with screen data
+    const transformedLocations = locations.map((location: any) => {
+      const screens = screensByLocation[location.id] || []
+      return {
+        ...location,
+        screen_count: screens.length,
+        _count: {
+          screens: screens.length,
+        },
+        screens,
+      }
+    })
 
     return NextResponse.json({ locations: transformedLocations })
   } catch (error) {
