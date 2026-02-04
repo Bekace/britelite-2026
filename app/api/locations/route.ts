@@ -122,7 +122,26 @@ export async function GET() {
           scale_document,
           background_color,
           default_transition,
-          location
+          location,
+          playlist_id,
+          playlists (
+            id,
+            name,
+            playlist_content (
+              id,
+              media_id,
+              duration_override,
+              mute,
+              position,
+              media (
+                id,
+                name,
+                file_path,
+                mime_type,
+                duration
+              )
+            )
+          )
         )
       `)
       .in("location_id", locationIds)
@@ -131,7 +150,7 @@ export async function GET() {
       console.error("[v0] Error fetching screen assignments:", screenLocError)
     }
 
-    // Group screens by location
+    // Group screens by location with full content and media
     const screensByLocation: Record<string, any[]> = {}
     if (screenLocations) {
       screenLocations.forEach((sl: any) => {
@@ -139,7 +158,43 @@ export async function GET() {
           screensByLocation[sl.location_id] = []
         }
         if (sl.screens) {
-          screensByLocation[sl.location_id].push(sl.screens)
+          const screen = sl.screens
+          // Transform playlist content into content array
+          const content = screen.playlists?.playlist_content
+            ?.sort((a: any, b: any) => a.position - b.position)
+            .map((pc: any) => ({
+              id: pc.id,
+              duration_override: pc.duration_override,
+              mute: pc.mute,
+              media: pc.media ? {
+                id: pc.media.id,
+                name: pc.media.name,
+                file_path: pc.media.file_path,
+                mime_type: pc.media.mime_type,
+                duration: pc.media.duration,
+              } : null,
+            })) || []
+          
+          screensByLocation[sl.location_id].push({
+            id: screen.id,
+            name: screen.name,
+            status: screen.status,
+            orientation: screen.orientation,
+            rotation_degrees: screen.rotation_degrees,
+            shuffle: screen.shuffle,
+            enable_audio_management: screen.enable_audio_management,
+            scale_image: screen.scale_image,
+            scale_video: screen.scale_video,
+            scale_document: screen.scale_document,
+            background_color: screen.background_color,
+            default_transition: screen.default_transition,
+            location: screen.location,
+            playlist: screen.playlists ? {
+              id: screen.playlists.id,
+              name: screen.playlists.name,
+            } : null,
+            content,
+          })
         }
       })
     }
