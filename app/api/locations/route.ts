@@ -1,4 +1,4 @@
-aimport { createClient } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 
 // Geocode address to get latitude/longitude
