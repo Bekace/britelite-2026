@@ -89,7 +89,7 @@ export async function GET() {
       )
     }
 
-    // Fetch locations with screen count
+    // Fetch locations with full screen details
     const { data: locations, error } = await supabase
       .from("locations")
       .select(
@@ -97,7 +97,21 @@ export async function GET() {
         *,
         screen_locations(
           screen_id,
-          screens(id, name, status)
+          screens(
+            id,
+            name,
+            status,
+            orientation,
+            rotation_degrees,
+            shuffle,
+            enable_audio_management,
+            scale_image,
+            scale_video,
+            scale_document,
+            background_color,
+            default_transition,
+            location
+          )
         )
       `
       )
@@ -109,8 +123,6 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to fetch locations", details: error.message }, { status: 500 })
     }
 
-    console.log("[v0] Fetched locations count:", locations?.length || 0)
-
     // Transform data to include screen count in Prisma format
     const transformedLocations = locations.map((location) => ({
       ...location,
@@ -120,8 +132,6 @@ export async function GET() {
       },
       screens: location.screen_locations?.map((sl: any) => sl.screens).filter(Boolean) || [],
     }))
-    
-    console.log("[v0] Sample location screens:", transformedLocations[0]?.screens)
 
     return NextResponse.json({ locations: transformedLocations })
   } catch (error) {
