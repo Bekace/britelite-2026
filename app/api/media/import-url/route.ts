@@ -39,11 +39,12 @@ function extractYouTubeId(url: string): string | null {
 }
 
 function getGoogleSlidesEmbedUrl(id: string): string {
-  return `https://docs.google.com/presentation/d/${id}/embed?start=false&loop=false&delayms=3000`
+  return `https://docs.google.com/presentation/d/${id}/embed?start=true&loop=false&delayms=3000&rm=minimal`
 }
 
 function getYouTubeEmbedUrl(id: string): string {
-  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&rel=0&modestbranding=1&controls=0&showinfo=0&fs=0&iv_load_policy=3`
+  // Removed fs=0 as it causes Error 153 when combined with controls=0
+  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&rel=0&modestbranding=1&disablekb=1&playsinline=1`
 }
 
 export async function POST(request: NextRequest) {
@@ -68,6 +69,40 @@ export async function POST(request: NextRequest) {
 
     if (!url || typeof url !== "string") {
       return NextResponse.json({ error: "URL is required" }, { status: 400 })
+    }
+
+    // Check plan feature permissions
+    const { data: subscription } = await supabase
+      .from("user_subscriptions")
+      .select("plan_id, subscription_plans(id, name)")
+      .eq("user_id", user.id)
+      .in("status", ["active", "trialing"])
+      .maybeSingle()
+
+    const planName = (subscription?.subscription_plans as any)?.name || "Free"
+    const planId = subscription?.plan_id
+
+    if (planId) {
+      const isYouTube = isYouTubeUrl(url)
+      const isGoogleSlides = isGoogleSlidesUrl(url)
+
+      const featureKey = isYouTube ? "media_youtube" : isGoogleSlides ? "media_google_slides" : null
+
+      if (featureKey) {
+        const { data: permission } = await supabase
+          .from("feature_permissions")
+          .select("is_enabled")
+          .eq("plan_id", planId)
+          .eq("feature_key", featureKey)
+          .maybeSingle()
+
+        if (permission && !permission.is_enabled) {
+          return NextResponse.json(
+            { error: `This feature is not available on your ${planName} plan. Please upgrade to Pro.` },
+            { status: 403 },
+          )
+        }
+      }
     }
 
     let mediaType: string
@@ -112,8 +147,10 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         name: mediaName,
         file_path: embedUrl,
+        original_url: url, // Save original URL for reference
         file_size: fileSize,
         mime_type: mediaType,
+        embed_status: 'pending', // Will be updated by player if fallback is needed
         tags: tags ? (Array.isArray(tags) ? tags : tags.split(",").map((tag: string) => tag.trim())) : [],
       })
       .select()

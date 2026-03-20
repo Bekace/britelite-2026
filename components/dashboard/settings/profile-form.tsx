@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { createClient } from "@/lib/supabase/client"
-import { User } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { User, Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 interface ProfileFormProps {
   userId: string
@@ -22,28 +23,116 @@ interface ProfileFormProps {
 export function ProfileForm({ userId, initialData }: ProfileFormProps) {
   const [fullName, setFullName] = useState(initialData.full_name)
   const [companyName, setCompanyName] = useState(initialData.company_name)
-  const [username, setUsername] = useState(initialData.username)
   const [bio, setBio] = useState(initialData.bio)
+  const [avatarUrl, setAvatarUrl] = useState(initialData.avatar_url)
   const [saving, setSaving] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { toast } = useToast()
+  const router = useRouter()
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/profile/avatar", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to upload avatar")
+      }
+
+      setAvatarUrl(data.url)
+      toast({
+        title: "Avatar updated",
+        description: "Your avatar has been uploaded successfully.",
+      })
+      router.refresh()
+    } catch (error) {
+      console.error("[v0] Avatar upload error:", error)
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload avatar",
+        variant: "destructive",
+      })
+    } finally {
+      setUploading(false)
+    }
+  }
 
   const handleSaveFullName = async () => {
     setSaving("full_name")
-    const supabase = createClient()
-    await supabase
-      .from("profiles")
-      .update({ full_name: fullName, updated_at: new Date().toISOString() })
-      .eq("id", userId)
-    setSaving(null)
+    try {
+      const response = await fetch("/api/profile/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: fullName }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update name")
+      }
+
+      toast({
+        title: "Name updated",
+        description: "Your display name has been saved.",
+      })
+      router.refresh()
+    } catch (error) {
+      toast({
+        title: "Update failed",
+        description: error instanceof Error ? error.message : "Failed to update name",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(null)
+    }
   }
 
   const handleSaveCompanyName = async () => {
     setSaving("company_name")
-    const supabase = createClient()
-    await supabase
-      .from("profiles")
-      .update({ company_name: companyName, updated_at: new Date().toISOString() })
-      .eq("id", userId)
-    setSaving(null)
+    try {
+      const response = await fetch("/api/profile/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ company_name: companyName }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update company name")
+      }
+
+      toast({
+        title: "Company name updated",
+        description: "Your company name has been saved.",
+      })
+      router.refresh()
+    } catch (error) {
+      toast({
+        title: "Update failed",
+        description: error instanceof Error ? error.message : "Failed to update company name",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(null)
+    }
   }
 
   return (
@@ -56,12 +145,29 @@ export function ProfileForm({ userId, initialData }: ProfileFormProps) {
             <p className="text-sm text-muted-foreground mb-4">This is your avatar.</p>
             <p className="text-sm text-muted-foreground">Click on the avatar to upload a custom one from your files.</p>
           </div>
-          <Avatar className="w-20 h-20 cursor-pointer hover:opacity-80 transition-opacity">
-            <AvatarImage src={initialData.avatar_url || "/placeholder.svg"} />
-            <AvatarFallback className="bg-muted">
-              <User className="w-8 h-8 text-muted-foreground" />
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative">
+            <Avatar
+              className="w-20 h-20 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={handleAvatarClick}
+            >
+              <AvatarImage src={avatarUrl || "/placeholder.svg"} />
+              <AvatarFallback className="bg-muted">
+                <User className="w-8 h-8 text-muted-foreground" />
+              </AvatarFallback>
+            </Avatar>
+            {uploading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-full">
+                <Loader2 className="w-6 h-6 animate-spin" />
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+          </div>
         </div>
         <p className="text-sm text-muted-foreground mt-4 pt-4 border-t border-border/50">
           An avatar is optional but strongly recommended.
@@ -84,31 +190,6 @@ export function ProfileForm({ userId, initialData }: ProfileFormProps) {
           <p className="text-sm text-muted-foreground">Please use 32 characters at maximum.</p>
           <Button onClick={handleSaveFullName} disabled={saving === "full_name"} size="sm">
             {saving === "full_name" ? "Saving..." : "Save"}
-          </Button>
-        </div>
-      </div>
-
-      {/* Username Section - Placeholder */}
-      <div className="rounded-lg border border-border/50 p-6">
-        <h2 className="text-lg font-semibold mb-2">Username</h2>
-        <p className="text-sm text-muted-foreground mb-4">This is your URL namespace within the platform.</p>
-        <div className="flex items-center max-w-md">
-          <span className="bg-muted/50 px-3 py-2 text-sm text-muted-foreground rounded-l-md border border-r-0 border-border/50">
-            pointer.tv/
-          </span>
-          <Input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="rounded-l-none bg-muted/30"
-            placeholder="username"
-            maxLength={48}
-            disabled
-          />
-        </div>
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
-          <p className="text-sm text-muted-foreground">Coming soon - Please use 48 characters at maximum.</p>
-          <Button size="sm" disabled>
-            Save
           </Button>
         </div>
       </div>

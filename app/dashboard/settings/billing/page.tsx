@@ -26,15 +26,18 @@ export default async function BillingSettingsPage() {
   let subscription = null
   let plan = null
   let allPlans = []
+  let currentPrice = null
 
   try {
-    const { data: subData } = await supabase
+    const { data: subData, error: subError } = await supabase
       .from("user_subscriptions")
       .select(`
         *,
         subscription_plans (
-          *,
-          subscription_prices (*)
+          *
+        ),
+        subscription_prices (
+          *
         )
       `)
       .eq("user_id", user.id)
@@ -43,6 +46,7 @@ export default async function BillingSettingsPage() {
 
     subscription = subData
     plan = subscription?.subscription_plans
+    currentPrice = subscription?.subscription_prices
 
     if (!subscription || !plan) {
       const { data: freePlan } = await supabase
@@ -87,17 +91,33 @@ export default async function BillingSettingsPage() {
     console.error("[v0] Billing page error:", err)
   }
 
-  const userBillingCycle = subscription?.billing_cycle || "monthly"
-  const currentPrice = plan?.subscription_prices?.find((p: any) => p.billing_cycle === userBillingCycle && p.is_active)
-  const displayPrice = currentPrice?.price ? Number(currentPrice.price).toFixed(0) : "0"
-  const billingCycle = userBillingCycle === "yearly" ? "year" : "month"
-
-  const storageGB = plan?.max_media_storage ? Math.round(plan.max_media_storage / 1024 / 1024 / 1024) : 0
-
   const hasActiveSubscription = !!(
     subscription?.stripe_subscription_id &&
     (subscription?.status === "active" || subscription?.status === "trialing")
   )
+
+  const userBillingCycle = currentPrice?.billing_cycle || "monthly"
+  const pricePerScreen = currentPrice?.price ? Number(currentPrice.price) : 0
+  const billingCycle = userBillingCycle === "yearly" ? "year" : "month"
+
+  // Fetch current screen count for per-screen billing breakdown
+  let currentScreenCount = 0
+  if (hasActiveSubscription && plan?.name !== "Free") {
+    try {
+      const { count } = await supabase
+        .from("screens")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+      currentScreenCount = count || 0
+    } catch (_) {}
+  }
+
+  const freeScreens = (plan as any)?.free_screens ?? 0
+  const billableScreens = Math.max(0, currentScreenCount - freeScreens)
+  const totalCost = billableScreens * pricePerScreen
+  const isPaidPerScreen = hasActiveSubscription && plan?.name !== "Free" && pricePerScreen > 0
+
+  const storageGB = plan?.max_media_storage ? Math.round(plan.max_media_storage / 1024 / 1024 / 1024) : 0
 
   const getSubscriptionStatus = () => {
     if (!subscription || !hasActiveSubscription) {
@@ -127,6 +147,15 @@ export default async function BillingSettingsPage() {
       })
     : undefined
 
+  // Calculate next payment date (30 days from started_at or last renewal)
+  const nextPaymentDate = subscription?.started_at
+    ? new Date(new Date(subscription.started_at).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : undefined
+
   return (
     <div className="space-y-6">
       {/* Current Plan */}
@@ -140,13 +169,60 @@ export default async function BillingSettingsPage() {
             <p className="text-sm text-muted-foreground mb-4">Your current subscription plan and usage limits.</p>
             <div className="bg-muted/30 rounded-md p-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-medium">{plan?.name || "Free"} Plan</span>
-                <span className="text-primary font-semibold">
-                  ${displayPrice}/{billingCycle}
-                </span>
+                <div>
+                  <div className="font-medium">{plan?.name || "Free"} Plan</div>
+                  {isPaidPerScreen ? (
+                    <div className="text-sm text-muted-foreground mt-1">
+                      ${pricePerScreen.toFixed(2)}/screen/{billingCycle}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Free
+                    </div>
+                  )}
+                  {hasActiveSubscription && (
+                    <div className="text-xs text-muted-foreground mt-1">(VAT or sales tax may apply)</div>
+                  )}
+                </div>
               </div>
+              {isPaidPerScreen && (
+                <div className="mt-3 pt-3 border-t border-border/30 space-y-1">
+                  <div className="text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total screens:</span>
+                      <span className="font-medium">{currentScreenCount}</span>
+                    </div>
+                    {freeScreens > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Free screens:</span>
+                        <span className="font-medium text-emerald-600">−{freeScreens}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Billable screens:</span>
+                      <span className="font-medium">{billableScreens}</span>
+                    </div>
+                    <div className="flex justify-between pt-1 border-t border-border/20">
+                      <span className="font-medium">Total / {billingCycle}:</span>
+                      <span className="font-semibold">${totalCost.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  <p className="text-sm font-medium pt-1">Billed {userBillingCycle === "yearly" ? "annually" : "monthly"}</p>
+                  {nextPaymentDate && (
+                    <p className="text-sm text-muted-foreground">Next payment: {nextPaymentDate}</p>
+                  )}
+                </div>
+              )}
+              {hasActiveSubscription && !isPaidPerScreen && (
+                <div className="mt-3 pt-3 border-t border-border/30 space-y-1">
+                  <p className="text-sm font-medium">Billed {userBillingCycle === "yearly" ? "annually" : "monthly"}</p>
+                  {nextPaymentDate && (
+                    <p className="text-sm text-muted-foreground">Next payment: {nextPaymentDate}</p>
+                  )}
+                </div>
+              )}
               {plan && (
-                <div className="text-sm text-muted-foreground space-y-1">
+                <div className="text-sm text-muted-foreground space-y-1 mt-3 pt-3 border-t border-border/30">
                   <p>Max Screens: {plan.max_screens === -1 ? "Unlimited" : plan.max_screens || 0}</p>
                   <p>
                     Max Playlists:{" "}
@@ -164,6 +240,8 @@ export default async function BillingSettingsPage() {
             <BillingClient
               plans={allPlans}
               currentPlanId={plan?.id}
+              currentPriceId={subscription?.price_id}
+              currentBillingCycle={userBillingCycle}
               hasActiveSubscription={hasActiveSubscription}
               stripeCustomerId={subscription?.stripe_customer_id}
               cancelAtPeriodEnd={subscription?.cancel_at_period_end}
@@ -218,6 +296,8 @@ export default async function BillingSettingsPage() {
             <BillingClient
               plans={allPlans}
               currentPlanId={plan?.id}
+              currentPriceId={subscription?.price_id}
+              currentBillingCycle={userBillingCycle}
               hasActiveSubscription={hasActiveSubscription}
               stripeCustomerId={subscription?.stripe_customer_id}
               cancelAtPeriodEnd={subscription?.cancel_at_period_end}

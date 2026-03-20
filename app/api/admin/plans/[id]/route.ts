@@ -13,7 +13,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const body = await request.json()
     const planId = params.id
 
-    const { monthly_price, yearly_price, trial_days, ...planData } = body
+    const { monthly_price, yearly_price, trial_days, features, ...planData } = body
 
     // Update the plan
     const { data: updatedPlan, error: planError } = await supabase
@@ -22,16 +22,43 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         name: planData.name,
         description: planData.description,
         max_screens: planData.max_screens,
+        free_screens: planData.free_screens ?? 0,
         max_media_storage: planData.max_media_storage,
+        max_file_upload_size: planData.max_file_upload_size,
         storage_unit: planData.storage_unit,
         max_playlists: planData.max_playlists,
+        max_locations: planData.max_locations ?? 1,
+        max_schedules: planData.max_schedules ?? 1,
+        max_team_members: planData.max_team_members ?? 0,
         is_active: planData.is_active,
+        display_branding: planData.display_branding,
       })
       .eq("id", planId)
       .select()
       .single()
 
     if (planError) throw planError
+
+    // Update feature permissions
+    if (features) {
+      // Delete existing feature permissions for this plan
+      await supabase.from("feature_permissions").delete().eq("plan_id", planId)
+
+      // Insert new feature permissions
+      const featurePermissions = Object.entries(features).map(([key, enabled]) => ({
+        plan_id: planId,
+        feature_key: key,
+        is_enabled: enabled as boolean,
+      }))
+
+      const { error: featuresError } = await supabase
+        .from("feature_permissions")
+        .insert(featurePermissions)
+
+      if (featuresError) {
+        console.error("[v0] Error updating feature permissions:", featuresError)
+      }
+    }
 
     // First, get existing prices
     const { data: existingPrices } = await supabase.from("subscription_prices").select("*").eq("plan_id", planId)
@@ -75,12 +102,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       }
     }
 
-    await logAdminAction({
-      action: "update_subscription_plan",
-      targetType: "plan",
-      targetId: planId,
-      details: { name: planData.name, monthly_price, yearly_price },
-    })
+    try {
+      await logAdminAction({
+        action: "update_subscription_plan",
+        targetType: "plan",
+        targetId: planId,
+        details: { name: planData.name, monthly_price, yearly_price },
+      })
+    } catch (_) {}
 
     return NextResponse.json({ plan: updatedPlan })
   } catch (error) {
@@ -104,12 +133,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       .from("user_subscriptions")
       .select("id")
       .eq("plan_id", planId)
-      .eq("status", "active")
+      .in("status", ["active", "trialing"])
 
     if (checkError) throw checkError
 
     if (subscribers && subscribers.length > 0) {
-      return NextResponse.json({ error: "Cannot delete plan with active subscribers" }, { status: 400 })
+      return NextResponse.json({ error: "Cannot delete plan with active or trialing subscribers" }, { status: 400 })
     }
 
     const { error: pricesError } = await supabase.from("subscription_prices").delete().eq("plan_id", planId)
@@ -123,12 +152,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     if (error) throw error
 
-    await logAdminAction({
-      action: "delete_subscription_plan",
-      targetType: "plan",
-      targetId: planId,
-      details: { timestamp: new Date().toISOString() },
-    })
+    try {
+      await logAdminAction({
+        action: "delete_subscription_plan",
+        targetType: "plan",
+        targetId: planId,
+        details: { timestamp: new Date().toISOString() },
+      })
+    } catch (_) {}
 
     return NextResponse.json({ success: true })
   } catch (error) {

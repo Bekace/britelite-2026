@@ -1,28 +1,24 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
+import { SimpleUploader } from "@/components/media/simple-uploader"
+import { MediaGrid } from "@/components/media/media-grid"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Upload, Search, Grid, List, Trash2, Plus, ImageIcon, Video, Eye, LinkIcon, Pencil } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-  DialogHeader,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { Upload, LinkIcon, Video, Presentation, Image as ImageIcon, Grid, List, Plus, Search, Eye, Pencil, Trash2 } from "lucide-react"
+import { usePlanLimits } from "@/hooks/use-plan-limits"
 import { useUploadLimits } from "@/hooks/use-upload-limits"
-import { StorageUsageBar } from "@/components/ui/storage-usage-bar"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Label } from "@/components/ui/label"
 import { SmartFileUploader } from "@/components/media/smart-file-uploader"
-import { SimpleUploader } from "@/components/media/simple-uploader"
+import { StorageUsageBar } from "@/components/ui/storage-usage-bar"
+import { UpgradeBanner } from "@/components/upgrade-banner"
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog"
 
 interface MediaItem {
   id: string
@@ -124,7 +120,7 @@ function MediaPreviewModal({
     }
 
     if (media.mime_type?.startsWith("video/")) {
-      return <video src={media.file_path} className="w-full h-full object-contain" controls playsInline />
+      return <video src={media.file_path} className="w-full h-full object-contain" controls autoPlay muted playsInline />
     }
 
     if (isGoogleSlides(media)) {
@@ -236,6 +232,8 @@ export default function MediaLibraryPage() {
   const [updating, setUpdating] = useState(false)
   const { toast } = useToast()
   const uploadLimits = useUploadLimits()
+  const { features, planName } = usePlanLimits()
+  const canImportUrl = features?.urlMedia
 
   useEffect(() => {
     fetchMedia()
@@ -305,6 +303,16 @@ export default function MediaLibraryPage() {
       toast({
         title: "Error",
         description: "Please enter a URL",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Check if URL media is allowed by plan
+    if (!features?.urlMedia) {
+      toast({
+        title: "Feature Restricted",
+        description: "URL media import (YouTube, Google Slides) is not available on your current plan. Please upgrade.",
         variant: "destructive",
       })
       return
@@ -518,15 +526,17 @@ export default function MediaLibraryPage() {
           )}
 
           <Tabs defaultValue="upload" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className={cn("grid w-full", features?.urlMedia ? "grid-cols-2" : "grid-cols-1")}>
               <TabsTrigger value="upload">
                 <Upload className="h-4 w-4 mr-2" />
                 Upload File
               </TabsTrigger>
-              <TabsTrigger value="import">
-                <LinkIcon className="h-4 w-4 mr-2" />
-                Import URL
-              </TabsTrigger>
+              {features?.urlMedia && (
+                <TabsTrigger value="import">
+                  <LinkIcon className="h-4 w-4 mr-2" />
+                  Import URL
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="upload" className="space-y-4 mt-4">
@@ -572,44 +582,54 @@ export default function MediaLibraryPage() {
             </TabsContent>
 
             <TabsContent value="import" className="space-y-4 mt-4">
-              <div className="space-y-3">
-                <Input
-                  placeholder="Google Slides or YouTube URL"
-                  value={importUrl}
-                  onChange={(e) => setImportUrl(e.target.value)}
-                  className="w-full"
+              {!canImportUrl ? (
+                <UpgradeBanner
+                  feature="Google Slides & YouTube Import"
+                  description="Import content directly from Google Slides and YouTube to display on your screens."
+                  currentPlan={planName}
                 />
-                <div className="flex items-center gap-4">
-                  <Input
-                    placeholder="Name (optional)"
-                    value={importName}
-                    onChange={(e) => setImportName(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Input
-                    placeholder="Tags (comma separated)"
-                    value={importTags}
-                    onChange={(e) => setImportTags(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button
-                    onClick={handleImportUrl}
-                    disabled={!importUrl || importing}
-                    className="bg-cyan-500 hover:bg-cyan-600"
-                  >
-                    {importing ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
-                    Import
-                  </Button>
-                </div>
-              </div>
-              <p className="text-sm text-gray-600">
-                Supported: Google Slides presentations and YouTube videos. External URLs don't count toward your storage
-                limit.
-              </p>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    <Input
+                      placeholder="Google Slides or YouTube URL"
+                      value={importUrl}
+                      onChange={(e) => setImportUrl(e.target.value)}
+                      className="w-full"
+                    />
+                    <div className="flex items-center gap-4">
+                      <Input
+                        placeholder="Name (optional)"
+                        value={importName}
+                        onChange={(e) => setImportName(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Input
+                        placeholder="Tags (comma separated)"
+                        value={importTags}
+                        onChange={(e) => setImportTags(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={handleImportUrl}
+                        disabled={!importUrl || importing}
+                        className="bg-cyan-500 hover:bg-cyan-600"
+                      >
+                        {importing ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        ) : (
+                          <Plus className="h-4 w-4" />
+                        )}
+                        Import
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Supported: Google Slides presentations and YouTube videos. External URLs don't count toward your storage
+                    limit.
+                  </p>
+                </>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

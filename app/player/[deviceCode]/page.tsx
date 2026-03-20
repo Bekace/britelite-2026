@@ -6,6 +6,7 @@ import Image from "next/image"
 import { useMediaSwitcher } from "@/hooks/use-media-switcher"
 import { useMediaPreloader } from "@/hooks/use-media-preloader"
 import { usePlaylistTimer } from "@/hooks/use-playlist-timer"
+import YouTubePlayerWithFallback from "@/components/youtube-player-with-fallback"
 import "@/components/ui/spinner.css"
 
 interface MediaItem {
@@ -83,39 +84,7 @@ const isRegularVideo = (media: MediaItem["media"]) => {
   return media.mime_type.startsWith("video/") && !isYouTubeVideo(media)
 }
 
-const getYouTubeUrlWithAutoplay = (url: string) => {
-  try {
-    let embedUrl = url
 
-    if (url.includes("youtube.com/watch")) {
-      const urlObj = new URL(url)
-      const videoId = urlObj.searchParams.get("v")
-      if (videoId) {
-        embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
-      }
-    } else if (url.includes("youtu.be/")) {
-      const videoId = url.split("youtu.be/")[1]?.split("?")[0]
-      if (videoId) {
-        embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
-      }
-    } else if (url.includes("youtube.com/embed/")) {
-      embedUrl = url.replace("youtube.com", "youtube-nocookie.com")
-    }
-
-    const urlObj = new URL(embedUrl)
-    urlObj.searchParams.set("autoplay", "1")
-    urlObj.searchParams.set("mute", "1")
-    urlObj.searchParams.set("controls", "0")
-    urlObj.searchParams.set("showinfo", "0")
-    urlObj.searchParams.set("fs", "0")
-    urlObj.searchParams.set("modestbranding", "1")
-    urlObj.searchParams.set("iv_load_policy", "3")
-    return urlObj.toString()
-  } catch (error) {
-    console.error("[v0] Error parsing YouTube URL:", error)
-    return url
-  }
-}
 
 const getMediaObjectFit = (mediaType: "image" | "video" | "document", playlist: any) => {
   if (!playlist) return "object-contain"
@@ -165,17 +134,12 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     getInactiveIframeRef,
   } = useMediaSwitcher()
 
-  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : config?.screen.content || []
+  const contentToDisplay = shuffledContent.length > 0 ? shuffledContent : (config as any)?.content || []
   const currentMedia = contentToDisplay[currentIndex]
 
   const advanceToNext = useCallback(() => {
-    console.log("[v0] advanceToNext called, currentIndex:", currentIndex, "total:", contentToDisplay.length)
-
     if (contentToDisplay.length === 0) return
-
     const nextIndex = currentIndex + 1 < contentToDisplay.length ? currentIndex + 1 : 0
-    console.log("[v0] Moving to index:", nextIndex)
-
     setCurrentIndex(nextIndex)
     switchToNext()
   }, [currentIndex, contentToDisplay.length, switchToNext])
@@ -206,8 +170,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         const data = await response.json()
         setConfig(data)
 
-        if (data.screen.playlist?.shuffle && data.screen.content.length > 0) {
-          const shuffled = [...data.screen.content].sort(() => Math.random() - 0.5)
+        if (data.screen?.shuffle && data.content?.length > 0) {
+          const shuffled = [...data.content].sort(() => Math.random() - 0.5)
           setShuffledContent(shuffled)
         }
 
@@ -229,7 +193,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     <div
       className="relative w-screen h-screen overflow-hidden"
       style={{
-        backgroundColor: config?.screen.playlist?.background_color || "#000000",
+        backgroundColor: config?.screen?.background_color || "#000000",
       }}
     >
       {contentToDisplay && contentToDisplay.length > 0 ? (
@@ -237,31 +201,45 @@ export default function PlayerPage({ params }: PlayerPageProps) {
           {currentMedia && (
             <>
               {isRegularVideo(currentMedia.media) && (
+                <video
+                  key={currentMedia.media.id}
+                  className={`absolute inset-0 w-full h-full ${getMediaObjectFit("video", config?.screen)}`}
+                  src={currentMedia.media.file_path}
+                  autoPlay
+                  muted
+                  playsInline
+                  onEnded={advanceToNext}
+                />
+              )}
+
+              {isYouTubeVideo(currentMedia.media) && (
                 <>
-                  <video
-                    ref={videoARef}
-                    className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${
+                  <YouTubePlayerWithFallback
+                    ref={iframeARef}
+                    videoUrl={currentMedia.media.file_path}
+                    mediaId={currentMedia.media.id}
+                    mediaName={currentMedia.media.name}
+                    isActive={activeElement === "A"}
+                    onVideoEnd={advanceToNext}
+                    className={`absolute inset-0 w-full h-full border-0 transition-opacity duration-300 ${
                       activeElement === "A" ? "opacity-100 z-10" : "opacity-0 z-0"
-                    } ${getMediaObjectFit("video", config?.screen.playlist)}`}
-                    autoPlay
-                    muted
-                    playsInline
-                    onEnded={advanceToNext}
+                    }`}
                   />
-                  <video
-                    ref={videoBRef}
-                    className={`absolute inset-0 w-full h-full transition-opacity duration-300 ${
+                  <YouTubePlayerWithFallback
+                    ref={iframeBRef}
+                    videoUrl={currentMedia.media.file_path}
+                    mediaId={currentMedia.media.id}
+                    mediaName={currentMedia.media.name}
+                    isActive={activeElement === "B"}
+                    onVideoEnd={advanceToNext}
+                    className={`absolute inset-0 w-full h-full border-0 transition-opacity duration-300 ${
                       activeElement === "B" ? "opacity-100 z-10" : "opacity-0 z-0"
-                    } ${getMediaObjectFit("video", config?.screen.playlist)}`}
-                    autoPlay
-                    muted
-                    playsInline
-                    onEnded={advanceToNext}
+                    }`}
                   />
                 </>
               )}
 
-              {(isGoogleSlides(currentMedia.media) || isYouTubeVideo(currentMedia.media)) && (
+              {isGoogleSlides(currentMedia.media) && (
                 <>
                   <iframe
                     ref={iframeARef}
@@ -270,12 +248,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                     }`}
                     allow="autoplay; accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
                     title={currentMedia.media.name}
-                    src={
-                      isYouTubeVideo(currentMedia.media)
-                        ? getYouTubeUrlWithAutoplay(currentMedia.media.file_path)
-                        : currentMedia.media.file_path
-                    }
+                    src={currentMedia.media.file_path}
                   />
                   <iframe
                     ref={iframeBRef}
@@ -284,12 +259,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                     }`}
                     allow="autoplay; accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
                     title={currentMedia.media.name}
-                    src={
-                      isYouTubeVideo(currentMedia.media)
-                        ? getYouTubeUrlWithAutoplay(currentMedia.media.file_path)
-                        : currentMedia.media.file_path
-                    }
+                    src={currentMedia.media.file_path}
                   />
                 </>
               )}
@@ -301,7 +273,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                   src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}
                   alt={currentMedia.media.name}
                   fill
-                  className={getMediaObjectFit("image", config?.screen.playlist)}
+                  className={getMediaObjectFit("image", config?.screen)}
                   priority
                   unoptimized
                 />
@@ -319,12 +291,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         </div>
       )}
 
-      {preloadStatus && (
-        <div className="fixed bottom-4 left-4 bg-black/50 text-white px-4 py-2 rounded text-sm">{preloadStatus}</div>
-      )}
-
-      {/* Debug timer */}
-      <div className="fixed top-4 right-4 bg-black/50 text-white px-4 py-2 rounded text-sm">{timeRemaining}s</div>
     </div>
   )
 }

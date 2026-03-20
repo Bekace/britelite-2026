@@ -23,7 +23,7 @@ export async function GET() {
 
     const isSuperAdmin = profile?.role === "super_admin"
 
-    // Super admins have unlimited screens
+    // Super admins have unlimited screens — no billing involved
     if (isSuperAdmin) {
       const { count: currentScreens } = await supabase
         .from("screens")
@@ -32,9 +32,12 @@ export async function GET() {
 
       return NextResponse.json({
         current: currentScreens || 0,
-        limit: -1, // Unlimited
+        limit: -1,
         canCreate: true,
         plan: "Super Admin",
+        freeScreens: -1,
+        billableScreens: 0,
+        pricePerScreen: 0,
       })
     }
 
@@ -49,42 +52,87 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to count screens" }, { status: 500 })
     }
 
-    // Get user's active subscription
+    // Get user's active subscription including plan details and purchased_screen_slots
     const { data: subscription, error: subError } = await supabase
       .from("user_subscriptions")
-      .select(
-        `
+      .select(`
         id,
         status,
+        price_id,
+        purchased_screen_slots,
         subscription_plans (
           id,
           name,
-          max_screens
+          max_screens,
+          free_screens
         )
-      `,
-      )
+      `)
       .eq("user_id", user.id)
       .in("status", ["active", "trialing"])
       .single()
 
-    let maxScreens = 1 // Default Free plan limit
-    let planName = "Free"
+    const hasPaidSubscription = !subError && !!subscription
+    const plan = subscription?.subscription_plans as {
+      id: string
+      name: string
+      max_screens: number
+      free_screens: number
+    } | null
 
-    if (!subError && subscription?.subscription_plans) {
-      const plan = subscription.subscription_plans as { id: string; name: string; max_screens: number }
+    const isPaidPlan = hasPaidSubscription && plan?.name !== "Free"
+
+    if (isPaidPlan && plan) {
+      const freeScreens = plan.free_screens ?? 0
+      const billableScreens = Math.max(0, (currentScreens || 0) - freeScreens)
+
+      // Read per-screen price from subscription_prices
+      const { data: monthlyPriceRecord } = await supabase
+        .from("subscription_prices")
+        .select("price")
+        .eq("plan_id", plan.id)
+        .eq("billing_cycle", "monthly")
+        .eq("is_active", true)
+        .single()
+
+      const pricePerScreen = Number(monthlyPriceRecord?.price) || 0
+
+      const purchasedSlots = subscription?.purchased_screen_slots ?? 0
+      const availableSlots = freeScreens + purchasedSlots - (currentScreens || 0)
+
+      return NextResponse.json({
+        current: currentScreens || 0,
+        limit: -1,
+        canCreate: true,
+        plan: plan.name,
+        freeScreens,
+        billableScreens,
+        pricePerScreen,
+        billingCycle: "monthly",
+        purchasedSlots,
+        availableSlots,
+      })
+    }
+
+    // Free plan or no subscription — enforce max_screens cap
+    let maxScreens = 1
+    let planName = "Free"
+    let freeScreens = 0
+
+    if (hasPaidSubscription && plan) {
       maxScreens = plan.max_screens
       planName = plan.name
+      freeScreens = plan.free_screens ?? 0
     } else {
-      // No active subscription - check for Free plan limits
       const { data: freePlan } = await supabase
         .from("subscription_plans")
-        .select("max_screens, name")
+        .select("max_screens, name, free_screens")
         .eq("name", "Free")
         .single()
 
       if (freePlan) {
         maxScreens = freePlan.max_screens
         planName = freePlan.name
+        freeScreens = freePlan.free_screens ?? 0
       }
     }
 
@@ -95,6 +143,9 @@ export async function GET() {
       limit: maxScreens,
       canCreate,
       plan: planName,
+      freeScreens,
+      billableScreens: 0,
+      pricePerScreen: 0,
     })
   } catch (error) {
     console.error("Error fetching screen limits:", error)

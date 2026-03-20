@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
+import { syncStripeQuantityWithScreens } from "@/lib/actions/stripe"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -65,8 +66,22 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const requestData = await request.json()
-    const { name, location, resolution, orientation, selectedContentIds, content_type, enable_audio_management } =
-      requestData
+    const { 
+      name, 
+      location, 
+      resolution, 
+      orientation, 
+      selectedContentIds, 
+      content_type, 
+      enable_audio_management,
+      shuffle,
+      is_active,
+      scale_image,
+      scale_video,
+      scale_document,
+      background_color,
+      default_transition
+    } = requestData
 
     console.log("[v0] Screen update request:")
     console.log(`[v0] - Screen ID: ${params.id}`)
@@ -84,13 +99,36 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (enable_audio_management !== undefined) {
       updateData.enable_audio_management = enable_audio_management
     }
+    if (shuffle !== undefined) {
+      updateData.shuffle = shuffle
+    }
+    if (is_active !== undefined) {
+      updateData.is_active = is_active
+    }
+    if (scale_image !== undefined) {
+      updateData.scale_image = scale_image
+    }
+    if (scale_video !== undefined) {
+      updateData.scale_video = scale_video
+    }
+    if (scale_document !== undefined) {
+      updateData.scale_document = scale_document
+    }
+    if (background_color !== undefined) {
+      updateData.background_color = background_color
+    }
+    if (default_transition !== undefined) {
+      updateData.default_transition = default_transition
+    }
 
     const { error: deletePlaylistsError } = await supabase.from("screen_playlists").delete().eq("screen_id", params.id)
     const { error: deleteMediaError } = await supabase.from("screen_media").delete().eq("screen_id", params.id)
+    const { error: deleteSchedulesError } = await supabase.from("screen_schedules").delete().eq("screen_id", params.id)
 
     console.log("[v0] - Deleted existing assignments")
     if (deletePlaylistsError) console.error("[v0] - Error deleting playlists:", deletePlaylistsError)
     if (deleteMediaError) console.error("[v0] - Error deleting media:", deleteMediaError)
+    if (deleteSchedulesError) console.error("[v0] - Error deleting schedules:", deleteSchedulesError)
 
     if (content_type === "playlist" && selectedContentIds && selectedContentIds.length > 0) {
       updateData.content_type = "playlist"
@@ -138,10 +176,29 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         console.error("[v0] - Error inserting media:", mediaInsertError)
         return NextResponse.json({ error: "Failed to assign media: " + mediaInsertError.message }, { status: 500 })
       }
-    } else if (content_type === "schedule") {
+    } else if (content_type === "schedule" && selectedContentIds && selectedContentIds.length > 0) {
       updateData.content_type = "schedule"
       updateData.media_id = null
-      // TODO: Schedule logic placeholder
+
+      const scheduleAssignment = {
+        screen_id: params.id,
+        schedule_id: selectedContentIds[0],
+        is_active: true,
+      }
+
+      const { data: insertedSchedule, error: scheduleInsertError } = await supabase
+        .from("screen_schedules")
+        .insert([scheduleAssignment])
+        .select()
+
+      console.log(`[v0] - Inserted schedule assignment:`, insertedSchedule)
+      if (scheduleInsertError) {
+        console.error("[v0] - Error inserting schedule:", scheduleInsertError)
+        return NextResponse.json(
+          { error: "Failed to assign schedule: " + scheduleInsertError.message },
+          { status: 500 },
+        )
+      }
     } else {
       updateData.content_type = "none"
       updateData.media_id = null
@@ -173,6 +230,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         screen_media!left(
           media_id,
           media(id, name, mime_type, file_path)
+        ),
+        screen_schedules!left(
+          schedule_id,
+          is_active,
+          schedules(id, name)
         )
       `)
       .eq("id", params.id)
@@ -211,6 +273,14 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     if (error) {
       console.error("Database error:", error)
       return NextResponse.json({ error: "Failed to delete screen" }, { status: 500 })
+    }
+
+    // Sync Stripe subscription quantity after deletion.
+    // No rollback on failure here — the screen is already gone; we log and continue.
+    // The subscription quantity will self-correct on the next create/delete or manual sync.
+    const syncResult = await syncStripeQuantityWithScreens(user.id)
+    if (syncResult.error) {
+      console.error("[v0] Stripe sync failed after screen delete (non-fatal):", syncResult.error)
     }
 
     return NextResponse.json({ success: true })

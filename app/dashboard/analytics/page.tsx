@@ -47,7 +47,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
+import { usePlanLimits } from "@/hooks/use-plan-limits"
+import { UpgradeBanner } from "@/components/upgrade-banner"
 import { Label } from "@/components/ui/label"
+import { ProofOfPlay } from "@/components/analytics/proof-of-play"
 
 interface AnalyticsData {
   overview: {
@@ -115,6 +118,8 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export default function AnalyticsPage() {
+  const { features, planName, loading: limitsLoading } = usePlanLimits()
+  // analytics has no numeric limit — gated purely by feature_permissions toggle
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -274,12 +279,24 @@ export default function AnalyticsPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
-      </div>
-    )
+  if (loading || limitsLoading) {
+  return (
+  <div className="flex items-center justify-center h-64">
+  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+  </div>
+  )
+  }
+
+  if (!features?.analytics) {
+  return (
+  <div className="p-6">
+    <UpgradeBanner
+      feature="Analytics & Reports"
+      description="Track screen performance, content engagement, uptime metrics, and get actionable insights for your digital signage network."
+      currentPlan={planName}
+    />
+  </div>
+  )
   }
 
   if (!data) {
@@ -588,6 +605,9 @@ export default function AnalyticsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Proof of Play Analytics */}
+      <ProofOfPlay />
 
       {/* Sheet (slide-over) for detailed screen analytics */}
       <Sheet open={!!selectedScreen} onOpenChange={(open) => !open && setSelectedScreen(null)}>
