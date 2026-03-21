@@ -18,9 +18,10 @@ import { type NextRequest, NextResponse } from "next/server"
  */
 export async function POST(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
@@ -31,7 +32,7 @@ export async function POST(
     const { data: screen, error: screenError } = await supabase
       .from("screens")
       .select("id, name, stripe_checkout_session_id, slot_cancel_at")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single()
 
@@ -78,7 +79,7 @@ export async function POST(
     const { error: updateError } = await serviceSupabase
       .from("screens")
       .update({ slot_cancel_at: cancelAt.toISOString() })
-      .eq("id", params.id)
+      .eq("id", id)
 
     if (updateError) {
       return NextResponse.json({ error: "Failed to schedule cancellation" }, { status: 500 })
@@ -101,9 +102,10 @@ export async function POST(
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
@@ -113,7 +115,7 @@ export async function DELETE(
     const { error } = await supabase
       .from("screens")
       .update({ slot_cancel_at: null })
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
 
     if (error) {
