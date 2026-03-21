@@ -58,6 +58,8 @@ interface Screen {
   scale_document?: string
   background_color?: string
   default_transition?: string
+  stripe_checkout_session_id?: string | null
+  slot_cancel_at?: string | null
 }
 
 interface Playlist {
@@ -135,6 +137,9 @@ export default function ScreensPage() {
   const [isBuyScreenDialogOpen, setIsBuyScreenDialogOpen] = useState(false)
   const [isPurchasingScreen, setIsPurchasingScreen] = useState(false)
   const [purchaseError, setPurchaseError] = useState<string | null>(null)
+  const [purchasedSessionId, setPurchasedSessionId] = useState<string | null>(null)
+  const [cancelingScreen, setCancelingScreen] = useState<Screen | null>(null)
+  const [isCanceling, setIsCanceling] = useState(false)
 
   const [wizardState, setWizardState] = useState<WizardState>({
     step: 1,
@@ -181,6 +186,7 @@ export default function ScreensPage() {
         .then((res) => res.json())
         .then((data) => {
           if (data.success) {
+            setPurchasedSessionId(sessionId)
             fetchScreenLimits().then(() => {
               toast({
                 title: "Screen slot purchased",
@@ -477,6 +483,7 @@ export default function ScreensPage() {
           content_type: contentType,
           enable_audio_management: wizardState.advancedOptions.mute,
           default_transition: wizardState.advancedOptions.defaultTransition,
+          ...(purchasedSessionId ? { stripe_checkout_session_id: purchasedSessionId } : {}),
         }),
       })
 
@@ -602,6 +609,7 @@ export default function ScreensPage() {
       // Reset wizard and close modal
       resetWizard()
       setIsCreateDialogOpen(false)
+      setPurchasedSessionId(null)
       fetchScreens()
       fetchScreenLimits()
     } catch (error) {
@@ -1239,6 +1247,52 @@ export default function ScreensPage() {
     }
   }
 
+  const handleCancelSlot = async () => {
+    if (!cancelingScreen) return
+    setIsCanceling(true)
+    try {
+      const response = await fetch(`/api/screens/${cancelingScreen.id}/cancel-slot`, { method: "POST" })
+      const data = await response.json()
+      if (response.ok) {
+        setScreens((prev) =>
+          prev.map((s) => (s.id === cancelingScreen.id ? { ...s, slot_cancel_at: data.slot_cancel_at } : s))
+        )
+        setCancelingScreen(null)
+        toast({
+          title: "Cancellation scheduled",
+          description: data.message,
+        })
+        fetchScreenLimits()
+      } else if (response.status === 409) {
+        // Already scheduled
+        setCancelingScreen(null)
+        toast({ title: "Already scheduled", description: data.error })
+      } else {
+        toast({ title: "Error", description: data.error || "Failed to schedule cancellation", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to schedule cancellation", variant: "destructive" })
+    } finally {
+      setIsCanceling(false)
+    }
+  }
+
+  const handleReactivateSlot = async (id: string) => {
+    try {
+      const response = await fetch(`/api/screens/${id}/cancel-slot`, { method: "DELETE" })
+      if (response.ok) {
+        setScreens((prev) => prev.map((s) => (s.id === id ? { ...s, slot_cancel_at: null } : s)))
+        toast({ title: "Slot reactivated", description: "Cancellation has been undone." })
+        fetchScreenLimits()
+      } else {
+        const data = await response.json()
+        toast({ title: "Error", description: data.error || "Failed to reactivate", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to reactivate", variant: "destructive" })
+    }
+  }
+
   const handleDeleteScreen = async (id: string) => {
     try {
       const response = await fetch(`/api/screens/${id}`, {
@@ -1521,6 +1575,13 @@ export default function ScreensPage() {
                   </div>
                 </div>
 
+                {screen.slot_cancel_at && (
+                  <div className="mt-2 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                    Active until {new Date(screen.slot_cancel_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </div>
+                )}
+
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Code:</span>
@@ -1596,6 +1657,22 @@ export default function ScreensPage() {
                         <Eye className="mr-2 h-4 w-4" />
                         Preview
                       </DropdownMenuItem>
+                      {screen.stripe_checkout_session_id && !screen.slot_cancel_at && (
+                        <DropdownMenuItem
+                          onClick={() => setCancelingScreen(screen)}
+                          className="text-amber-500 focus:text-amber-600"
+                        >
+                          Cancel this Screen
+                        </DropdownMenuItem>
+                      )}
+                      {screen.slot_cancel_at && (
+                        <DropdownMenuItem
+                          onClick={() => handleReactivateSlot(screen.id)}
+                          className="text-primary focus:text-primary/80"
+                        >
+                          Undo Cancellation
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={() => handleDeleteScreen(screen.id)}
                         className="text-red-600 focus:text-red-700"
@@ -2160,6 +2237,41 @@ export default function ScreensPage() {
         isOpen={!!previewingScreen}
         onClose={() => setPreviewingScreen(null)}
       />
+
+      {/* Cancel this Screen confirmation dialog */}
+      <Dialog open={!!cancelingScreen} onOpenChange={(open) => { if (!open) setCancelingScreen(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel this Screen</DialogTitle>
+            <DialogDescription>
+              You are about to cancel the subscription slot for{" "}
+              <span className="font-semibold text-foreground">{cancelingScreen?.name}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-sm text-muted-foreground">
+            <p>
+              The screen will remain active until the end of your current billing period, after which the slot will be
+              removed and you will no longer be billed for it.
+            </p>
+            <p>
+              The device will stop displaying content once the slot is cancelled. You can undo this at any time before
+              the billing period ends.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelingScreen(null)} disabled={isCanceling}>
+              Keep Screen
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelSlot}
+              disabled={isCanceling}
+            >
+              {isCanceling ? "Scheduling..." : "Cancel this Screen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     // </DashboardLayout> - REMOVED AS PER UPDATES
   )

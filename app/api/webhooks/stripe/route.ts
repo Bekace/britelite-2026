@@ -249,13 +249,47 @@ export async function POST(req: NextRequest) {
             status: subscription.status,
             expires_at: new Date(subscription.current_period_end * 1000).toISOString(),
             cancel_at_period_end: subscription.cancel_at_period_end || false,
-            // Track when subscription was canceled if applicable
             canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
           })
           .eq("stripe_subscription_id", subscription.id)
 
         if (error) {
           console.error("Failed to update subscription:", error)
+        }
+
+        // Finalize any screen slot cancellations whose slot_cancel_at has passed.
+        // This runs on every subscription renewal, catching screens that reached their cancel date.
+        const now = new Date()
+        const { data: userSub } = await supabase
+          .from("user_subscriptions")
+          .select("user_id, id, purchased_screen_slots")
+          .eq("stripe_subscription_id", subscription.id)
+          .single()
+
+        if (userSub) {
+          // Find all screens for this user that have passed their cancel date
+          const { data: expiredScreens } = await supabase
+            .from("screens")
+            .select("id")
+            .eq("user_id", userSub.user_id)
+            .not("slot_cancel_at", "is", null)
+            .lte("slot_cancel_at", now.toISOString())
+
+          if (expiredScreens && expiredScreens.length > 0) {
+            const expiredIds = expiredScreens.map((s) => s.id)
+
+            // Delete the expired screens
+            await supabase.from("screens").delete().in("id", expiredIds)
+
+            // Decrement purchased_screen_slots accordingly
+            const newSlots = Math.max(0, (userSub.purchased_screen_slots ?? 0) - expiredIds.length)
+            await supabase
+              .from("user_subscriptions")
+              .update({ purchased_screen_slots: newSlots })
+              .eq("id", userSub.id)
+
+            console.log(`[webhook] Finalized ${expiredIds.length} screen cancellation(s) for user ${userSub.user_id}`)
+          }
         }
         break
       }

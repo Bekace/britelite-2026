@@ -162,7 +162,8 @@ export async function POST(request: NextRequest) {
       scale_video,
       scale_document,
       background_color,
-      default_transition
+      default_transition,
+      stripe_checkout_session_id,
     } = await request.json()
 
     if (!name) {
@@ -192,6 +193,7 @@ export async function POST(request: NextRequest) {
         scale_document: scale_document || "fit",
         background_color: background_color || "#000000",
         default_transition: default_transition || "fade",
+        ...(stripe_checkout_session_id ? { stripe_checkout_session_id } : {}),
       })
       .select()
       .single()
