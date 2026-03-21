@@ -1657,7 +1657,7 @@ export default function ScreensPage() {
                         <Eye className="mr-2 h-4 w-4" />
                         Preview
                       </DropdownMenuItem>
-                      {screen.stripe_checkout_session_id && !screen.slot_cancel_at && (
+                      {!screen.slot_cancel_at && (screenLimits?.purchasedSlots ?? 0) > 0 && (
                         <DropdownMenuItem
                           onClick={() => setCancelingScreen(screen)}
                           className="text-amber-500 focus:text-amber-600"
