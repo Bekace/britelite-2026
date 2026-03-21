@@ -46,6 +46,12 @@ export function DashboardOverview({ user, showWelcome = false }: DashboardOvervi
   const [proofOfPlay, setProofOfPlay] = useState<{ totalPlays: number; successRate: string } | null>(null)
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([])
   const [availableSlots, setAvailableSlots] = useState<number | null>(null)
+  const [screenLimits, setScreenLimits] = useState<{
+    current: number
+    limit: number
+    freeScreens: number
+    purchasedSlots: number
+  } | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -139,6 +145,12 @@ export function DashboardOverview({ user, showWelcome = false }: DashboardOvervi
             ? data.availableSlots
             : Math.max(0, (data.limit ?? 0) - (data.current ?? 0))
           setAvailableSlots(slots)
+          setScreenLimits({
+            current: data.current,
+            limit: data.limit,
+            freeScreens: data.freeScreens || 1,
+            purchasedSlots: data.purchasedSlots || 0,
+          })
         }
       } catch (error) {
         console.error("[v0] Error fetching screen limits:", error)
@@ -185,7 +197,9 @@ export function DashboardOverview({ user, showWelcome = false }: DashboardOvervi
     {
       title: "Available Screens",
       value: availableSlots !== null ? availableSlots.toString() : "...",
-      change: availableSlots === 0 ? "No slots available" : `${availableSlots} slot${availableSlots !== 1 ? "s" : ""} available`,
+      change: screenLimits 
+        ? `You have ${screenLimits.current} of ${screenLimits.limit} screen${screenLimits.limit !== 1 ? "s" : ""} used · ${screenLimits.freeScreens} free screen included`
+        : availableSlots === 0 ? "No slots available" : "Loading...",
       icon: Monitor,
       color: "text-primary",
     },
