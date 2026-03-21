@@ -77,16 +77,16 @@ function extractFeatures(plan: Plan): string[] {
 }
 
 function getPlanTier(plan: Plan): number {
-  // Assign tier based on plan limits (higher number = higher tier)
-  // Free: tier 1, Pro: tier 2, Enterprise: tier 3
-  if (plan.name.toLowerCase() === "free") return 1
-  if (plan.name.toLowerCase() === "pro") return 2
-  if (plan.name.toLowerCase() === "enterprise") return 3
-
-  // Fallback: use max_screens as tier indicator
-  // -1 (unlimited) is highest tier
-  if (plan.max_screens === -1) return 999
-  return plan.max_screens
+  switch (plan.name.toLowerCase()) {
+    case "free":       return 1
+    case "standard":   return 2
+    case "pro":        return 3
+    case "enterprise": return 4
+    default:
+      // Fallback: unlimited (-1) is highest
+      if (plan.max_screens === -1) return 999
+      return plan.max_screens + 1
+  }
 }
 
 export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPlanId }: UpgradePlanDialogProps) {
@@ -216,7 +216,8 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
           {/* Pricing Cards */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {availablePlans.map((plan) => {
-              const isRecommended = plan.name === "Pro"
+              // Recommend the lowest-tier available upgrade
+              const isRecommended = getPlanTier(plan) === Math.min(...availablePlans.map(getPlanTier))
               const features = extractFeatures(plan)
               const currentPrice = getPrice(plan, billingCycle)
               const savings = billingCycle === "yearly" ? getYearlySavings(plan) : null
