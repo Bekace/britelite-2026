@@ -243,11 +243,18 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription
 
+        // current_period_end moved to the item level in Stripe API 2025-11-17.
+        // Fall back gracefully: item level → top level → 30 days from now.
+        const periodEnd: number =
+          (subscription.items?.data?.[0] as any)?.current_period_end ??
+          (subscription as any).current_period_end ??
+          Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
+
         const { error } = await supabase
           .from("user_subscriptions")
           .update({
             status: subscription.status,
-            expires_at: new Date(subscription.current_period_end * 1000).toISOString(),
+            expires_at: new Date(periodEnd * 1000).toISOString(),
             cancel_at_period_end: subscription.cancel_at_period_end || false,
             canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
           })
