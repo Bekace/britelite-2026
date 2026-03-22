@@ -47,31 +47,37 @@ export async function POST(
       )
     }
 
-    // Get the user's active subscription to determine period end
-    const { data: subscription, error: subError } = await supabase
+    // Get the user's subscription to determine period end (allow any status)
+    const { data: subscription } = await supabase
       .from("user_subscriptions")
-      .select("stripe_subscription_id, purchased_screen_slots, free_screens")
+      .select("stripe_subscription_id, purchased_screen_slots")
       .eq("user_id", user.id)
-      .in("status", ["active", "trialing"])
+      .order("created_at", { ascending: false })
+      .limit(1)
       .single()
-
-    if (subError || !subscription) {
-      return NextResponse.json({ error: "No active subscription found" }, { status: 400 })
-    }
 
     // Determine slot_cancel_at from Stripe subscription period end
     let cancelAt: Date
 
     if (subscription.stripe_subscription_id) {
       try {
-        const stripeSub = await stripe.subscriptions.retrieve(subscription.stripe_subscription_id)
-        cancelAt = new Date(stripeSub.current_period_end * 1000)
-      } catch {
-        // Fallback: 30 days from now
+        const stripeSub = await stripe.subscriptions.retrieve(subscription.stripe_subscription_id, {
+          expand: ["items.data"],
+        })
+        // Stripe API 2025-11-17: current_period_end moved to item level
+        const periodEnd: number =
+          (stripeSub.items?.data?.[0] as any)?.current_period_end ??
+          (stripeSub as any).current_period_end ??
+          Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
+        cancelAt = new Date(periodEnd * 1000)
+      } catch (stripeErr) {
+        console.error("[cancel-slot] Stripe retrieve failed:", stripeErr)
         cancelAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       }
     } else {
-      cancelAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      // Free plan or no Stripe sub — cancel at end of month
+      const now = new Date()
+      cancelAt = new Date(now.getFullYear(), now.getMonth() + 1, 1)
     }
 
     // Mark the screen as pending cancellation
