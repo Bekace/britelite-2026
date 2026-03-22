@@ -58,8 +58,11 @@ interface Screen {
   scale_document?: string
   background_color?: string
   default_transition?: string
-  stripe_checkout_session_id?: string | null
+  stripe_subscription_id?: string | null
+  stripe_price_id?: string | null
   slot_cancel_at?: string | null
+  is_free_slot?: boolean
+  slot_payment_status?: string | null
 }
 
 interface Playlist {
@@ -137,7 +140,7 @@ export default function ScreensPage() {
   const [isBuyScreenDialogOpen, setIsBuyScreenDialogOpen] = useState(false)
   const [isPurchasingScreen, setIsPurchasingScreen] = useState(false)
   const [purchaseError, setPurchaseError] = useState<string | null>(null)
-  const [purchasedSessionId, setPurchasedSessionId] = useState<string | null>(null)
+  const [purchasedSlotData, setPurchasedSlotData] = useState<{ subscriptionId: string; priceId: string } | null>(null)
   const [cancelingScreen, setCancelingScreen] = useState<Screen | null>(null)
   const [isCanceling, setIsCanceling] = useState(false)
 
@@ -186,7 +189,7 @@ export default function ScreensPage() {
         .then((res) => res.json())
         .then((data) => {
           if (data.success) {
-            setPurchasedSessionId(sessionId)
+            setPurchasedSlotData({ subscriptionId: data.subscriptionId, priceId: data.priceId })
             fetchScreenLimits().then(() => {
               toast({
                 title: "Screen slot purchased",
@@ -483,7 +486,10 @@ export default function ScreensPage() {
           content_type: contentType,
           enable_audio_management: wizardState.advancedOptions.mute,
           default_transition: wizardState.advancedOptions.defaultTransition,
-          ...(purchasedSessionId ? { stripe_checkout_session_id: purchasedSessionId } : {}),
+          ...(purchasedSlotData ? {
+            stripe_subscription_id: purchasedSlotData.subscriptionId,
+            stripe_price_id: purchasedSlotData.priceId,
+          } : {}),
         }),
       })
 

@@ -4,10 +4,18 @@ import { NextResponse } from "next/server"
 
 /**
  * POST /api/stripe/purchase-screen
- * Creates a Stripe Checkout Session for purchasing one additional screen slot.
- * The user is redirected to Stripe's hosted checkout page to complete payment.
- * On success, Stripe redirects back to /dashboard/screens?purchase=success.
- * The webhook handles crediting the purchased_screen_slots in DB.
+ *
+ * Creates a dedicated monthly Stripe subscription for one additional screen slot.
+ * Slots are always billed monthly regardless of whether the plan is annual.
+ * The price used is the monthly rate of the user's current plan at time of purchase
+ * (locked in — if user upgrades plan later, existing slots retain the old price).
+ *
+ * Returns:
+ *   - { success, subscriptionId, priceId, status: "active" }  when no payment action needed
+ *   - { success, subscriptionId, priceId, clientSecret }       when card confirmation required
+ *
+ * The screens page creates the screen row AFTER receiving success, passing
+ * stripe_subscription_id and stripe_price_id so the slot is fully tracked.
  */
 export async function POST(request: Request) {
   try {
@@ -29,7 +37,7 @@ export async function POST(request: Request) {
         id,
         stripe_subscription_id,
         stripe_customer_id,
-        price_id,
+        plan_id,
         status,
         subscription_plans (
           id,
@@ -51,54 +59,82 @@ export async function POST(request: Request) {
       free_screens: number
     }
 
-    // Read per-screen price from subscription_prices — this is the same table
-    // that admin Plan Management writes to (monthly_price → billing_cycle="monthly")
-    const { data: monthlyPriceRecord } = await supabase
+    // Block Free plan users — they must upgrade before adding slots
+    if (plan.name.toLowerCase() === "free") {
+      return NextResponse.json(
+        { error: "Free plan users cannot add screen slots. Please upgrade your plan first." },
+        { status: 403 }
+      )
+    }
+
+    // Get the monthly price for the current plan (slots are ALWAYS monthly)
+    const { data: monthlyPriceRecord, error: priceError } = await supabase
       .from("subscription_prices")
-      .select("price")
+      .select("stripe_price_id, price")
       .eq("plan_id", plan.id)
       .eq("billing_cycle", "monthly")
       .eq("is_active", true)
       .single()
 
-    const pricePerScreen = Number(monthlyPriceRecord?.price) || 0
-
-    if (pricePerScreen <= 0) {
-      return NextResponse.json({ error: "No valid price configured for this plan" }, { status: 400 })
+    if (priceError || !monthlyPriceRecord?.stripe_price_id) {
+      return NextResponse.json(
+        { error: "No monthly price configured for your plan. Please contact support." },
+        { status: 400 }
+      )
     }
 
-    const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+    const stripeCustomerId = subscription.stripe_customer_id
+    if (!stripeCustomerId) {
+      return NextResponse.json(
+        { error: "No Stripe customer found for your account. Please contact support." },
+        { status: 400 }
+      )
+    }
 
-    // Create a Stripe Checkout Session for one additional screen slot.
-    // metadata.type = "screen_slot" lets the webhook identify and credit this purchase.
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      customer: subscription.stripe_customer_id ?? undefined,
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: "Additional Screen Slot",
-              description: `One additional screen slot on your ${plan.name} plan`,
-            },
-            unit_amount: Math.round(pricePerScreen * 100), // dollars to cents
-          },
-          quantity: 1,
-        },
-      ],
-      success_url: `${origin}/dashboard/screens?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/dashboard/screens`,
+    // Create a new Stripe subscription for this slot — one subscription per screen
+    const slotSubscription = await stripe.subscriptions.create({
+      customer: stripeCustomerId,
+      items: [{ price: monthlyPriceRecord.stripe_price_id }],
       metadata: {
-        type: "screen_slot",
         user_id: user.id,
         subscription_id: subscription.id,
+        type: "screen_slot",
+        plan_id: plan.id,
+        plan_name: plan.name,
       },
+      payment_behavior: "default_incomplete",
+      payment_settings: {
+        save_default_payment_method: "on_subscription",
+        payment_method_types: ["card"],
+      },
+      expand: ["latest_invoice.payment_intent"],
     })
 
-    return NextResponse.json({ url: session.url })
+    const latestInvoice = slotSubscription.latest_invoice as import("stripe").Stripe.Invoice
+    const paymentIntent = latestInvoice?.payment_intent as import("stripe").Stripe.PaymentIntent | null
+
+    // If the customer already has a valid default payment method Stripe may
+    // activate the subscription immediately without requiring further action
+    if (slotSubscription.status === "active") {
+      return NextResponse.json({
+        success: true,
+        subscriptionId: slotSubscription.id,
+        priceId: monthlyPriceRecord.stripe_price_id,
+        status: "active",
+        requiresAction: false,
+      })
+    }
+
+    return NextResponse.json({
+      success: true,
+      subscriptionId: slotSubscription.id,
+      priceId: monthlyPriceRecord.stripe_price_id,
+      status: slotSubscription.status,
+      requiresAction: paymentIntent?.status === "requires_action",
+      clientSecret: paymentIntent?.client_secret ?? null,
+    })
   } catch (err: any) {
     console.error("[purchase-screen] error:", err)
-    return NextResponse.json({ error: err.message || "Failed to create checkout session" }, { status: 500 })
+    return NextResponse.json({ error: err.message || "Failed to create screen slot subscription" }, { status: 500 })
   }
 }

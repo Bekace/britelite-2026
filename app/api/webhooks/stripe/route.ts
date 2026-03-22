@@ -263,81 +263,84 @@ export async function POST(req: NextRequest) {
         if (error) {
           console.error("Failed to update subscription:", error)
         }
-
-        // Finalize any screen slot cancellations whose slot_cancel_at has passed.
-        // This runs on every subscription renewal, catching screens that reached their cancel date.
-        const now = new Date()
-        const { data: userSub } = await supabase
-          .from("user_subscriptions")
-          .select("user_id, id, purchased_screen_slots")
-          .eq("stripe_subscription_id", subscription.id)
-          .single()
-
-        if (userSub) {
-          // Find all screens for this user that have passed their cancel date
-          const { data: expiredScreens } = await supabase
-            .from("screens")
-            .select("id")
-            .eq("user_id", userSub.user_id)
-            .not("slot_cancel_at", "is", null)
-            .lte("slot_cancel_at", now.toISOString())
-
-          if (expiredScreens && expiredScreens.length > 0) {
-            const expiredIds = expiredScreens.map((s) => s.id)
-
-            // Delete the expired screens
-            await supabase.from("screens").delete().in("id", expiredIds)
-
-            // Decrement purchased_screen_slots accordingly
-            const newSlots = Math.max(0, (userSub.purchased_screen_slots ?? 0) - expiredIds.length)
-            await supabase
-              .from("user_subscriptions")
-              .update({ purchased_screen_slots: newSlots })
-              .eq("id", userSub.id)
-
-            console.log(`[webhook] Finalized ${expiredIds.length} screen cancellation(s) for user ${userSub.user_id}`)
-          }
-        }
         break
       }
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription
 
-        const { error } = await supabase
-          .from("user_subscriptions")
-          .update({
-            status: "canceled",
-          })
-          .eq("stripe_subscription_id", subscription.id)
+        if (subscription.metadata?.type === "screen_slot") {
+          // This is a screen slot subscription — delete the corresponding screen row
+          const { data: screen } = await supabase
+            .from("screens")
+            .select("id, user_id")
+            .eq("stripe_subscription_id", subscription.id)
+            .single()
 
-        if (error) {
-          console.error("[v0] Failed to cancel subscription:", error)
-        }
-        break
-      }
+          if (screen) {
+            await supabase.from("screens").delete().eq("id", screen.id)
+            console.log(`[webhook] Screen slot deleted for subscription ${subscription.id}, screen ${screen.id}`)
+          }
+        } else {
+          // This is a plan subscription — revert account to Free plan
+          const { data: freePlan } = await supabase
+            .from("subscription_plans")
+            .select("id")
+            .eq("name", "Free")
+            .single()
 
-      case "invoice.payment_succeeded": {
-        const invoice = event.data.object as Stripe.Invoice
-        if (invoice.subscription) {
-          await supabase
+          const { error } = await supabase
             .from("user_subscriptions")
             .update({
-              status: "active",
-              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              status: "canceled",
+              ...(freePlan ? { plan_id: freePlan.id } : {}),
             })
-            .eq("stripe_subscription_id", invoice.subscription.toString())
+            .eq("stripe_subscription_id", subscription.id)
+
+          if (error) {
+            console.error("[webhook] Failed to cancel plan subscription:", error)
+          }
         }
         break
       }
 
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice
-        if (invoice.subscription) {
+        if (!invoice.subscription) break
+
+        const subId = invoice.subscription.toString()
+
+        // Check if this is a screen slot subscription
+        const stripeSubData = await stripe.subscriptions.retrieve(subId).catch(() => null)
+        if (stripeSubData?.metadata?.type === "screen_slot") {
+          // Mark the associated screen as payment_failed
+          await supabase
+            .from("screens")
+            .update({ slot_payment_status: "payment_failed" })
+            .eq("stripe_subscription_id", subId)
+          console.log(`[webhook] Payment failed for screen slot subscription ${subId}`)
+        } else {
+          // Plan subscription payment failed
           await supabase
             .from("user_subscriptions")
             .update({ status: "past_due" })
-            .eq("stripe_subscription_id", invoice.subscription.toString())
+            .eq("stripe_subscription_id", subId)
+        }
+        break
+      }
+
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice
+        if (!invoice.subscription) break
+        const subId = invoice.subscription.toString()
+
+        const stripeSubData = await stripe.subscriptions.retrieve(subId).catch(() => null)
+        if (stripeSubData?.metadata?.type === "screen_slot") {
+          // Clear payment_failed flag when payment recovers
+          await supabase
+            .from("screens")
+            .update({ slot_payment_status: "active" })
+            .eq("stripe_subscription_id", subId)
         }
         break
       }
