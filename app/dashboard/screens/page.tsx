@@ -615,7 +615,7 @@ export default function ScreensPage() {
       // Reset wizard and close modal
       resetWizard()
       setIsCreateDialogOpen(false)
-      setPurchasedSessionId(null)
+      setPurchasedSlotData(null)
       fetchScreens()
       fetchScreenLimits()
     } catch (error) {
@@ -1587,6 +1587,12 @@ export default function ScreensPage() {
                     Active until {new Date(screen.slot_cancel_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                   </div>
                 )}
+                {screen.slot_payment_status === "payment_failed" && (
+                  <div className="mt-2 px-2 py-1.5 rounded-md bg-red-500/10 border border-red-500/30 text-red-500 text-xs flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+                    Payment failed — update your billing details
+                  </div>
+                )}
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -1663,7 +1669,7 @@ export default function ScreensPage() {
                         <Eye className="mr-2 h-4 w-4" />
                         Preview
                       </DropdownMenuItem>
-                      {!screen.slot_cancel_at && (screenLimits?.purchasedSlots ?? 0) > 0 && (
+                      {!screen.slot_cancel_at && !screen.is_free_slot && screen.stripe_subscription_id && (
                         <DropdownMenuItem
                           onClick={() => setCancelingScreen(screen)}
                           className="text-amber-500 focus:text-amber-600"

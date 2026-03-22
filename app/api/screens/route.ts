@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
-import { syncStripeQuantityWithScreens } from "@/lib/actions/stripe"
+
 
 const OFFLINE_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
 
@@ -163,7 +163,8 @@ export async function POST(request: NextRequest) {
       scale_document,
       background_color,
       default_transition,
-      stripe_checkout_session_id,
+      stripe_subscription_id,
+      stripe_price_id,
     } = await request.json()
 
     if (!name) {
@@ -193,7 +194,8 @@ export async function POST(request: NextRequest) {
         scale_document: scale_document || "fit",
         background_color: background_color || "#000000",
         default_transition: default_transition || "fade",
-        ...(stripe_checkout_session_id ? { stripe_checkout_session_id } : {}),
+        ...(stripe_subscription_id ? { stripe_subscription_id } : {}),
+        ...(stripe_price_id ? { stripe_price_id } : {}),
       })
       .select()
       .single()
@@ -201,19 +203,6 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("Database error:", error)
       return NextResponse.json({ error: "Failed to create screen" }, { status: 500 })
-    }
-
-    // Sync Stripe subscription quantity (paid plans only).
-    // If Stripe sync fails, roll back the screen insert to keep billing consistent.
-    const syncResult = await syncStripeQuantityWithScreens(user.id)
-    if (syncResult.error) {
-      console.error("[v0] Stripe sync failed after screen insert, rolling back:", syncResult.error)
-      // Roll back the screen we just created
-      await supabase.from("screens").delete().eq("id", screen.id)
-      return NextResponse.json(
-        { error: "Failed to update billing. Screen was not created. Please try again." },
-        { status: 500 },
-      )
     }
 
     return NextResponse.json({ screen })
