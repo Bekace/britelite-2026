@@ -1277,6 +1277,22 @@ export default function ScreensPage() {
     }
   }
 
+  const handleTestFinalize = async (id: string) => {
+    try {
+      const response = await fetch(`/api/screens/${id}/cancel-slot/test-finalize`, { method: "POST" })
+      const data = await response.json()
+      if (response.ok) {
+        setScreens((prev) => prev.filter((s) => s.id !== id))
+        toast({ title: "Finalized", description: data.message })
+        fetchScreenLimits()
+      } else {
+        toast({ title: "Error", description: data.error, variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to finalize", variant: "destructive" })
+    }
+  }
+
   const handleReactivateSlot = async (id: string) => {
     try {
       const response = await fetch(`/api/screens/${id}/cancel-slot`, { method: "DELETE" })
@@ -1671,6 +1687,14 @@ export default function ScreensPage() {
                           className="text-primary focus:text-primary/80"
                         >
                           Undo Cancellation
+                        </DropdownMenuItem>
+                      )}
+                      {screen.slot_cancel_at && process.env.NODE_ENV !== "production" && (
+                        <DropdownMenuItem
+                          onClick={() => handleTestFinalize(screen.id)}
+                          className="text-orange-500 focus:text-orange-600"
+                        >
+                          [DEV] Force Finalize Now
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem
