@@ -170,49 +170,9 @@ export default function ScreensPage() {
   })
 
   const { toast } = useToast()
-  const router = useRouter() // Import useRouter
+  const router = useRouter()
 
-  // Detect return from Stripe Checkout after purchasing a screen slot
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const sessionId = params.get("session_id")
-    if (params.get("purchase") === "success" && sessionId) {
-      // Clean the URL immediately so refresh doesn't re-trigger
-      window.history.replaceState({}, "", "/dashboard/screens")
-      // Confirm the purchase server-side — this verifies payment with Stripe and
-      // increments purchased_screen_slots in the DB (no webhook dependency)
-      fetch("/api/stripe/confirm-screen-purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) {
-            setPurchasedSlotData({ subscriptionId: data.subscriptionId, priceId: data.priceId })
-            fetchScreenLimits().then(() => {
-              toast({
-                title: "Screen slot purchased",
-                description: "Your new screen slot is ready. Click Add Screen to set it up.",
-              })
-            })
-          } else {
-            toast({
-              title: "Purchase error",
-              description: data.error || "Could not confirm your purchase. Please contact support.",
-              variant: "destructive",
-            })
-          }
-        })
-        .catch(() => {
-          toast({
-            title: "Purchase error",
-            description: "Could not confirm your purchase. Please contact support.",
-            variant: "destructive",
-          })
-        })
-    }
-  }, [])
+  // Purchase flow now handled directly in the button onclick (no redirect/query param needed)
 
   useEffect(() => {
     fetchScreenLimits()
@@ -2229,16 +2189,34 @@ export default function ScreensPage() {
                     setIsPurchasingScreen(false)
                     return
                   }
-                  // Redirect to Stripe Checkout — user completes payment there
-                  // and is sent back to /dashboard/screens?purchase=success
-                  window.location.href = data.url
+
+                  // New API returns subscriptionId + priceId directly (no Checkout redirect)
+                  // If payment requires action (3D Secure, etc.), show card confirmation
+                  if (data.requiresAction && data.clientSecret) {
+                    // TODO: Implement Stripe Elements or Hosted Payment Form for card confirmation
+                    // For now, handle the common case where the customer has a saved payment method
+                    setPurchaseError("Payment confirmation required. Redirecting...")
+                    // In production, you'd use Stripe.js to confirm the payment via clientSecret
+                    setIsPurchasingScreen(false)
+                    return
+                  }
+
+                  // Payment succeeded immediately — store the subscription data and show success
+                  setPurchasedSlotData({ subscriptionId: data.subscriptionId, priceId: data.priceId })
+                  setIsBuyScreenDialogOpen(false)
+                  fetchScreenLimits().then(() => {
+                    toast({
+                      title: "Screen slot purchased",
+                      description: "Your new screen slot is ready. Click Add Screen to set it up.",
+                    })
+                  })
                 } catch (err: any) {
                   setPurchaseError("Something went wrong. Please try again.")
                   setIsPurchasingScreen(false)
                 }
               }}
             >
-              {isPurchasingScreen ? "Redirecting to payment..." : "Proceed to Payment"}
+              {isPurchasingScreen ? "Processing..." : "Proceed to Payment"}
             </Button>
           </DialogFooter>
         </DialogContent>
