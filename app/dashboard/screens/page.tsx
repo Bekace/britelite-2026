@@ -172,7 +172,32 @@ export default function ScreensPage() {
   const { toast } = useToast()
   const router = useRouter()
 
-  // Purchase flow now handled directly in the button onclick (no redirect/query param needed)
+  // When returning from Stripe Checkout after a slot purchase, confirm it and open the wizard
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const sessionId = params.get("session_id")
+    if (params.get("slot_purchased") === "true" && sessionId) {
+      window.history.replaceState({}, "", "/dashboard/screens")
+      fetch("/api/stripe/confirm-screen-purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setPurchasedSlotData({ subscriptionId: data.subscriptionId, priceId: data.priceId })
+            fetchScreenLimits()
+            resetWizard()
+            setIsCreateDialogOpen(true)
+            toast({ title: "Screen slot purchased", description: "Set up your new screen below." })
+          } else {
+            toast({ title: "Purchase error", description: data.error || "Could not confirm purchase.", variant: "destructive" })
+          }
+        })
+        .catch(() => toast({ title: "Purchase error", description: "Could not confirm purchase.", variant: "destructive" }))
+    }
+  }, [])
 
   useEffect(() => {
     fetchScreenLimits()
@@ -2189,29 +2214,8 @@ export default function ScreensPage() {
                     setIsPurchasingScreen(false)
                     return
                   }
-
-                  // New API returns subscriptionId + priceId directly (no Checkout redirect)
-                  // If payment requires action (3D Secure, etc.), show card confirmation
-                  if (data.requiresAction && data.clientSecret) {
-                    // TODO: Implement Stripe Elements or Hosted Payment Form for card confirmation
-                    // For now, handle the common case where the customer has a saved payment method
-                    setPurchaseError("Payment confirmation required. Redirecting...")
-                    // In production, you'd use Stripe.js to confirm the payment via clientSecret
-                    setIsPurchasingScreen(false)
-                    return
-                  }
-
-                  // Payment succeeded immediately — store slot data, close buy dialog, open create wizard
-                  setPurchasedSlotData({ subscriptionId: data.subscriptionId, priceId: data.priceId })
-                  setIsBuyScreenDialogOpen(false)
-                  setIsPurchasingScreen(false)
-                  resetWizard()
-                  setIsCreateDialogOpen(true)
-                  fetchScreenLimits()
-                  toast({
-                    title: "Screen slot purchased",
-                    description: "Your new screen slot is ready. Set it up below.",
-                  })
+                  // Redirect to Stripe Checkout — same as plan upgrade flow
+                  window.location.href = data.url
                 } catch (err: any) {
                   setPurchaseError("Something went wrong. Please try again.")
                   setIsPurchasingScreen(false)

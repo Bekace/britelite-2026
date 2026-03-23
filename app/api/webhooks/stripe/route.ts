@@ -28,10 +28,19 @@ export async function POST(req: NextRequest) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
 
-        // Screen slot purchases are handled exclusively by /api/stripe/confirm-screen-purchase
-        // which runs client-side after redirect and uses last_credited_session_id for idempotency.
-        // Incrementing here too would cause double-counting.
+        // Screen slot purchase — store the new subscription ID so the screens page
+        // can use it when the user creates their screen after returning from Stripe.
         if (session.metadata?.type === "screen_slot") {
+          const userId = session.metadata?.user_id
+          if (userId && session.subscription) {
+            // Store pending slot subscription ID on the user_subscriptions row
+            // so the confirm endpoint can hand it off to the screen wizard.
+            await supabase
+              .from("user_subscriptions")
+              .update({ pending_slot_subscription_id: session.subscription.toString() })
+              .eq("user_id", userId)
+            console.log(`[webhook] screen_slot checkout complete, subscription ${session.subscription} for user ${userId}`)
+          }
           break
         }
 
