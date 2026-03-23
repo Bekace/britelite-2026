@@ -27,8 +27,11 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
+      console.error("[purchase-screen] auth failed:", userError?.message)
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
+
+    console.log("[purchase-screen] user authenticated:", user.id)
 
     // Get user's active subscription with plan details
     const { data: subscription, error: subError } = await supabase
@@ -48,6 +51,8 @@ export async function POST(request: Request) {
       .eq("user_id", user.id)
       .in("status", ["active", "trialing"])
       .single()
+
+    console.log("[purchase-screen] subscription lookup:", { found: !!subscription, error: subError?.message, status: subscription?.status })
 
     if (subError || !subscription) {
       return NextResponse.json({ error: "No active subscription found" }, { status: 400 })
@@ -90,6 +95,8 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    console.log("[purchase-screen] creating slot subscription for customer:", stripeCustomerId, "price:", monthlyPriceRecord.stripe_price_id)
 
     // Create a new Stripe subscription for this slot — one subscription per screen
     const slotSubscription = await stripe.subscriptions.create({
