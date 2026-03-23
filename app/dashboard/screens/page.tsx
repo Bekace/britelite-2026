@@ -2201,14 +2201,16 @@ export default function ScreensPage() {
                     return
                   }
 
-                  // Payment succeeded immediately — store the subscription data and show success
+                  // Payment succeeded immediately — store slot data, close buy dialog, open create wizard
                   setPurchasedSlotData({ subscriptionId: data.subscriptionId, priceId: data.priceId })
                   setIsBuyScreenDialogOpen(false)
-                  fetchScreenLimits().then(() => {
-                    toast({
-                      title: "Screen slot purchased",
-                      description: "Your new screen slot is ready. Click Add Screen to set it up.",
-                    })
+                  setIsPurchasingScreen(false)
+                  resetWizard()
+                  setIsCreateDialogOpen(true)
+                  fetchScreenLimits()
+                  toast({
+                    title: "Screen slot purchased",
+                    description: "Your new screen slot is ready. Set it up below.",
                   })
                 } catch (err: any) {
                   setPurchaseError("Something went wrong. Please try again.")

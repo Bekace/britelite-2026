@@ -96,7 +96,23 @@ export async function GET() {
 
       const pricePerScreen = Number(monthlyPriceRecord?.price) || 0
 
-      const purchasedSlots = subscription?.purchased_screen_slots ?? 0
+      // Source of truth for purchased slots: count active slot subscriptions in the screens table
+      // (screens with a stripe_subscription_id are paid slots; is_free_slot screens are the base free screen)
+      const { count: paidSlotScreens } = await supabase
+        .from("screens")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .not("stripe_subscription_id", "is", null)
+        .is("slot_cancel_at", null) // don't count slots already scheduled for cancellation
+
+      // Also count slots purchased but not yet assigned to a screen
+      // (purchasedSlots is kept as a fallback for legacy data)
+      const purchasedSlots = Math.max(
+        subscription?.purchased_screen_slots ?? 0,
+        paidSlotScreens ?? 0
+      )
+
+      // availableSlots = free screens + purchased paid slots - screens already created
       const availableSlots = freeScreens + purchasedSlots - (currentScreens || 0)
 
       return NextResponse.json({
