@@ -58,7 +58,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No active subscription found" }, { status: 400 })
     }
 
-    const plan = subscription.subscription_plans as {
+    // Supabase returns joined relations as an array — extract the first element
+    const planRaw = subscription.subscription_plans
+    const plan = (Array.isArray(planRaw) ? planRaw[0] : planRaw) as {
       id: string
       name: string
       free_screens: number

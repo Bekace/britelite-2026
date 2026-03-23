@@ -113,7 +113,10 @@ export async function POST(request: NextRequest) {
         .single()
 
       const hasPaidSubscription = !!subscription
-      const planName = (subscription?.subscription_plans as { name: string; max_screens: number } | null)?.name
+      // Supabase returns joined relations as an array — extract the first element
+      const planRaw = subscription?.subscription_plans
+      const planObj = (Array.isArray(planRaw) ? planRaw[0] : planRaw) as { name: string; max_screens: number } | null
+      const planName = planObj?.name
 
       if (!hasPaidSubscription || planName === "Free") {
         // Fall back to max_screens cap for Free plan / no subscription
@@ -124,9 +127,8 @@ export async function POST(request: NextRequest) {
 
         let maxScreens = 1 // default if nothing found
 
-        if (subscription?.subscription_plans) {
-          const plan = subscription.subscription_plans as { name: string; max_screens: number }
-          maxScreens = plan.max_screens
+        if (planObj) {
+          maxScreens = planObj.max_screens
         } else {
           const { data: freePlan } = await supabase
             .from("subscription_plans")

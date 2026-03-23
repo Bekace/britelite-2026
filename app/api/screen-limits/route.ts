@@ -72,14 +72,16 @@ export async function GET() {
       .single()
 
     const hasPaidSubscription = !subError && !!subscription
-    const plan = subscription?.subscription_plans as {
+    // Supabase returns joined relations as an array — extract the first element
+    const planRaw = subscription?.subscription_plans
+    const plan = (Array.isArray(planRaw) ? planRaw[0] : planRaw) as {
       id: string
       name: string
       max_screens: number
       free_screens: number
     } | null
 
-    const isPaidPlan = hasPaidSubscription && plan?.name !== "Free"
+    const isPaidPlan = hasPaidSubscription && !!plan && plan?.name !== "Free"
 
     if (isPaidPlan && plan) {
       const freeScreens = plan.free_screens ?? 0
