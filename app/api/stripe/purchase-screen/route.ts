@@ -76,22 +76,27 @@ export async function POST(_request: Request) {
       )
     }
 
-    // Get the monthly price for the current plan (slots are ALWAYS monthly)
+    // Get the dedicated slot price for this plan (stripe_slot_price_id points to
+    // the "Screen Slot - <Plan>" product in Stripe for clear invoice line items)
     const { data: monthlyPriceRecord, error: priceError } = await supabase
       .from("subscription_prices")
-      .select("stripe_price_id, price")
+      .select("stripe_slot_price_id, stripe_price_id, price")
       .eq("plan_id", plan.id)
       .eq("billing_cycle", "monthly")
       .eq("is_active", true)
       .single()
 
-    console.log("[purchase-screen] monthly price:", {
+    // Prefer the dedicated slot price; fall back to plan price if slot price not configured
+    const slotPriceId = monthlyPriceRecord?.stripe_slot_price_id || monthlyPriceRecord?.stripe_price_id
+
+    console.log("[purchase-screen] slot price:", {
       found: !!monthlyPriceRecord,
       error: priceError?.message,
-      stripe_price_id: monthlyPriceRecord?.stripe_price_id,
+      stripe_slot_price_id: monthlyPriceRecord?.stripe_slot_price_id,
+      fallback_to_plan_price: !monthlyPriceRecord?.stripe_slot_price_id,
     })
 
-    if (priceError || !monthlyPriceRecord?.stripe_price_id) {
+    if (priceError || !slotPriceId) {
       return NextResponse.json(
         { error: "No monthly price configured for your plan. Please contact support." },
         { status: 400 }
@@ -113,7 +118,7 @@ export async function POST(_request: Request) {
     // Create a Stripe Checkout Session — user pays, then returns to screens page
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
-      line_items: [{ price: monthlyPriceRecord.stripe_price_id, quantity: 1 }],
+      line_items: [{ price: slotPriceId, quantity: 1 }],
       mode: "subscription",
       subscription_data: {
         metadata: {
