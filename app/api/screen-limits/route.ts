@@ -60,6 +60,7 @@ export async function GET() {
         status,
         price_id,
         purchased_screen_slots,
+        pending_slot_subscription_id,
         subscription_plans (
           id,
           name,
@@ -107,15 +108,25 @@ export async function GET() {
         .not("stripe_subscription_id", "is", null)
         .is("slot_cancel_at", null) // don't count slots already scheduled for cancellation
 
-      // Also count slots purchased but not yet assigned to a screen
-      // (purchasedSlots is kept as a fallback for legacy data)
+      // purchased_screen_slots is the source of truth — incremented immediately on confirm
+      // paidSlotScreens is a sanity check for legacy screens that have stripe_subscription_id
       const purchasedSlots = Math.max(
         subscription?.purchased_screen_slots ?? 0,
         paidSlotScreens ?? 0
       )
 
+      // If a slot was purchased but the wizard was closed before the screen was created,
+      // pending_slot_subscription_id keeps that slot "reserved" and available
+      const hasPendingSlot = !!subscription?.pending_slot_subscription_id
+
       // availableSlots = free screens + purchased paid slots - screens already created
+      // hasPendingSlot ensures the reserved slot shows as available even without a screen row
       const availableSlots = freeScreens + purchasedSlots - (currentScreens || 0)
+
+      // Return pendingSlotSubscriptionId so the screens page can pre-fill the wizard
+      const pendingSlotData = hasPendingSlot ? {
+        pendingSlotSubscriptionId: subscription.pending_slot_subscription_id,
+      } : {}
 
       return NextResponse.json({
         current: currentScreens || 0,
@@ -128,6 +139,7 @@ export async function GET() {
         billingCycle: "monthly",
         purchasedSlots,
         availableSlots,
+        ...pendingSlotData,
       })
     }
 

@@ -136,6 +136,7 @@ export default function ScreensPage() {
     billingCycle?: string
     purchasedSlots?: number
     availableSlots?: number
+    pendingSlotSubscriptionId?: string | null
   } | null>(null)
   const [isBuyScreenDialogOpen, setIsBuyScreenDialogOpen] = useState(false)
   const [isPurchasingScreen, setIsPurchasingScreen] = useState(false)
@@ -1403,6 +1404,14 @@ export default function ScreensPage() {
     if (isPaidPlan) {
       const availableSlots = screenLimits.availableSlots ?? 0
       if (availableSlots > 0) {
+        // Restore pending slot data from limits if the user closed the wizard earlier
+        // without creating the screen — this keeps the stripe_subscription_id available
+        if (!purchasedSlotData && screenLimits.pendingSlotSubscriptionId) {
+          setPurchasedSlotData({
+            subscriptionId: screenLimits.pendingSlotSubscriptionId,
+            priceId: "", // price is looked up from Stripe subscription when needed
+          })
+        }
         resetWizard()
         setIsCreateDialogOpen(true)
       } else {

@@ -207,6 +207,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create screen" }, { status: 500 })
     }
 
+    // If this screen used the pending slot subscription, clear the pending flag
+    // so the next "Add Screen" click shows the buy dialog again
+    if (stripe_subscription_id) {
+      await supabase
+        .from("user_subscriptions")
+        .update({ pending_slot_subscription_id: null })
+        .eq("user_id", user.id)
+        .eq("pending_slot_subscription_id", stripe_subscription_id)
+    }
+
     return NextResponse.json({ screen })
   } catch (error) {
     console.error("Error creating screen:", error)

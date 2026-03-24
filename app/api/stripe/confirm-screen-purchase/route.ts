@@ -52,11 +52,26 @@ export async function POST(request: Request) {
     // Get the price ID from the subscription item
     const priceId = subscription.items?.data?.[0]?.price?.id ?? null
 
-    // Clear the pending_slot_subscription_id now that the screen page has confirmed it
-    await supabase
+    // Increment purchased_screen_slots immediately (don't wait for webhook)
+    // and store pending_slot_subscription_id so the slot survives a wizard close
+    const { data: currentSub } = await supabase
       .from("user_subscriptions")
-      .update({ pending_slot_subscription_id: null })
+      .select("purchased_screen_slots, pending_slot_subscription_id")
       .eq("user_id", user.id)
+      .single()
+
+    // Only increment if this session hasn't already been credited (idempotency)
+    const alreadyCredited = currentSub?.pending_slot_subscription_id === subscription.id
+    if (!alreadyCredited) {
+      const newSlotCount = (currentSub?.purchased_screen_slots ?? 0) + 1
+      await supabase
+        .from("user_subscriptions")
+        .update({
+          purchased_screen_slots: newSlotCount,
+          pending_slot_subscription_id: subscription.id,
+        })
+        .eq("user_id", user.id)
+    }
 
     return NextResponse.json({
       success: true,
