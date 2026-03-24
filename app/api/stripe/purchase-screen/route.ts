@@ -124,7 +124,7 @@ export async function POST(_request: Request) {
           user_subscription_id: subscription.id,
         },
       },
-      success_url: `${siteUrl}/dashboard/screens?slot_purchased=true&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${siteUrl}/dashboard/screens?slot_purchased=true`,
       cancel_url: `${siteUrl}/dashboard/screens`,
       metadata: {
         user_id: user.id,
@@ -136,6 +136,13 @@ export async function POST(_request: Request) {
     })
 
     console.log("[purchase-screen] Checkout Session created:", session.id, "url:", session.url)
+
+    // Store session.id in DB NOW before the redirect so confirm-screen-purchase
+    // can look it up from the DB instead of relying on the URL parameter
+    await supabase
+      .from("user_subscriptions")
+      .update({ last_credited_session_id: session.id })
+      .eq("user_id", user.id)
 
     return NextResponse.json({ url: session.url })
   } catch (err: any) {

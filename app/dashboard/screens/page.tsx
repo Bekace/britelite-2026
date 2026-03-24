@@ -173,31 +173,28 @@ export default function ScreensPage() {
   const { toast } = useToast()
   const router = useRouter()
 
-  // When returning from Stripe Checkout after a slot purchase, confirm it and open the wizard
+  // When returning from Stripe Checkout after a slot purchase, confirm it and open the wizard.
+  // We use ?slot_purchased=true only — session ID is read from the DB by the API,
+  // so we are not vulnerable to Stripe template substitution issues in the URL.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const sessionId = params.get("session_id")
-    if (params.get("slot_purchased") === "true" && sessionId) {
-      window.history.replaceState({}, "", "/dashboard/screens")
-      fetch("/api/stripe/confirm-screen-purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
+    if (params.get("slot_purchased") !== "true") return
+    // Clean the URL immediately
+    window.history.replaceState({}, "", "/dashboard/screens")
+    fetch("/api/stripe/confirm-screen-purchase", { method: "POST" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setPurchasedSlotData({ subscriptionId: data.subscriptionId, priceId: data.priceId ?? "" })
+          fetchScreenLimits()
+          resetWizard()
+          setIsCreateDialogOpen(true)
+          toast({ title: "Screen slot purchased", description: "Set up your new screen below." })
+        } else {
+          toast({ title: "Purchase error", description: data.error || "Could not confirm purchase.", variant: "destructive" })
+        }
       })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) {
-            setPurchasedSlotData({ subscriptionId: data.subscriptionId, priceId: data.priceId })
-            fetchScreenLimits()
-            resetWizard()
-            setIsCreateDialogOpen(true)
-            toast({ title: "Screen slot purchased", description: "Set up your new screen below." })
-          } else {
-            toast({ title: "Purchase error", description: data.error || "Could not confirm purchase.", variant: "destructive" })
-          }
-        })
-        .catch(() => toast({ title: "Purchase error", description: "Could not confirm purchase.", variant: "destructive" }))
-    }
+      .catch(() => toast({ title: "Purchase error", description: "Could not confirm purchase.", variant: "destructive" }))
   }, [])
 
   useEffect(() => {
