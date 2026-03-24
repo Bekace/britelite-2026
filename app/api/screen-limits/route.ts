@@ -128,7 +128,7 @@ export async function GET() {
         pendingSlotSubscriptionId: subscription.pending_slot_subscription_id,
       } : {}
 
-      return NextResponse.json({
+      const result = {
         current: currentScreens || 0,
         limit: -1,
         canCreate: true,
@@ -140,7 +140,9 @@ export async function GET() {
         purchasedSlots,
         availableSlots,
         ...pendingSlotData,
-      })
+      }
+      console.log("[screen-limits] paid plan result:", JSON.stringify(result))
+      return NextResponse.json(result)
     }
 
     // Free plan or no subscription — enforce max_screens cap

@@ -165,12 +165,30 @@ export async function POST(request: NextRequest) {
       scale_document,
       background_color,
       default_transition,
-      stripe_subscription_id,
+      stripe_subscription_id: clientStripeSubId,
       stripe_price_id,
     } = await request.json()
 
     if (!name) {
       return NextResponse.json({ error: "Screen name is required" }, { status: 400 })
+    }
+
+    // If the client didn't send a stripe_subscription_id (e.g. wizard was closed and re-opened),
+    // auto-lookup pending_slot_subscription_id from the DB so the slot is always correctly linked.
+    let stripe_subscription_id = clientStripeSubId ?? null
+    let pendingSubCleared = false
+
+    if (!stripe_subscription_id) {
+      const { data: userSubRow } = await supabase
+        .from("user_subscriptions")
+        .select("pending_slot_subscription_id, purchased_screen_slots")
+        .eq("user_id", user.id)
+        .single()
+
+      if (userSubRow?.pending_slot_subscription_id) {
+        stripe_subscription_id = userSubRow.pending_slot_subscription_id
+        pendingSubCleared = true
+      }
     }
 
     // Generate unique screen code
@@ -207,14 +225,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create screen" }, { status: 500 })
     }
 
-    // If this screen used the pending slot subscription, clear the pending flag
-    // so the next "Add Screen" click shows the buy dialog again
-    if (stripe_subscription_id) {
+    // Clear pending_slot_subscription_id now that the screen has been created
+    // so the next "Add Screen" click correctly shows the buy dialog
+    if (stripe_subscription_id && (pendingSubCleared || clientStripeSubId)) {
       await supabase
         .from("user_subscriptions")
         .update({ pending_slot_subscription_id: null })
         .eq("user_id", user.id)
-        .eq("pending_slot_subscription_id", stripe_subscription_id)
     }
 
     return NextResponse.json({ screen })

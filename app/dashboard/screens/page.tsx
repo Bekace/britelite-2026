@@ -179,17 +179,20 @@ export default function ScreensPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get("slot_purchased") !== "true") return
-    // Clean the URL immediately
+    // Clean the URL immediately so refresh doesn't re-trigger
     window.history.replaceState({}, "", "/dashboard/screens")
+    // Confirm the purchase server-side (increments purchased_screen_slots + stores pending sub ID)
     fetch("/api/stripe/confirm-screen-purchase", { method: "POST" })
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
-          setPurchasedSlotData({ subscriptionId: data.subscriptionId, priceId: data.priceId ?? "" })
+          // Refresh limits so the available slot appears in the UI
           fetchScreenLimits()
-          resetWizard()
-          setIsCreateDialogOpen(true)
-          toast({ title: "Screen slot purchased", description: "Set up your new screen below." })
+          // Do NOT auto-open the wizard — show a toast so user can click Add Screen when ready
+          toast({
+            title: "Screen slot purchased",
+            description: "Your new slot is ready. Click \"Add Screen\" whenever you want to set it up.",
+          })
         } else {
           toast({ title: "Purchase error", description: data.error || "Could not confirm purchase.", variant: "destructive" })
         }
@@ -1398,8 +1401,10 @@ export default function ScreensPage() {
     }
 
     const isPaidPlan = screenLimits.limit === -1
+    console.log("[v0] handleAddScreen screenLimits:", JSON.stringify(screenLimits))
     if (isPaidPlan) {
       const availableSlots = screenLimits.availableSlots ?? 0
+      console.log("[v0] handleAddScreen availableSlots:", availableSlots)
       if (availableSlots > 0) {
         // Restore pending slot data from limits if the user closed the wizard earlier
         // without creating the screen — this keeps the stripe_subscription_id available
