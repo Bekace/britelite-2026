@@ -64,31 +64,28 @@ export async function POST(_request: Request) {
 
     const priceId = subscription.items?.data?.[0]?.price?.id ?? null
 
-    // Idempotency: check if this exact session was already credited via last_credited_session_id
-    // We use a separate credited_session_id field to track what was actually processed
-    const { data: freshSub } = await supabase
-      .from("user_subscriptions")
-      .select("purchased_screen_slots, pending_slot_subscription_id, last_credited_session_id")
-      .eq("user_id", user.id)
-      .single()
-
-    const alreadyCredited = freshSub?.pending_slot_subscription_id === subscription.id
+    // Idempotency: compare the session ID stored in the DB with the one we just processed.
+    // Session IDs are always unique per Stripe Checkout — safe to use as idempotency key.
+    // We do NOT use subscription.id because Stripe can reuse the same subscription ID
+    // for repeat purchases of the same price, which would cause false "already credited" hits.
+    const processedSessionId = `processed:${sessionId}`
+    const alreadyCredited = userSub.last_credited_session_id === processedSessionId
 
     if (!alreadyCredited) {
-      const newSlotCount = (freshSub?.purchased_screen_slots ?? 0) + 1
+      const newSlotCount = (userSub.purchased_screen_slots ?? 0) + 1
       await supabase
         .from("user_subscriptions")
         .update({
           purchased_screen_slots: newSlotCount,
           pending_slot_subscription_id: subscription.id,
-          // Clear last_credited_session_id so future calls don't re-process an old session
-          last_credited_session_id: null,
+          // Mark this session as processed so repeat calls are safely ignored
+          last_credited_session_id: processedSessionId,
         })
         .eq("user_id", user.id)
 
       console.log(`[confirm-screen-purchase] credited slot for user ${user.id}, new count: ${newSlotCount}, sub: ${subscription.id}`)
     } else {
-      console.log(`[confirm-screen-purchase] already credited subscription ${subscription.id}, skipping`)
+      console.log(`[confirm-screen-purchase] session ${sessionId} already credited, skipping`)
     }
 
     return NextResponse.json({
