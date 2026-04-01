@@ -40,12 +40,16 @@ export async function POST(_request: Request) {
       return NextResponse.json({ error: "No pending slot purchase found" }, { status: 400 })
     }
 
-    // Retrieve the Checkout Session from Stripe to verify payment succeeded
+    // Retrieve the Checkout Session from Stripe to verify it completed
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
       expand: ["subscription"],
     })
 
-    if (session.payment_status !== "paid") {
+    console.log(`[confirm-screen-purchase] session status: ${session.status}, payment_status: ${session.payment_status}, type: ${session.metadata?.type}`)
+
+    // For subscription-mode sessions: status="complete" means payment succeeded.
+    // payment_status can be "paid" or "no_payment_required" (e.g. trial periods).
+    if (session.status !== "complete") {
       return NextResponse.json({ error: "Payment not completed yet" }, { status: 400 })
     }
 
@@ -60,17 +64,25 @@ export async function POST(_request: Request) {
 
     const priceId = subscription.items?.data?.[0]?.price?.id ?? null
 
-    // Idempotency: only increment if this session hasn't already been credited
-    const alreadyCredited = userSub.pending_slot_subscription_id === subscription.id
+    // Idempotency: check if this exact session was already credited via last_credited_session_id
+    // We use a separate credited_session_id field to track what was actually processed
+    const { data: freshSub } = await supabase
+      .from("user_subscriptions")
+      .select("purchased_screen_slots, pending_slot_subscription_id, last_credited_session_id")
+      .eq("user_id", user.id)
+      .single()
+
+    const alreadyCredited = freshSub?.pending_slot_subscription_id === subscription.id
+
     if (!alreadyCredited) {
-      const newSlotCount = (userSub.purchased_screen_slots ?? 0) + 1
+      const newSlotCount = (freshSub?.purchased_screen_slots ?? 0) + 1
       await supabase
         .from("user_subscriptions")
         .update({
           purchased_screen_slots: newSlotCount,
           pending_slot_subscription_id: subscription.id,
-          // Keep last_credited_session_id so re-opens still work but clear it
-          // once the screen is finally created (handled in screens POST route)
+          // Clear last_credited_session_id so future calls don't re-process an old session
+          last_credited_session_id: null,
         })
         .eq("user_id", user.id)
 

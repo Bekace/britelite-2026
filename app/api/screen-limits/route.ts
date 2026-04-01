@@ -131,7 +131,7 @@ export async function GET() {
       const result = {
         current: currentScreens || 0,
         limit: -1,
-        canCreate: true,
+        canCreate: availableSlots > 0,
         plan: plan.name,
         freeScreens,
         billableScreens,
