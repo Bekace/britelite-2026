@@ -141,7 +141,6 @@ export async function GET() {
         availableSlots,
         ...pendingSlotData,
       }
-      console.log("[screen-limits] paid plan result:", JSON.stringify(result))
       return NextResponse.json(result)
     }
 

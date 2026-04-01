@@ -1401,10 +1401,8 @@ export default function ScreensPage() {
     }
 
     const isPaidPlan = screenLimits.limit === -1
-    console.log("[v0] handleAddScreen screenLimits:", JSON.stringify(screenLimits))
     if (isPaidPlan) {
       const availableSlots = screenLimits.availableSlots ?? 0
-      console.log("[v0] handleAddScreen availableSlots:", availableSlots)
       if (availableSlots > 0) {
         // Restore pending slot data from limits if the user closed the wizard earlier
         // without creating the screen — this keeps the stripe_subscription_id available
