@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
           status,
           subscription_plans(
             max_media_storage,
-            max_file_size
+            max_file_upload_size
           )
         )
       `)
@@ -71,16 +71,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch user subscription data" }, { status: 500 })
     }
 
+    const planFileSize =
+      userData?.user_subscriptions?.subscription_plans?.max_file_upload_size || 10 * 1024 * 1024
+
+    // enforce_globally is a hard ceiling — plan limit always wins if smaller
     let maxFileSize: number
     if (uploadSettings?.enforce_globally && uploadSettings.max_file_size) {
-      maxFileSize = uploadSettings.max_file_size
-      console.log("[v0] Using global max file size:", maxFileSize)
-    } else if (userData?.user_subscriptions?.subscription_plans?.max_file_size) {
-      maxFileSize = userData.user_subscriptions.subscription_plans.max_file_size
-      console.log("[v0] Using plan max file size:", maxFileSize)
+      maxFileSize = Math.min(planFileSize, uploadSettings.max_file_size)
     } else {
-      maxFileSize = 10 * 1024 * 1024 // Default 10MB
-      console.log("[v0] Using default max file size:", maxFileSize)
+      maxFileSize = planFileSize
     }
 
     const maxStorageBytes =
