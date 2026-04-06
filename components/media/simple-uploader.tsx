@@ -208,7 +208,13 @@ export function SimpleUploader({
             </div>
             <div className="text-center">
               <p className="font-medium">Drop files here or click to upload</p>
-              <p className="text-sm text-muted-foreground mt-1">Max {maxFileSizeMB} MB per file</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Max{" "}
+                {maxFileSizeMB >= 1024
+                  ? `${(maxFileSizeMB / 1024).toFixed(maxFileSizeMB % 1024 === 0 ? 0 : 1)} GB`
+                  : `${maxFileSizeMB} MB`}{" "}
+                per file
+              </p>
             </div>
             <input
               type="file"

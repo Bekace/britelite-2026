@@ -71,6 +71,7 @@ interface PlanFormData {
   max_media_storage: string
   max_file_upload_size: string
   storage_unit: string
+  file_upload_unit: string
   max_playlists: string
   max_locations: string
   max_schedules: string
@@ -107,6 +108,7 @@ export function PlanManagement() {
     max_media_storage: "1",
     max_file_upload_size: "10",
     storage_unit: "GB",
+    file_upload_unit: "GB",
     max_playlists: "1",
     max_locations: "1",
     max_schedules: "1",
@@ -194,7 +196,7 @@ export function PlanManagement() {
 
       const fileUploadInBytes = convertDisplayValueToBytes(
         Number.parseInt(formData.max_file_upload_size),
-        formData.storage_unit,
+        formData.file_upload_unit,
       )
 
       const planData = {
@@ -272,7 +274,7 @@ export function PlanManagement() {
 
       const fileUploadInBytes = convertDisplayValueToBytes(
         Number.parseInt(formData.max_file_upload_size),
-        formData.storage_unit,
+        formData.file_upload_unit,
       )
 
       const planData = {
@@ -401,7 +403,15 @@ export function PlanManagement() {
 
   const openEditDialog = (plan: SubscriptionPlan) => {
     const displayValue = convertStorageToDisplayValue(plan.max_media_storage, plan.storage_unit)
-    const fileUploadValue = convertStorageToDisplayValue(plan.max_file_upload_size || 10737418240, plan.storage_unit)
+    // Determine the best unit for file upload size independently of max storage unit
+    const fileUploadBytes = plan.max_file_upload_size || 10737418240
+    const fileUploadUnit =
+      fileUploadBytes >= 1024 * 1024 * 1024
+        ? "GB"
+        : fileUploadBytes >= 1024 * 1024
+          ? "MB"
+          : "KB"
+    const fileUploadValue = convertStorageToDisplayValue(fileUploadBytes, fileUploadUnit)
 
     // Extract monthly and yearly prices from the prices array
     const monthlyPrice = plan.prices?.find((p) => p.billing_cycle === "monthly")?.price || plan.monthly_price || 0
@@ -427,6 +437,7 @@ export function PlanManagement() {
       max_media_storage: displayValue.toString(),
       max_file_upload_size: fileUploadValue.toString(),
       storage_unit: plan.storage_unit || "GB",
+      file_upload_unit: fileUploadUnit,
       max_playlists: plan.max_playlists.toString(),
       max_locations: (plan.max_locations ?? 1).toString(),
       max_schedules: (plan.max_schedules ?? 1).toString(),
@@ -758,7 +769,19 @@ export function PlanManagement() {
                         onChange={(e) => setFormData({ ...formData, max_file_upload_size: e.target.value })}
                         className="flex-1"
                       />
-                      <div className="w-20 flex items-center justify-center text-sm text-muted-foreground">GB</div>
+                      <Select
+                        value={formData.file_upload_unit}
+                        onValueChange={(value) => setFormData({ ...formData, file_upload_unit: value })}
+                      >
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MB">MB</SelectItem>
+                          <SelectItem value="GB">GB</SelectItem>
+                          <SelectItem value="TB">TB</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="flex flex-col justify-end">
