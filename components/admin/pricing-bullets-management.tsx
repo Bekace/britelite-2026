@@ -80,7 +80,9 @@ export function PricingBulletsManagement() {
       const bulletsData = await bulletsRes.json()
       const plansData = await plansRes.json()
       setBullets(Array.isArray(bulletsData) ? bulletsData : [])
-      const activePlans = (Array.isArray(plansData) ? plansData : []).filter((p: Plan & { is_active?: boolean }) => p.is_active !== false)
+      // /api/admin/plans returns { plans: [...] }, not a bare array
+      const plansArray = Array.isArray(plansData) ? plansData : (plansData?.plans ?? [])
+      const activePlans = plansArray.filter((p: Plan & { is_active?: boolean }) => p.is_active !== false)
       setPlans(activePlans)
       if (activePlans.length > 0 && !newPlanId) {
         setNewPlanId(activePlans[0].id)
