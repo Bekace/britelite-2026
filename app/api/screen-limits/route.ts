@@ -82,7 +82,10 @@ export async function GET() {
       free_screens: number
     } | null
 
-    const isPaidPlan = hasPaidSubscription && !!plan && plan?.name !== "Free"
+    // A user should go through the paid/slot path if they are on a paid plan OR
+    // if they have purchased extra slots (even on Free plan — slots are always billable add-ons)
+    const hasPurchasedSlots = (subscription?.purchased_screen_slots ?? 0) > 0
+    const isPaidPlan = hasPaidSubscription && !!plan && (plan?.name !== "Free" || hasPurchasedSlots)
 
     if (isPaidPlan && plan) {
       const freeScreens = plan.free_screens ?? 0
@@ -167,7 +170,10 @@ export async function GET() {
       }
     }
 
-    const canCreate = maxScreens === -1 || (currentScreens || 0) < maxScreens
+    // Also factor in any purchased slots even in the free-plan fallback path
+    const purchasedSlotsOnFree = subscription?.purchased_screen_slots ?? 0
+    const totalAllowed = maxScreens === -1 ? Infinity : maxScreens + purchasedSlotsOnFree
+    const canCreate = totalAllowed === Infinity || (currentScreens || 0) < totalAllowed
 
     return NextResponse.json({
       current: currentScreens || 0,
@@ -175,6 +181,8 @@ export async function GET() {
       canCreate,
       plan: planName,
       freeScreens,
+      purchasedSlots: purchasedSlotsOnFree,
+      availableSlots: Math.max(0, (freeScreens + purchasedSlotsOnFree) - (currentScreens || 0)),
       billableScreens: 0,
       pricePerScreen: 0,
     })
