@@ -18,13 +18,10 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if user is super admin
+    // Super admins have unlimited screens
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
-    const isSuperAdmin = profile?.role === "super_admin"
-
-    // Super admins have unlimited screens — no billing involved
-    if (isSuperAdmin) {
+    if (profile?.role === "super_admin") {
       const { count: currentScreens } = await supabase
         .from("screens")
         .select("*", { count: "exact", head: true })
@@ -36,24 +33,25 @@ export async function GET() {
         canCreate: true,
         plan: "Super Admin",
         freeScreens: -1,
+        purchasedSlots: 0,
+        availableSlots: -1,
         billableScreens: 0,
         pricePerScreen: 0,
       })
     }
 
-    // Get current screen count
+    // Current screen count
     const { count: currentScreens, error: countError } = await supabase
       .from("screens")
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id)
 
     if (countError) {
-      console.error("Error counting screens:", countError)
       return NextResponse.json({ error: "Failed to count screens" }, { status: 500 })
     }
 
-    // Get user's active subscription including plan details and purchased_screen_slots
-    const { data: subscription, error: subError } = await supabase
+    // Get active subscription with plan details
+    const { data: subscription } = await supabase
       .from("user_subscriptions")
       .select(`
         id,
@@ -72,8 +70,7 @@ export async function GET() {
       .in("status", ["active", "trialing"])
       .single()
 
-    const hasPaidSubscription = !subError && !!subscription
-    // Supabase returns joined relations as an array — extract the first element
+    // Extract plan (Supabase may return relation as array or object)
     const planRaw = subscription?.subscription_plans
     const plan = (Array.isArray(planRaw) ? planRaw[0] : planRaw) as {
       id: string
@@ -82,109 +79,69 @@ export async function GET() {
       free_screens: number
     } | null
 
-    // A user should go through the paid/slot path if they are on a paid plan OR
-    // if they have purchased extra slots (even on Free plan — slots are always billable add-ons)
-    const hasPurchasedSlots = (subscription?.purchased_screen_slots ?? 0) > 0
-    const isPaidPlan = hasPaidSubscription && !!plan && (plan?.name !== "Free" || hasPurchasedSlots)
-
-    if (isPaidPlan && plan) {
-      const freeScreens = plan.free_screens ?? 0
-      const billableScreens = Math.max(0, (currentScreens || 0) - freeScreens)
-
-      // Read per-screen price from subscription_prices
-      const { data: monthlyPriceRecord } = await supabase
-        .from("subscription_prices")
-        .select("price")
-        .eq("plan_id", plan.id)
-        .eq("billing_cycle", "monthly")
-        .eq("is_active", true)
-        .single()
-
-      const pricePerScreen = Number(monthlyPriceRecord?.price) || 0
-
-      // Source of truth for purchased slots: count active slot subscriptions in the screens table
-      // (screens with a stripe_subscription_id are paid slots; is_free_slot screens are the base free screen)
-      const { count: paidSlotScreens } = await supabase
-        .from("screens")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .not("stripe_subscription_id", "is", null)
-        .is("slot_cancel_at", null) // don't count slots already scheduled for cancellation
-
-      // purchased_screen_slots is the source of truth — incremented immediately on confirm
-      // paidSlotScreens is a sanity check for legacy screens that have stripe_subscription_id
-      const purchasedSlots = Math.max(
-        subscription?.purchased_screen_slots ?? 0,
-        paidSlotScreens ?? 0
-      )
-
-      // If a slot was purchased but the wizard was closed before the screen was created,
-      // pending_slot_subscription_id keeps that slot "reserved" and available
-      const hasPendingSlot = !!subscription?.pending_slot_subscription_id
-
-      // availableSlots = free screens + purchased paid slots - screens already created
-      // hasPendingSlot ensures the reserved slot shows as available even without a screen row
-      const availableSlots = freeScreens + purchasedSlots - (currentScreens || 0)
-
-      // Return pendingSlotSubscriptionId so the screens page can pre-fill the wizard
-      const pendingSlotData = hasPendingSlot ? {
-        pendingSlotSubscriptionId: subscription.pending_slot_subscription_id,
-      } : {}
-
-      const result = {
-        current: currentScreens || 0,
-        limit: -1,
-        canCreate: availableSlots > 0,
-        plan: plan.name,
-        freeScreens,
-        billableScreens,
-        pricePerScreen,
-        billingCycle: "monthly",
-        purchasedSlots,
-        availableSlots,
-        ...pendingSlotData,
-      }
-      return NextResponse.json(result)
-    }
-
-    // Free plan or no subscription — enforce max_screens cap
-    let maxScreens = 1
+    // If no active subscription at all, fall back to Free plan defaults from DB
+    let freeScreens = 1
     let planName = "Free"
-    let freeScreens = 0
+    let planId: string | null = null
 
-    if (hasPaidSubscription && plan) {
-      maxScreens = plan.max_screens
+    if (plan) {
+      freeScreens = plan.free_screens ?? 1
       planName = plan.name
-      freeScreens = plan.free_screens ?? 0
+      planId = plan.id
     } else {
       const { data: freePlan } = await supabase
         .from("subscription_plans")
-        .select("max_screens, name, free_screens")
+        .select("id, name, free_screens")
         .eq("name", "Free")
         .single()
-
       if (freePlan) {
-        maxScreens = freePlan.max_screens
+        freeScreens = freePlan.free_screens ?? 1
         planName = freePlan.name
-        freeScreens = freePlan.free_screens ?? 0
+        planId = freePlan.id
       }
     }
 
-    // Also factor in any purchased slots even in the free-plan fallback path
-    const purchasedSlotsOnFree = subscription?.purchased_screen_slots ?? 0
-    const totalAllowed = maxScreens === -1 ? Infinity : maxScreens + purchasedSlotsOnFree
-    const canCreate = totalAllowed === Infinity || (currentScreens || 0) < totalAllowed
+    // purchased_screen_slots is incremented immediately on successful Stripe checkout confirmation.
+    // This is the single source of truth for how many paid slots the user has.
+    const purchasedSlots = subscription?.purchased_screen_slots ?? 0
+
+    // Total slots = free included slots + paid purchased slots
+    // Available = total - screens already created
+    const totalSlots = freeScreens + purchasedSlots
+    const availableSlots = Math.max(0, totalSlots - (currentScreens || 0))
+    const canCreate = availableSlots > 0
+
+    // Per-screen price for buy-slot dialog
+    let pricePerScreen = 0
+    if (planId) {
+      const { data: priceRecord } = await supabase
+        .from("subscription_prices")
+        .select("price")
+        .eq("plan_id", planId)
+        .eq("billing_cycle", "monthly")
+        .eq("is_active", true)
+        .single()
+      pricePerScreen = Number(priceRecord?.price) || 0
+    }
+
+    const billableScreens = Math.max(0, (currentScreens || 0) - freeScreens)
+
+    const pendingSlotData = subscription?.pending_slot_subscription_id
+      ? { pendingSlotSubscriptionId: subscription.pending_slot_subscription_id }
+      : {}
 
     return NextResponse.json({
       current: currentScreens || 0,
-      limit: maxScreens,
+      limit: -1,
       canCreate,
       plan: planName,
       freeScreens,
-      purchasedSlots: purchasedSlotsOnFree,
-      availableSlots: Math.max(0, (freeScreens + purchasedSlotsOnFree) - (currentScreens || 0)),
-      billableScreens: 0,
-      pricePerScreen: 0,
+      purchasedSlots,
+      availableSlots,
+      billableScreens,
+      pricePerScreen,
+      billingCycle: "monthly",
+      ...pendingSlotData,
     })
   } catch (error) {
     console.error("Error fetching screen limits:", error)
