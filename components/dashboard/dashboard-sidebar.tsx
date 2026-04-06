@@ -23,6 +23,7 @@ import {
   Zap,
   MapPin,
   UserPlus,
+  LayoutList,
 } from "lucide-react"
 
 const navigation = [
@@ -93,6 +94,11 @@ const adminNavigation = [
     name: "Feature Management",
     href: "/dashboard/feature-management",
     icon: Zap,
+  },
+  {
+    name: "Pricing Bullets",
+    href: "/dashboard/pricing-bullets",
+    icon: LayoutList,
   },
 ]
 
