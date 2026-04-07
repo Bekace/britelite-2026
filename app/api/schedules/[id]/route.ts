@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
 // GET schedule with items - params is synchronous object
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
 
@@ -20,6 +20,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { id } = await params
+
     // Get schedule with items (no relationship joins due to polymorphic content_type)
     const { data: schedule, error } = await supabase
       .from("schedules")
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         *,
         schedule_items(*)
       `)
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single()
 
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
 
@@ -60,13 +62,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const updates = await request.json()
+    const [updates, { id }] = await Promise.all([request.json(), params])
 
     // Update schedule
     const { data: schedule, error } = await supabase
       .from("schedules")
       .update(updates)
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .select()
       .single()
@@ -83,7 +85,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
 
@@ -100,11 +102,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { id } = await params
+
     // Delete schedule (cascade will handle items)
     const { error } = await supabase
       .from("schedules")
       .delete()
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
 
     if (error) {
