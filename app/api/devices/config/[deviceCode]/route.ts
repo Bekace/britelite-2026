@@ -24,6 +24,7 @@ function processGoogleSlidesUrl(filePath: string): string {
 export async function GET(request: NextRequest, { params }: { params: { deviceCode: string } }) {
   try {
     const { deviceCode } = params
+    const url = new URL(request.url)
 
     console.log("[v0] Device config API called for:", deviceCode)
 
@@ -208,30 +209,61 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         console.log("[v0] Schedule items lookup:", { count: scheduleItems?.length, scheduleItemsError })
 
         if (!scheduleItemsError && scheduleItems && scheduleItems.length > 0) {
-          // Determine which schedule item is active based on current time
+          // Determine which schedule item is active based on current time.
+          // The device may pass ?timezone=Europe/Madrid so we compare against local time.
+          // If no timezone is provided we fall back to UTC but also do a day-only fallback.
+          const tzParam = url.searchParams.get("timezone")
           const now = new Date()
-          const currentDay = now.getDay() // 0=Sunday, 1=Monday ... 6=Saturday — same as DB convention
-          const currentTime = now.toTimeString().slice(0, 8) // HH:MM:SS to match DB format
 
-          const activeScheduleItem = scheduleItems.find((item) => {
-            // daily recurrence matches every day
-            // weekly / null recurrence matches on days_of_week (if no days set, treat as always active)
-            const isDailyRecurrence = item.recurrence_type === "daily"
-            const hasMatchingDay =
-              !item.days_of_week ||
-              !Array.isArray(item.days_of_week) ||
-              item.days_of_week.length === 0 ||
-              item.days_of_week.includes(currentDay)
-            const daysActive = isDailyRecurrence || hasMatchingDay
-
-            // Time window check — all values in HH:MM:SS format
-            const timeActive =
-              item.start_time && item.end_time
-                ? currentTime >= item.start_time && currentTime <= item.end_time
-                : true
-
-            return daysActive && timeActive
+          // Build a locale-aware date string to extract day/time in the target timezone
+          const localDateStr = now.toLocaleString("en-US", {
+            timeZone: tzParam || "UTC",
+            hour12: false,
+            weekday: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
           })
+          // Parse day-of-week from locale string (Mon, Tue, Wed...)
+          const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+          const localDayAbbr = localDateStr.slice(0, 3)
+          const currentDay = dayMap[localDayAbbr] ?? now.getDay()
+
+          // Extract HH:MM:SS in local timezone
+          const localTimeParts = now.toLocaleTimeString("en-GB", {
+            timeZone: tzParam || "UTC",
+            hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })
+          const currentTime = localTimeParts // already HH:MM:SS
+
+          console.log("[v0] Schedule time check — timezone:", tzParam || "UTC", "currentDay:", currentDay, "currentTime:", currentTime)
+
+          const itemMatchesDay = (item: typeof scheduleItems[0]) => {
+            if (item.recurrence_type === "daily") return true
+            if (!item.days_of_week || !Array.isArray(item.days_of_week) || item.days_of_week.length === 0) return true
+            return item.days_of_week.includes(currentDay)
+          }
+
+          const itemMatchesTime = (item: typeof scheduleItems[0]) => {
+            if (!item.start_time || !item.end_time) return true
+            return currentTime >= item.start_time && currentTime <= item.end_time
+          }
+
+          // First try: exact day + time match
+          let activeScheduleItem = scheduleItems.find(
+            (item) => itemMatchesDay(item) && itemMatchesTime(item)
+          )
+
+          // Fallback: if no time match, use the day-only match (handles timezone offsets gracefully)
+          if (!activeScheduleItem) {
+            activeScheduleItem = scheduleItems.find((item) => itemMatchesDay(item))
+            if (activeScheduleItem) {
+              console.log("[v0] No exact time match — using day-only fallback item:", activeScheduleItem.id)
+            }
+          }
 
           console.log("[v0] Active schedule item:", activeScheduleItem)
 
