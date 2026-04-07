@@ -58,6 +58,7 @@ interface Screen {
   scale_document?: string
   background_color?: string
   default_transition?: string
+  timezone?: string
   stripe_subscription_id?: string | null
   stripe_price_id?: string | null
   slot_cancel_at?: string | null
@@ -1929,6 +1930,69 @@ export default function ScreensPage() {
                           <SelectItem value="slide_right">Slide from Right</SelectItem>
                           <SelectItem value="rotate">Rotate In</SelectItem>
                           <SelectItem value="flip">Flip</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-timezone" className="text-white font-medium">Timezone</Label>
+                      <p className="text-xs text-gray-500">Used to match schedule time windows to the screen&apos;s local time</p>
+                      <Select
+                        value={editingScreen.timezone || "UTC"}
+                        onValueChange={(value) => setEditingScreen({ ...editingScreen, timezone: value })}
+                      >
+                        <SelectTrigger className="border-gray-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64 overflow-y-auto">
+                          <SelectItem value="UTC">UTC</SelectItem>
+                          <SelectItem value="Europe/London">Europe/London (GMT/BST)</SelectItem>
+                          <SelectItem value="Europe/Madrid">Europe/Madrid (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Paris">Europe/Paris (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Berlin">Europe/Berlin (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Rome">Europe/Rome (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Amsterdam">Europe/Amsterdam (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Brussels">Europe/Brussels (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Lisbon">Europe/Lisbon (WET/WEST)</SelectItem>
+                          <SelectItem value="Europe/Athens">Europe/Athens (EET/EEST)</SelectItem>
+                          <SelectItem value="Europe/Helsinki">Europe/Helsinki (EET/EEST)</SelectItem>
+                          <SelectItem value="Europe/Warsaw">Europe/Warsaw (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Stockholm">Europe/Stockholm (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Bucharest">Europe/Bucharest (EET/EEST)</SelectItem>
+                          <SelectItem value="Europe/Moscow">Europe/Moscow (MSK)</SelectItem>
+                          <SelectItem value="America/New_York">America/New_York (EST/EDT)</SelectItem>
+                          <SelectItem value="America/Chicago">America/Chicago (CST/CDT)</SelectItem>
+                          <SelectItem value="America/Denver">America/Denver (MST/MDT)</SelectItem>
+                          <SelectItem value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</SelectItem>
+                          <SelectItem value="America/Toronto">America/Toronto (EST/EDT)</SelectItem>
+                          <SelectItem value="America/Vancouver">America/Vancouver (PST/PDT)</SelectItem>
+                          <SelectItem value="America/Mexico_City">America/Mexico_City (CST/CDT)</SelectItem>
+                          <SelectItem value="America/Bogota">America/Bogota (COT)</SelectItem>
+                          <SelectItem value="America/Lima">America/Lima (PET)</SelectItem>
+                          <SelectItem value="America/Santiago">America/Santiago (CLT/CLST)</SelectItem>
+                          <SelectItem value="America/Sao_Paulo">America/Sao_Paulo (BRT/BRST)</SelectItem>
+                          <SelectItem value="America/Buenos_Aires">America/Argentina/Buenos_Aires (ART)</SelectItem>
+                          <SelectItem value="America/Caracas">America/Caracas (VET)</SelectItem>
+                          <SelectItem value="Africa/Cairo">Africa/Cairo (EET)</SelectItem>
+                          <SelectItem value="Africa/Johannesburg">Africa/Johannesburg (SAST)</SelectItem>
+                          <SelectItem value="Africa/Lagos">Africa/Lagos (WAT)</SelectItem>
+                          <SelectItem value="Africa/Nairobi">Africa/Nairobi (EAT)</SelectItem>
+                          <SelectItem value="Asia/Dubai">Asia/Dubai (GST)</SelectItem>
+                          <SelectItem value="Asia/Kolkata">Asia/Kolkata (IST)</SelectItem>
+                          <SelectItem value="Asia/Bangkok">Asia/Bangkok (ICT)</SelectItem>
+                          <SelectItem value="Asia/Singapore">Asia/Singapore (SGT)</SelectItem>
+                          <SelectItem value="Asia/Shanghai">Asia/Shanghai (CST)</SelectItem>
+                          <SelectItem value="Asia/Tokyo">Asia/Tokyo (JST)</SelectItem>
+                          <SelectItem value="Asia/Seoul">Asia/Seoul (KST)</SelectItem>
+                          <SelectItem value="Asia/Jakarta">Asia/Jakarta (WIB)</SelectItem>
+                          <SelectItem value="Asia/Karachi">Asia/Karachi (PKT)</SelectItem>
+                          <SelectItem value="Asia/Riyadh">Asia/Riyadh (AST)</SelectItem>
+                          <SelectItem value="Asia/Tehran">Asia/Tehran (IRST)</SelectItem>
+                          <SelectItem value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</SelectItem>
+                          <SelectItem value="Australia/Melbourne">Australia/Melbourne (AEST/AEDT)</SelectItem>
+                          <SelectItem value="Australia/Perth">Australia/Perth (AWST)</SelectItem>
+                          <SelectItem value="Pacific/Auckland">Pacific/Auckland (NZST/NZDT)</SelectItem>
+                          <SelectItem value="Pacific/Honolulu">Pacific/Honolulu (HST)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

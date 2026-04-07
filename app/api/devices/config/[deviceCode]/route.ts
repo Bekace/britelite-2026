@@ -24,7 +24,6 @@ function processGoogleSlidesUrl(filePath: string): string {
 export async function GET(request: NextRequest, { params }: { params: { deviceCode: string } }) {
   try {
     const { deviceCode } = params
-    const url = new URL(request.url)
 
     console.log("[v0] Device config API called for:", deviceCode)
 
@@ -54,7 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
     const { data: screen, error: screenError } = await supabase
       .from("screens")
-      .select("id, user_id, name, orientation, status, media_id, content_type, enable_audio_management, shuffle, is_active, scale_image, scale_video, scale_document, background_color, default_transition")
+      .select("id, user_id, name, orientation, status, media_id, content_type, enable_audio_management, shuffle, is_active, scale_image, scale_video, scale_document, background_color, default_transition, timezone")
       .eq("id", device.screen_id)
       .single()
 
@@ -209,37 +208,32 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         console.log("[v0] Schedule items lookup:", { count: scheduleItems?.length, scheduleItemsError })
 
         if (!scheduleItemsError && scheduleItems && scheduleItems.length > 0) {
-          // Determine which schedule item is active based on current time.
-          // The device may pass ?timezone=Europe/Madrid so we compare against local time.
-          // If no timezone is provided we fall back to UTC but also do a day-only fallback.
-          const tzParam = url.searchParams.get("timezone")
+          // Use the screen's configured timezone to evaluate schedule time windows.
+          // This ensures schedule items (e.g. 07:00-14:30) are always matched against
+          // the screen's local time, regardless of where the server is running.
+          const screenTimezone = screen.timezone || "UTC"
           const now = new Date()
 
-          // Build a locale-aware date string to extract day/time in the target timezone
+          // Extract day-of-week (0=Sun…6=Sat) in the screen's local timezone
           const localDateStr = now.toLocaleString("en-US", {
-            timeZone: tzParam || "UTC",
+            timeZone: screenTimezone,
             hour12: false,
             weekday: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
           })
-          // Parse day-of-week from locale string (Mon, Tue, Wed...)
           const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
           const localDayAbbr = localDateStr.slice(0, 3)
           const currentDay = dayMap[localDayAbbr] ?? now.getDay()
 
-          // Extract HH:MM:SS in local timezone
-          const localTimeParts = now.toLocaleTimeString("en-GB", {
-            timeZone: tzParam || "UTC",
+          // Extract HH:MM:SS in the screen's local timezone
+          const currentTime = now.toLocaleTimeString("en-GB", {
+            timeZone: screenTimezone,
             hour12: false,
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit",
           })
-          const currentTime = localTimeParts // already HH:MM:SS
 
-          console.log("[v0] Schedule time check — timezone:", tzParam || "UTC", "currentDay:", currentDay, "currentTime:", currentTime)
+          console.log("[v0] Schedule time check — screen timezone:", screenTimezone, "currentDay:", currentDay, "currentTime:", currentTime)
 
           const itemMatchesDay = (item: typeof scheduleItems[0]) => {
             if (item.recurrence_type === "daily") return true

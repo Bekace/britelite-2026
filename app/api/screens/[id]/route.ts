@@ -83,6 +83,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       scale_document,
       background_color,
       default_transition,
+      timezone,
     } = requestData
 
     const updateData: any = {
@@ -101,6 +102,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (scale_document !== undefined) updateData.scale_document = scale_document
     if (background_color !== undefined) updateData.background_color = background_color
     if (default_transition !== undefined) updateData.default_transition = default_transition
+    if (timezone !== undefined) updateData.timezone = timezone
 
     await supabase.from("screen_playlists").delete().eq("screen_id", id)
     await supabase.from("screen_media").delete().eq("screen_id", id)
