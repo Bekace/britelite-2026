@@ -464,7 +464,7 @@ export function LocationsMap({ locations, isActive, onLocationClick }: Locations
                   </div>
 
                   {selectedLocation.address && (
-                    <div className="flex items-start gap-2 text-sm text-gray-600 mb-2">
+                    <div className="flex items-start gap-2 text-sm text-foreground mb-2">
                       <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
                       <span>
                         {selectedLocation.address}
@@ -476,14 +476,14 @@ export function LocationsMap({ locations, isActive, onLocationClick }: Locations
                   )}
 
                   {selectedLocation.contact_person && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                    <div className="flex items-center gap-2 text-sm text-foreground mb-2">
                       <User className="w-4 h-4 flex-shrink-0" />
                       <span>{selectedLocation.contact_person}</span>
                     </div>
                   )}
 
                   {selectedLocation.phone_number && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                    <div className="flex items-center gap-2 text-sm text-foreground mb-2">
                       <Phone className="w-4 h-4 flex-shrink-0" />
                       <span>{selectedLocation.phone_number}</span>
                     </div>
@@ -491,16 +491,16 @@ export function LocationsMap({ locations, isActive, onLocationClick }: Locations
 
                   {(selectedLocation._count?.screens || selectedLocation.screen_count) ? (
                     <div className="mb-3">
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                      <div className="flex items-center gap-2 text-sm text-foreground mb-2">
                         <Monitor className="w-4 h-4 flex-shrink-0" />
-                        <span className="font-medium">
+                        <span className="font-semibold">
                           {selectedLocation._count?.screens || selectedLocation.screen_count} screen(s)
                         </span>
                       </div>
                       
                       {selectedLocation.screens && selectedLocation.screens.length > 0 && (
                         <div className="ml-6 mb-2">
-                          <ul className="text-xs text-gray-600 space-y-1">
+                          <ul className="text-xs text-foreground space-y-1">
                             {selectedLocation.screens.map((screen) => (
                               <li key={screen.id} className="truncate">
                                 • {screen.name}
