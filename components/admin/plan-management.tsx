@@ -77,6 +77,7 @@ interface PlanFormData {
   max_schedules: string
   max_team_members: string
   is_active: boolean
+  is_recommended: boolean
   // Feature toggles - control navigation visibility
   enable_media_library: boolean
   enable_playlists: boolean
@@ -215,6 +216,7 @@ export function PlanManagement() {
         max_schedules: formData.max_schedules === "-1" ? -1 : Number.parseInt(formData.max_schedules),
         max_team_members: formData.max_team_members === "-1" ? -1 : Number.parseInt(formData.max_team_members),
         is_active: formData.is_active,
+        is_recommended: formData.is_recommended,
         display_branding: formData.enable_display_branding,
         // Feature toggles
         features: {
@@ -293,6 +295,7 @@ export function PlanManagement() {
         max_schedules: formData.max_schedules === "-1" ? -1 : Number.parseInt(formData.max_schedules),
         max_team_members: formData.max_team_members === "-1" ? -1 : Number.parseInt(formData.max_team_members),
         is_active: formData.is_active,
+        is_recommended: formData.is_recommended,
         display_branding: formData.enable_display_branding,
         // Feature toggles
         features: {
@@ -388,17 +391,18 @@ export function PlanManagement() {
       max_locations: "1",
       max_schedules: "1",
       max_team_members: "0",
-      is_active: true,
-      enable_media_library: true,
-      enable_playlists: true,
-      enable_screens: true,
-      enable_locations: false,
-      enable_schedules: false,
-      enable_analytics: false,
-      enable_ai_analytics: false,
-      enable_team_members: false,
-      enable_url_media: true,
-    })
+    is_active: true,
+    is_recommended: false,
+    enable_media_library: true,
+    enable_playlists: true,
+    enable_screens: true,
+    enable_locations: false,
+    enable_schedules: false,
+    enable_analytics: false,
+    enable_ai_analytics: false,
+    enable_team_members: false,
+    enable_url_media: true,
+  })
   }
 
   const openEditDialog = (plan: SubscriptionPlan) => {
@@ -443,6 +447,7 @@ export function PlanManagement() {
       max_schedules: (plan.max_schedules ?? 1).toString(),
       max_team_members: (plan.max_team_members ?? 0).toString(),
       is_active: plan.is_active,
+      is_recommended: (plan as any).is_recommended ?? false,
       enable_media_library: features.media_library ?? true,
       enable_playlists: features.playlists ?? true,
       enable_screens: features.screens ?? true,
@@ -711,6 +716,14 @@ export function PlanManagement() {
                 onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
               />
               <Label>Active Plan</Label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={formData.is_recommended}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_recommended: checked })}
+              />
+              <Label>Recommended Plan</Label>
             </div>
 
             <div className="space-y-4">
