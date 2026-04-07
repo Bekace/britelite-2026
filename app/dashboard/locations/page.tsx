@@ -563,7 +563,7 @@ export default function LocationsPage() {
                             <Building2 className="w-5 h-5 text-primary" />
                           </div>
                           <div>
-                            <div className="font-medium">{location.name}</div>
+                            <div className="font-semibold text-foreground">{location.name}</div>
                             {location.description && (
                               <div className="text-sm text-muted-foreground line-clamp-1">
                                 {location.description}
