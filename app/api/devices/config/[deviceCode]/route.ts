@@ -177,12 +177,13 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
           )
         `)
         .eq("screen_id", screen.id)
-        .eq("is_active", true)
         .maybeSingle()
 
       console.log("[v0] Screen schedule lookup:", { screenSchedule, scheduleError })
 
-      const scheduleData = screenSchedule?.schedules
+      // schedules join may return array or object depending on Supabase version — normalise to object
+      const rawSchedules = screenSchedule?.schedules
+      const scheduleData = Array.isArray(rawSchedules) ? rawSchedules[0] : rawSchedules
 
       if (scheduleData) {
         console.log("[v0] Active schedule found:", {
@@ -213,10 +214,16 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
           const currentTime = now.toTimeString().slice(0, 8) // HH:MM:SS to match DB format
 
           const activeScheduleItem = scheduleItems.find((item) => {
-            // Daily recurrence or weekly with matching day
-            const daysActive =
-              item.recurrence_type === "daily" ||
-              (item.days_of_week && Array.isArray(item.days_of_week) && item.days_of_week.includes(currentDay))
+            // daily recurrence matches every day
+            // weekly / null recurrence matches on days_of_week (if no days set, treat as always active)
+            const isDailyRecurrence = item.recurrence_type === "daily"
+            const hasMatchingDay =
+              !item.days_of_week ||
+              !Array.isArray(item.days_of_week) ||
+              item.days_of_week.length === 0 ||
+              item.days_of_week.includes(currentDay)
+            const daysActive = isDailyRecurrence || hasMatchingDay
+
             // Time window check — all values in HH:MM:SS format
             const timeActive =
               item.start_time && item.end_time
