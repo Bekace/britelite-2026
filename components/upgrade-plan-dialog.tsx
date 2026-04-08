@@ -155,6 +155,7 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
       }
       // If successful, user will be redirected to Stripe Checkout
     } catch (error) {
+      console.error("[v0] Create checkout error:", error)
       toast({
         title: "Error",
         description: "Failed to start upgrade process",
