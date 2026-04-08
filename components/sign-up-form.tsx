@@ -55,12 +55,7 @@ export default function SignUpForm({ selectedPlan }: SignUpFormProps) {
     : "/dashboard"
 
   return (
-    <div className="w-full max-w-md space-y-8">
-      <div className="space-y-2 text-center">
-        <h1 className="text-4xl font-semibold tracking-tight text-primary">Join XKREEN</h1>
-        <p className="text-lg text-foreground">Create your digital signage account</p>
-      </div>
-
+    <div className="w-full space-y-8">
       {selectedPlan && (
         <div className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
