@@ -345,7 +345,23 @@ export async function createUpgradeCheckoutSession(planId: string, priceId: stri
       .single()
 
     if (existingSubscription?.stripe_customer_id) {
-      customerId = existingSubscription.stripe_customer_id
+      // Verify the customer still exists in Stripe (handles account migrations)
+      try {
+        await stripe.customers.retrieve(existingSubscription.stripe_customer_id)
+        customerId = existingSubscription.stripe_customer_id
+      } catch (customerError: unknown) {
+        // Customer doesn't exist in current Stripe account - create new one
+        console.log("[v0] Customer not found in Stripe, creating new one:", existingSubscription.stripe_customer_id)
+        const customer = await stripe.customers.create({
+          email: profile?.email || user.email,
+          metadata: {
+            user_id: user.id,
+          },
+        })
+        customerId = customer.id
+        // Update the stored customer ID
+        await supabase.from("user_subscriptions").update({ stripe_customer_id: customerId }).eq("user_id", user.id)
+      }
     } else {
       // Create new Stripe customer
       const customer = await stripe.customers.create({
