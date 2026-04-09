@@ -231,7 +231,7 @@ SELECT
   de.created_at,
   m.name as media_name,
   m.file_path as media_file_path,
-  m.file_type as media_type,
+  m.mime_type as media_type,
   m.duration as media_duration,
   s.name as screen_name,
   d.device_code
