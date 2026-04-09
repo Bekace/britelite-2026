@@ -99,9 +99,9 @@ COMMENT ON COLUMN analytics_cache.expires_at IS 'When this cache entry should be
 CREATE INDEX IF NOT EXISTS idx_cache_key_expires 
 ON analytics_cache(cache_key, expires_at);
 
--- Auto-cleanup expired cache entries
+-- Index for expired cache entries
 CREATE INDEX IF NOT EXISTS idx_cache_expires 
-ON analytics_cache(expires_at) WHERE expires_at < NOW();
+ON analytics_cache(expires_at);
 
 -- ================================================
 -- 4. Enable Row Level Security (RLS)
