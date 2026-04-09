@@ -23,7 +23,14 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const body = await request.json()
 
-    const { device_code, device_info } = body
+    const { 
+      device_code, 
+      device_info,
+      status = "online",
+      cpu_usage,
+      memory_usage,
+      storage_available
+    } = body
 
     if (!device_code) {
       return NextResponse.json(
@@ -34,42 +41,69 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Heartbeat received from device:", device_code)
 
-    // Update last_heartbeat and optionally device_info
-    const updateData: any = {
-      last_heartbeat: new Date().toISOString(),
-    }
-
-    if (device_info) {
-      updateData.device_info = device_info
-    }
-
-    const { data: device, error } = await supabase
+    // Get device info first
+    const { data: device, error: deviceError } = await supabase
       .from("devices")
-      .update(updateData)
+      .select("id, screen_id")
       .eq("device_code", device_code)
-      .select()
       .single()
 
-    if (error) {
-      console.error("[v0] Error updating heartbeat:", error)
-      return NextResponse.json(
-        { error: "Failed to update heartbeat", details: error.message },
-        { status: 500 }
-      )
-    }
-
-    if (!device) {
+    if (deviceError || !device) {
+      console.error("[v0] Device not found:", device_code)
       return NextResponse.json(
         { error: "Device not found" },
         { status: 404 }
       )
     }
 
+    // Update last_heartbeat and optionally device_info in devices table
+    const updateData: any = {
+      last_heartbeat: new Date().toISOString(),
+      is_online: status === "online"
+    }
+
+    if (device_info) {
+      updateData.device_info = device_info
+    }
+
+    const { error: updateError } = await supabase
+      .from("devices")
+      .update(updateData)
+      .eq("device_code", device_code)
+
+    if (updateError) {
+      console.error("[v0] Error updating heartbeat:", updateError)
+      return NextResponse.json(
+        { error: "Failed to update heartbeat", details: updateError.message },
+        { status: 500 }
+      )
+    }
+
+    // Insert heartbeat record into screen_heartbeats table for analytics
+    if (device.screen_id) {
+      const { error: heartbeatError } = await supabase
+        .from("screen_heartbeats")
+        .insert({
+          device_id: device.id,
+          screen_id: device.screen_id,
+          status,
+          cpu_usage: cpu_usage || null,
+          memory_usage: memory_usage || null,
+          storage_available: storage_available || null,
+          metadata: device_info || {}
+        })
+
+      if (heartbeatError) {
+        console.error("[v0] Error inserting heartbeat record:", heartbeatError)
+        // Don't fail the request, just log the error
+      }
+    }
+
     console.log("[v0] Heartbeat updated successfully for device:", device_code)
 
     return NextResponse.json({
       success: true,
-      last_heartbeat: device.last_heartbeat,
+      last_heartbeat: updateData.last_heartbeat,
       message: "Heartbeat recorded successfully"
     })
 
