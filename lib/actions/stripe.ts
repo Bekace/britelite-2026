@@ -416,6 +416,11 @@ export async function createUpgradeCheckoutSession(planId: string, priceId: stri
 
     redirect(session.url)
   } catch (error) {
+    // Re-throw redirect errors - Next.js needs these to perform the redirect
+    if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
+      throw error
+    }
+    
     console.error("[v0] Create upgrade checkout error:", error)
     const errorMessage = error instanceof Error ? error.message : "Failed to create checkout session"
     return { error: errorMessage }
