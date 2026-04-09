@@ -131,14 +131,10 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
   }
 
   const handleUpgrade = async (planId: string) => {
-    console.log("[v0] handleUpgrade called with planId:", planId, "billingCycle:", billingCycle)
     const selectedPlan = plans.find((p) => p.id === planId)
-    console.log("[v0] Found plan:", selectedPlan?.name, "prices:", selectedPlan?.prices)
     const price = getPrice(selectedPlan!, billingCycle)
-    console.log("[v0] Selected price:", price)
 
     if (!price) {
-      console.log("[v0] No price found for billing cycle:", billingCycle)
       toast({
         title: "Error",
         description: "Price not available for selected plan",
@@ -148,7 +144,6 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
     }
 
     if (!price.stripe_price_id) {
-      console.log("[v0] No stripe_price_id for price:", price.id)
       toast({
         title: "Error",
         description: "Stripe price not configured for this plan",
@@ -159,9 +154,12 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
 
     setIsLoading(planId)
     try {
-      console.log("[v0] Calling createUpgradeCheckoutSession with:", planId, price.id)
+      // Call server action to create checkout session
+      // On success, this will redirect to Stripe Checkout (server action handles redirect)
+      // On error, it returns an error object
       const result = await createUpgradeCheckoutSession(planId, price.id)
-      console.log("[v0] createUpgradeCheckoutSession result:", result)
+      
+      // Only reached if there's an error (redirect throws and interrupts)
       if (result?.error) {
         toast({
           title: "Error",
@@ -170,9 +168,9 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
         })
         setIsLoading(null)
       }
-      // If successful, user will be redirected to Stripe Checkout
     } catch (error) {
-      console.error("[v0] Create checkout error:", error)
+      // Catch any unexpected errors
+      console.error("[v0] Upgrade error:", error)
       toast({
         title: "Error",
         description: "Failed to start upgrade process",
@@ -283,10 +281,7 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
 
                     {/* CTA Button */}
                     <Button
-                      onClick={() => {
-                        console.log("[v0] Upgrade button clicked for plan:", plan.id, "currentPrice:", currentPrice)
-                        handleUpgrade(plan.id)
-                      }}
+                      onClick={() => handleUpgrade(plan.id)}
                       disabled={loading || !currentPrice}
                       className={`w-full ${
                         isRecommended
