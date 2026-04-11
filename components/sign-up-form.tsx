@@ -4,7 +4,7 @@ import { useActionState } from "react"
 import { useFormStatus } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Check } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import Link from "next/link"
 import { signUp } from "@/lib/actions"
 import { OAuthButtons } from "@/components/oauth-buttons"
@@ -56,35 +56,6 @@ export default function SignUpForm({ selectedPlan }: SignUpFormProps) {
 
   return (
     <div className="w-full space-y-8">
-      {selectedPlan && (
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-sm text-muted-foreground">Selected Plan</p>
-              <p className="text-lg font-semibold text-foreground">{selectedPlan.name}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-foreground">${selectedPlan.price}</p>
-              <p className="text-sm text-muted-foreground">/{selectedPlan.billing_cycle}</p>
-            </div>
-          </div>
-          {selectedPlan.trialDays && selectedPlan.trialDays > 0 && (
-            <p className="text-sm text-primary mb-2">{selectedPlan.trialDays}-day free trial included</p>
-          )}
-          <div className="space-y-1">
-            {selectedPlan.features.slice(0, 3).map((feature, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Check className="h-3 w-3 text-primary" />
-                <span>{feature}</span>
-              </div>
-            ))}
-          </div>
-          <Link href="/auth/pricing" className="text-sm text-primary hover:underline block mt-3">
-            Change plan
-          </Link>
-        </div>
-      )}
-
       <OAuthButtons redirectTo={oauthRedirectTo} />
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
