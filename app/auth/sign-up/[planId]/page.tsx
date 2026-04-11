@@ -101,10 +101,10 @@ export default async function SignUpWithPlanPage({ params, searchParams }: SignU
         </Link>
       </div>
 
-      {/* Main content - 2 column layout */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left column - Plan Card (40%) */}
-        <div className="w-2/5 border-r border-border p-8 flex items-center justify-center bg-muted/30 overflow-y-auto">
+      {/* Main content - stacks on mobile, 2 columns on desktop */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
+        {/* Plan Card - full width on mobile, 40% on desktop */}
+        <div className="w-full md:w-2/5 md:border-r border-b md:border-b-0 border-border px-4 py-6 md:p-8 flex items-center justify-center bg-muted/30 md:overflow-y-auto">
           <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm space-y-6">
             {/* Plan Header */}
             <div>
@@ -140,8 +140,8 @@ export default async function SignUpWithPlanPage({ params, searchParams }: SignU
           </div>
         </div>
 
-        {/* Right column - Sign-up Form (60%) */}
-        <div className="w-3/5 p-8 flex items-center justify-center overflow-y-auto">
+        {/* Sign-up Form - full width on mobile, 60% on desktop */}
+        <div className="w-full md:w-3/5 px-4 py-6 md:p-8 flex items-start md:items-center justify-center md:overflow-y-auto">
           <div className="w-full max-w-md">
             <SignUpForm selectedPlan={planWithPrice} />
           </div>
