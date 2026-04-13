@@ -115,6 +115,45 @@ const getMediaObjectFit = (mediaType: "image" | "video" | "document", playlist: 
   }
 }
 
+// Analytics event helpers
+const sendPlaybackEvent = async (
+  deviceCode: string,
+  eventType: "media_start" | "media_end" | "media_error",
+  mediaId: string,
+  totalDuration?: number,
+  durationPlayed?: number
+) => {
+  try {
+    const payload: any = {
+      device_code: deviceCode,
+      event_type: eventType,
+      media_id: mediaId,
+    }
+    if (totalDuration) payload.total_duration = totalDuration
+    if (durationPlayed) payload.duration_played = durationPlayed
+
+    await fetch("/api/devices/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+  } catch (error) {
+    console.error("[v0] Error sending playback event:", error)
+  }
+}
+
+const sendHeartbeat = async (deviceCode: string) => {
+  try {
+    await fetch("/api/devices/heartbeat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_code: deviceCode, status: "online" }),
+    })
+  } catch (error) {
+    console.error("[v0] Error sending heartbeat:", error)
+  }
+}
+
 export default function PlayerPage({ params }: PlayerPageProps) {
   const [config, setConfig] = useState<ScreenConfig | null>(null)
   const [loading, setLoading] = useState(true)
@@ -139,10 +178,25 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const advanceToNext = useCallback(() => {
     if (contentToDisplay.length === 0) return
+    
+    // Send media_end event before advancing
+    if (currentMedia && config?.device.code) {
+      const totalDuration = currentMedia.media.duration || 
+        currentMedia.duration_override || 
+        0
+      sendPlaybackEvent(
+        config.device.code,
+        "media_end",
+        currentMedia.media.id,
+        totalDuration > 0 ? totalDuration : undefined,
+        totalDuration > 0 ? totalDuration : undefined // durationPlayed = totalDuration (completed)
+      )
+    }
+    
     const nextIndex = currentIndex + 1 < contentToDisplay.length ? currentIndex + 1 : 0
     setCurrentIndex(nextIndex)
     switchToNext()
-  }, [currentIndex, contentToDisplay.length, switchToNext])
+  }, [currentIndex, contentToDisplay.length, switchToNext, currentMedia, config?.device.code])
 
   const { preloadStatus } = useMediaPreloader(
     contentToDisplay,
@@ -152,6 +206,21 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   )
 
   const { timeRemaining } = usePlaylistTimer(contentToDisplay, currentIndex, advanceToNext)
+
+  // Send media_start event when current media changes
+  useEffect(() => {
+    if (currentMedia && config?.device.code) {
+      const totalDuration = currentMedia.media.duration || 
+        currentMedia.duration_override || 
+        0
+      sendPlaybackEvent(
+        config.device.code,
+        "media_start",
+        currentMedia.media.id,
+        totalDuration > 0 ? totalDuration : undefined
+      )
+    }
+  }, [currentIndex, config?.device.code, currentMedia?.media.id])
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -185,7 +254,11 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     }
 
     fetchConfig()
-    const interval = setInterval(fetchConfig, 30000)
+    const interval = setInterval(() => {
+      fetchConfig()
+      // Send heartbeat every 30 seconds
+      sendHeartbeat(params.deviceCode)
+    }, 30000)
     return () => clearInterval(interval)
   }, [params.deviceCode, router])
 
