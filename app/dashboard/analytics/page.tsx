@@ -129,12 +129,36 @@ export default function AnalyticsPage() {
   const [loadingScreenAnalytics, setLoadingScreenAnalytics] = useState(false)
   const [analyticsEnabled, setAnalyticsEnabled] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
+  const [screenMetrics, setScreenMetrics] = useState<Record<string, {
+    total_plays: number
+    engagement_rate: number
+    uptime_percent: number
+    trend: number[]
+    has_real_data: boolean
+  }>>({})
   const { toast } = useToast()
 
   useEffect(() => {
     fetchAnalytics()
     fetchScreens()
+    fetchScreenMetrics()
   }, [])
+
+  const fetchScreenMetrics = async () => {
+    try {
+      const response = await fetch("/api/analytics/screens?time_range=7d")
+      if (response.ok) {
+        const { screens: metricsData } = await response.json()
+        const metricsMap: Record<string, any> = {}
+        ;(metricsData || []).forEach((m: any) => {
+          metricsMap[m.screen_id] = m
+        })
+        setScreenMetrics(metricsMap)
+      }
+    } catch (error) {
+      console.error("Error fetching screen metrics:", error)
+    }
+  }
 
   const fetchScreens = async () => {
     try {
@@ -243,6 +267,7 @@ export default function AnalyticsPage() {
     setRefreshing(true)
     fetchAnalytics()
     fetchScreens()
+    fetchScreenMetrics()
   }
 
   const formatBytes = (bytes: number) => {
@@ -508,27 +533,32 @@ export default function AnalyticsPage() {
                     {/* Key Metrics */}
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div>
-                        <div className="text-lg font-bold text-cyan-600">{screen.uptime || 0}%</div>
+                        <div className="text-lg font-bold text-cyan-600">
+                          {screenMetrics[screen.id]?.uptime_percent ?? 0}%
+                        </div>
                         <div className="text-xs text-muted-foreground">Uptime</div>
                       </div>
                       <div>
-                        <div className="text-lg font-bold text-blue-600">{screen.views || 0}</div>
+                        <div className="text-lg font-bold text-blue-600">
+                          {screenMetrics[screen.id]?.total_plays ?? 0}
+                        </div>
                         <div className="text-xs text-muted-foreground">Views</div>
                       </div>
                       <div>
-                        <div className="text-lg font-bold text-green-600">{screen.engagement || 0}%</div>
+                        <div className="text-lg font-bold text-green-600">
+                          {screenMetrics[screen.id]?.engagement_rate ?? 0}%
+                        </div>
                         <div className="text-xs text-muted-foreground">Engage</div>
                       </div>
                     </div>
 
-                    {/* Mini Sparkline */}
+                    {/* Mini Sparkline - real trend data, flat line if no data yet */}
                     <div className="h-12 w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart
-                          data={
-                            screen.trend?.map((value, index) => ({ value, index })) ||
-                            Array.from({ length: 7 }, (_, i) => ({ value: Math.random() * 100, index: i }))
-                          }
+                          data={(screenMetrics[screen.id]?.trend ?? Array(7).fill(0)).map(
+                            (value: number, index: number) => ({ value, index })
+                          )}
                         >
                           <Line type="monotone" dataKey="value" stroke="#06b6d4" strokeWidth={2} dot={false} />
                         </LineChart>
