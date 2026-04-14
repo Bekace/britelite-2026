@@ -10,6 +10,7 @@ export interface PlanFeatures {
   aiAnalytics: boolean
   teamMembers: boolean
   urlMedia: boolean
+  restaurantMenus: boolean
 }
 
 export interface PlanLimits {
