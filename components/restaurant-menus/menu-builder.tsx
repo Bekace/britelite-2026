@@ -49,9 +49,11 @@ import {
   Sparkles,
   ImageIcon,
   X,
+  FileUp,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { MenuImport } from "@/components/restaurant-menus/menu-import"
 
 const ITEM_TAGS = [
   { key: "spicy", label: "Spicy", icon: Flame, color: "text-red-500" },
@@ -308,6 +310,7 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
   const [deletingSection, setDeletingSection] = useState<MenuSection | null>(null)
   const [editingItem, setEditingItem] = useState<{ item: MenuItem | null; sectionId: string } | null>(null)
   const [deletingItem, setDeletingItem] = useState<MenuItem | null>(null)
+  const [showImport, setShowImport] = useState(false)
 
   const fetchMenu = useCallback(async () => {
     setLoading(true)
@@ -495,6 +498,15 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowImport(true)}
+            className="gap-2"
+          >
+            <FileUp className="w-4 h-4" />
+            Import
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -772,6 +784,14 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Import dialog */}
+      <MenuImport
+        open={showImport}
+        onOpenChange={setShowImport}
+        menuId={menuId}
+        onImported={() => fetchMenu()}
+      />
 
       {/* Template selector sheet */}
       <Sheet open={showTemplateSheet} onOpenChange={setShowTemplateSheet}>
