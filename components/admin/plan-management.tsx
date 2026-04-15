@@ -89,6 +89,7 @@ interface PlanFormData {
   enable_team_members: boolean
   enable_url_media: boolean
   enable_display_branding: boolean
+  enable_restaurant_menus: boolean
 }
 
 export function PlanManagement() {
@@ -125,6 +126,7 @@ export function PlanManagement() {
     enable_team_members: false,
     enable_url_media: true,
     enable_display_branding: true,
+    enable_restaurant_menus: false,
   })
   const { toast } = useToast()
 
@@ -230,6 +232,7 @@ export function PlanManagement() {
           team_members: formData.enable_team_members,
           url_media: formData.enable_url_media,
           display_branding: formData.enable_display_branding,
+          restaurant_menus: formData.enable_restaurant_menus,
         },
       }
 
@@ -309,6 +312,7 @@ export function PlanManagement() {
           team_members: formData.enable_team_members,
           url_media: formData.enable_url_media,
           display_branding: formData.enable_display_branding,
+          restaurant_menus: formData.enable_restaurant_menus,
         },
       }
 
@@ -402,6 +406,8 @@ export function PlanManagement() {
     enable_ai_analytics: false,
     enable_team_members: false,
     enable_url_media: true,
+    enable_display_branding: false,
+    enable_restaurant_menus: false,
   })
   }
 
@@ -458,6 +464,7 @@ export function PlanManagement() {
       enable_team_members: features.team_members ?? false,
       enable_url_media: features.url_media ?? true,
       enable_display_branding: plan.display_branding ?? false,
+      enable_restaurant_menus: features.restaurant_menus ?? false,
     })
     setEditingPlan(plan)
     setIsPlanDialogOpen(true)
@@ -975,6 +982,29 @@ export function PlanManagement() {
                       <Switch
                         checked={formData.enable_team_members}
                         onCheckedChange={(checked) => setFormData({ ...formData, enable_team_members: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Restaurant Menus */}
+              <div className="space-y-3 pb-4 border-b">
+                <Label className="text-lg font-medium">Restaurant Menus</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">
+                      Allow users to create and manage animated digital menu boards.
+                    </Label>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_restaurant_menus}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, enable_restaurant_menus: checked })
+                        }
                       />
                     </div>
                   </div>
