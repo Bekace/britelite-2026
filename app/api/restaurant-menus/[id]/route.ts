@@ -16,8 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         menu_template:menu_templates(id, name, thumbnail_url, layout_config, orientation),
         menu_sections(
           *,
-          menu_items(* order: position asc)
-          order: position asc
+          menu_items(*)
         )
       `)
       .eq("id", id)
