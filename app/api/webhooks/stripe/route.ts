@@ -28,10 +28,19 @@ export async function POST(req: NextRequest) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
 
-        // Screen slot purchases are handled exclusively by /api/stripe/confirm-screen-purchase
-        // which runs client-side after redirect and uses last_credited_session_id for idempotency.
-        // Incrementing here too would cause double-counting.
+        // Screen slot purchase — store the new subscription ID so the screens page
+        // can use it when the user creates their screen after returning from Stripe.
         if (session.metadata?.type === "screen_slot") {
+          const userId = session.metadata?.user_id
+          if (userId && session.subscription) {
+            // Store pending slot subscription ID on the user_subscriptions row
+            // so the confirm endpoint can hand it off to the screen wizard.
+            await supabase
+              .from("user_subscriptions")
+              .update({ pending_slot_subscription_id: session.subscription.toString() })
+              .eq("user_id", userId)
+            console.log(`[webhook] screen_slot checkout complete, subscription ${session.subscription} for user ${userId}`)
+          }
           break
         }
 
@@ -243,13 +252,19 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription
 
+        // current_period_end moved to the item level in Stripe API 2025-11-17.
+        // Fall back gracefully: item level → top level → 30 days from now.
+        const periodEnd: number =
+          (subscription.items?.data?.[0] as any)?.current_period_end ??
+          (subscription as any).current_period_end ??
+          Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
+
         const { error } = await supabase
           .from("user_subscriptions")
           .update({
             status: subscription.status,
-            expires_at: new Date(subscription.current_period_end * 1000).toISOString(),
+            expires_at: new Date(periodEnd * 1000).toISOString(),
             cancel_at_period_end: subscription.cancel_at_period_end || false,
-            // Track when subscription was canceled if applicable
             canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
           })
           .eq("stripe_subscription_id", subscription.id)
@@ -263,40 +278,78 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription
 
-        const { error } = await supabase
-          .from("user_subscriptions")
-          .update({
-            status: "canceled",
-          })
-          .eq("stripe_subscription_id", subscription.id)
+        if (subscription.metadata?.type === "screen_slot") {
+          // This is a screen slot subscription — delete the corresponding screen row
+          const { data: screen } = await supabase
+            .from("screens")
+            .select("id, user_id")
+            .eq("stripe_subscription_id", subscription.id)
+            .single()
 
-        if (error) {
-          console.error("[v0] Failed to cancel subscription:", error)
-        }
-        break
-      }
+          if (screen) {
+            await supabase.from("screens").delete().eq("id", screen.id)
+            console.log(`[webhook] Screen slot deleted for subscription ${subscription.id}, screen ${screen.id}`)
+          }
+        } else {
+          // This is a plan subscription — revert account to Free plan
+          const { data: freePlan } = await supabase
+            .from("subscription_plans")
+            .select("id")
+            .eq("name", "Free")
+            .single()
 
-      case "invoice.payment_succeeded": {
-        const invoice = event.data.object as Stripe.Invoice
-        if (invoice.subscription) {
-          await supabase
+          const { error } = await supabase
             .from("user_subscriptions")
             .update({
-              status: "active",
-              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              status: "canceled",
+              ...(freePlan ? { plan_id: freePlan.id } : {}),
             })
-            .eq("stripe_subscription_id", invoice.subscription.toString())
+            .eq("stripe_subscription_id", subscription.id)
+
+          if (error) {
+            console.error("[webhook] Failed to cancel plan subscription:", error)
+          }
         }
         break
       }
 
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice
-        if (invoice.subscription) {
+        if (!invoice.subscription) break
+
+        const subId = invoice.subscription.toString()
+
+        // Check if this is a screen slot subscription
+        const stripeSubData = await stripe.subscriptions.retrieve(subId).catch(() => null)
+        if (stripeSubData?.metadata?.type === "screen_slot") {
+          // Mark the associated screen as payment_failed
+          await supabase
+            .from("screens")
+            .update({ slot_payment_status: "payment_failed" })
+            .eq("stripe_subscription_id", subId)
+          console.log(`[webhook] Payment failed for screen slot subscription ${subId}`)
+        } else {
+          // Plan subscription payment failed
           await supabase
             .from("user_subscriptions")
             .update({ status: "past_due" })
-            .eq("stripe_subscription_id", invoice.subscription.toString())
+            .eq("stripe_subscription_id", subId)
+        }
+        break
+      }
+
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice
+        if (!invoice.subscription) break
+        const subId = invoice.subscription.toString()
+
+        const stripeSubData = await stripe.subscriptions.retrieve(subId).catch(() => null)
+        if (stripeSubData?.metadata?.type === "screen_slot") {
+          // Clear payment_failed flag when payment recovers
+          await supabase
+            .from("screens")
+            .update({ slot_payment_status: "active" })
+            .eq("stripe_subscription_id", subId)
         }
         break
       }

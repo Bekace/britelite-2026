@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
-import { syncStripeQuantityWithScreens } from "@/lib/actions/stripe"
+
 
 const OFFLINE_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
 
@@ -113,7 +113,10 @@ export async function POST(request: NextRequest) {
         .single()
 
       const hasPaidSubscription = !!subscription
-      const planName = (subscription?.subscription_plans as { name: string; max_screens: number } | null)?.name
+      // Supabase returns joined relations as an array — extract the first element
+      const planRaw = subscription?.subscription_plans
+      const planObj = (Array.isArray(planRaw) ? planRaw[0] : planRaw) as { name: string; max_screens: number } | null
+      const planName = planObj?.name
 
       if (!hasPaidSubscription || planName === "Free") {
         // Fall back to max_screens cap for Free plan / no subscription
@@ -124,9 +127,8 @@ export async function POST(request: NextRequest) {
 
         let maxScreens = 1 // default if nothing found
 
-        if (subscription?.subscription_plans) {
-          const plan = subscription.subscription_plans as { name: string; max_screens: number }
-          maxScreens = plan.max_screens
+        if (planObj) {
+          maxScreens = planObj.max_screens
         } else {
           const { data: freePlan } = await supabase
             .from("subscription_plans")
@@ -162,11 +164,31 @@ export async function POST(request: NextRequest) {
       scale_video,
       scale_document,
       background_color,
-      default_transition
+      default_transition,
+      stripe_subscription_id: clientStripeSubId,
+      stripe_price_id,
     } = await request.json()
 
     if (!name) {
       return NextResponse.json({ error: "Screen name is required" }, { status: 400 })
+    }
+
+    // If the client didn't send a stripe_subscription_id (e.g. wizard was closed and re-opened),
+    // auto-lookup pending_slot_subscription_id from the DB so the slot is always correctly linked.
+    let stripe_subscription_id = clientStripeSubId ?? null
+    let pendingSubCleared = false
+
+    if (!stripe_subscription_id) {
+      const { data: userSubRow } = await supabase
+        .from("user_subscriptions")
+        .select("pending_slot_subscription_id, purchased_screen_slots")
+        .eq("user_id", user.id)
+        .single()
+
+      if (userSubRow?.pending_slot_subscription_id) {
+        stripe_subscription_id = userSubRow.pending_slot_subscription_id
+        pendingSubCleared = true
+      }
     }
 
     // Generate unique screen code
@@ -192,6 +214,8 @@ export async function POST(request: NextRequest) {
         scale_document: scale_document || "fit",
         background_color: background_color || "#000000",
         default_transition: default_transition || "fade",
+        ...(stripe_subscription_id ? { stripe_subscription_id } : {}),
+        ...(stripe_price_id ? { stripe_price_id } : {}),
       })
       .select()
       .single()
@@ -201,17 +225,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create screen" }, { status: 500 })
     }
 
-    // Sync Stripe subscription quantity (paid plans only).
-    // If Stripe sync fails, roll back the screen insert to keep billing consistent.
-    const syncResult = await syncStripeQuantityWithScreens(user.id)
-    if (syncResult.error) {
-      console.error("[v0] Stripe sync failed after screen insert, rolling back:", syncResult.error)
-      // Roll back the screen we just created
-      await supabase.from("screens").delete().eq("id", screen.id)
-      return NextResponse.json(
-        { error: "Failed to update billing. Screen was not created. Please try again." },
-        { status: 500 },
-      )
+    // Clear pending_slot_subscription_id now that the screen has been created
+    // so the next "Add Screen" click correctly shows the buy dialog
+    if (stripe_subscription_id && (pendingSubCleared || clientStripeSubId)) {
+      await supabase
+        .from("user_subscriptions")
+        .update({ pending_slot_subscription_id: null })
+        .eq("user_id", user.id)
     }
 
     return NextResponse.json({ screen })

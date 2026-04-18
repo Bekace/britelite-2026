@@ -71,11 +71,13 @@ interface PlanFormData {
   max_media_storage: string
   max_file_upload_size: string
   storage_unit: string
+  file_upload_unit: string
   max_playlists: string
   max_locations: string
   max_schedules: string
   max_team_members: string
   is_active: boolean
+  is_recommended: boolean
   // Feature toggles - control navigation visibility
   enable_media_library: boolean
   enable_playlists: boolean
@@ -87,6 +89,7 @@ interface PlanFormData {
   enable_team_members: boolean
   enable_url_media: boolean
   enable_display_branding: boolean
+  enable_restaurant_menus: boolean
 }
 
 export function PlanManagement() {
@@ -107,6 +110,7 @@ export function PlanManagement() {
     max_media_storage: "1",
     max_file_upload_size: "10",
     storage_unit: "GB",
+    file_upload_unit: "GB",
     max_playlists: "1",
     max_locations: "1",
     max_schedules: "1",
@@ -122,6 +126,7 @@ export function PlanManagement() {
     enable_team_members: false,
     enable_url_media: true,
     enable_display_branding: true,
+    enable_restaurant_menus: false,
   })
   const { toast } = useToast()
 
@@ -194,7 +199,7 @@ export function PlanManagement() {
 
       const fileUploadInBytes = convertDisplayValueToBytes(
         Number.parseInt(formData.max_file_upload_size),
-        formData.storage_unit,
+        formData.file_upload_unit,
       )
 
       const planData = {
@@ -213,6 +218,7 @@ export function PlanManagement() {
         max_schedules: formData.max_schedules === "-1" ? -1 : Number.parseInt(formData.max_schedules),
         max_team_members: formData.max_team_members === "-1" ? -1 : Number.parseInt(formData.max_team_members),
         is_active: formData.is_active,
+        is_recommended: formData.is_recommended,
         display_branding: formData.enable_display_branding,
         // Feature toggles
         features: {
@@ -226,6 +232,7 @@ export function PlanManagement() {
           team_members: formData.enable_team_members,
           url_media: formData.enable_url_media,
           display_branding: formData.enable_display_branding,
+          restaurant_menus: formData.enable_restaurant_menus,
         },
       }
 
@@ -272,7 +279,7 @@ export function PlanManagement() {
 
       const fileUploadInBytes = convertDisplayValueToBytes(
         Number.parseInt(formData.max_file_upload_size),
-        formData.storage_unit,
+        formData.file_upload_unit,
       )
 
       const planData = {
@@ -291,6 +298,7 @@ export function PlanManagement() {
         max_schedules: formData.max_schedules === "-1" ? -1 : Number.parseInt(formData.max_schedules),
         max_team_members: formData.max_team_members === "-1" ? -1 : Number.parseInt(formData.max_team_members),
         is_active: formData.is_active,
+        is_recommended: formData.is_recommended,
         display_branding: formData.enable_display_branding,
         // Feature toggles
         features: {
@@ -304,6 +312,7 @@ export function PlanManagement() {
           team_members: formData.enable_team_members,
           url_media: formData.enable_url_media,
           display_branding: formData.enable_display_branding,
+          restaurant_menus: formData.enable_restaurant_menus,
         },
       }
 
@@ -386,22 +395,33 @@ export function PlanManagement() {
       max_locations: "1",
       max_schedules: "1",
       max_team_members: "0",
-      is_active: true,
-      enable_media_library: true,
-      enable_playlists: true,
-      enable_screens: true,
-      enable_locations: false,
-      enable_schedules: false,
-      enable_analytics: false,
-      enable_ai_analytics: false,
-      enable_team_members: false,
-      enable_url_media: true,
-    })
+    is_active: true,
+    is_recommended: false,
+    enable_media_library: true,
+    enable_playlists: true,
+    enable_screens: true,
+    enable_locations: false,
+    enable_schedules: false,
+    enable_analytics: false,
+    enable_ai_analytics: false,
+    enable_team_members: false,
+    enable_url_media: true,
+    enable_display_branding: false,
+    enable_restaurant_menus: false,
+  })
   }
 
   const openEditDialog = (plan: SubscriptionPlan) => {
     const displayValue = convertStorageToDisplayValue(plan.max_media_storage, plan.storage_unit)
-    const fileUploadValue = convertStorageToDisplayValue(plan.max_file_upload_size || 10737418240, plan.storage_unit)
+    // Determine the best unit for file upload size independently of max storage unit
+    const fileUploadBytes = plan.max_file_upload_size || 10737418240
+    const fileUploadUnit =
+      fileUploadBytes >= 1024 * 1024 * 1024
+        ? "GB"
+        : fileUploadBytes >= 1024 * 1024
+          ? "MB"
+          : "KB"
+    const fileUploadValue = convertStorageToDisplayValue(fileUploadBytes, fileUploadUnit)
 
     // Extract monthly and yearly prices from the prices array
     const monthlyPrice = plan.prices?.find((p) => p.billing_cycle === "monthly")?.price || plan.monthly_price || 0
@@ -427,11 +447,13 @@ export function PlanManagement() {
       max_media_storage: displayValue.toString(),
       max_file_upload_size: fileUploadValue.toString(),
       storage_unit: plan.storage_unit || "GB",
+      file_upload_unit: fileUploadUnit,
       max_playlists: plan.max_playlists.toString(),
       max_locations: (plan.max_locations ?? 1).toString(),
       max_schedules: (plan.max_schedules ?? 1).toString(),
       max_team_members: (plan.max_team_members ?? 0).toString(),
       is_active: plan.is_active,
+      is_recommended: (plan as any).is_recommended ?? false,
       enable_media_library: features.media_library ?? true,
       enable_playlists: features.playlists ?? true,
       enable_screens: features.screens ?? true,
@@ -442,6 +464,7 @@ export function PlanManagement() {
       enable_team_members: features.team_members ?? false,
       enable_url_media: features.url_media ?? true,
       enable_display_branding: plan.display_branding ?? false,
+      enable_restaurant_menus: features.restaurant_menus ?? false,
     })
     setEditingPlan(plan)
     setIsPlanDialogOpen(true)
@@ -702,6 +725,14 @@ export function PlanManagement() {
               <Label>Active Plan</Label>
             </div>
 
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={formData.is_recommended}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_recommended: checked })}
+              />
+              <Label>Recommended Plan</Label>
+            </div>
+
             <div className="space-y-4">
               <div>
                 <Label className="text-base font-semibold">Plan Limits & Features</Label>
@@ -758,7 +789,19 @@ export function PlanManagement() {
                         onChange={(e) => setFormData({ ...formData, max_file_upload_size: e.target.value })}
                         className="flex-1"
                       />
-                      <div className="w-20 flex items-center justify-center text-sm text-muted-foreground">GB</div>
+                      <Select
+                        value={formData.file_upload_unit}
+                        onValueChange={(value) => setFormData({ ...formData, file_upload_unit: value })}
+                      >
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MB">MB</SelectItem>
+                          <SelectItem value="GB">GB</SelectItem>
+                          <SelectItem value="TB">TB</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="flex flex-col justify-end">
@@ -939,6 +982,29 @@ export function PlanManagement() {
                       <Switch
                         checked={formData.enable_team_members}
                         onCheckedChange={(checked) => setFormData({ ...formData, enable_team_members: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Restaurant Menus */}
+              <div className="space-y-3 pb-4 border-b">
+                <Label className="text-lg font-medium">Restaurant Menus</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">
+                      Allow users to create and manage animated digital menu boards.
+                    </Label>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_restaurant_menus}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, enable_restaurant_menus: checked })
+                        }
                       />
                     </div>
                   </div>

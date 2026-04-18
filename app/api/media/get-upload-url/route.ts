@@ -36,18 +36,21 @@ export async function POST(request: NextRequest) {
         *,
         user_subscriptions!inner(
           status,
-          subscription_plans(max_media_storage, max_file_size)
+          subscription_plans(max_media_storage, max_file_upload_size)
         )
       `)
       .eq("id", user.id)
       .single()
 
-    // Determine max file size
-    let maxFileSize = 500 * 1024 * 1024 // Default 500MB
+    // Determine max file size — plan limit always wins; global is just a ceiling
+    const planFileSize =
+      userData?.user_subscriptions?.subscription_plans?.max_file_upload_size || 10 * 1024 * 1024
+
+    let maxFileSize: number
     if (uploadSettings?.enforce_globally && uploadSettings.max_file_size) {
-      maxFileSize = uploadSettings.max_file_size
-    } else if (userData?.user_subscriptions?.subscription_plans?.max_file_size) {
-      maxFileSize = userData.user_subscriptions.subscription_plans.max_file_size
+      maxFileSize = Math.min(planFileSize, uploadSettings.max_file_size)
+    } else {
+      maxFileSize = planFileSize
     }
 
     // Validate file size

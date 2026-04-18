@@ -23,6 +23,9 @@ import {
   Zap,
   MapPin,
   UserPlus,
+  LayoutList,
+  UtensilsCrossed,
+  ChefHat,
 } from "lucide-react"
 
 const navigation = [
@@ -62,6 +65,11 @@ const navigation = [
     icon: BarChart3,
   },
   {
+    name: "Restaurant Menus",
+    href: "/dashboard/restaurant-menus",
+    icon: UtensilsCrossed,
+  },
+  {
     name: "Team",
     href: "/dashboard/team",
     icon: UserPlus,
@@ -94,6 +102,16 @@ const adminNavigation = [
     href: "/dashboard/feature-management",
     icon: Zap,
   },
+  {
+    name: "Pricing Bullets",
+    href: "/dashboard/pricing-bullets",
+    icon: LayoutList,
+  },
+  {
+    name: "Menu Templates",
+    href: "/dashboard/admin/restaurant-menus",
+    icon: ChefHat,
+  },
 ]
 
 export function DashboardSidebar() {
@@ -124,6 +142,7 @@ export function DashboardSidebar() {
     if (item.href === "/dashboard/schedules") return features.schedules
     if (item.href === "/dashboard/analytics") return features.analytics
     if (item.href === "/dashboard/team") return features.teamMembers
+    if (item.href === "/dashboard/restaurant-menus") return (features as any).restaurantMenus ?? false
     
     return true
   })
@@ -140,7 +159,10 @@ export function DashboardSidebar() {
         <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
           {!collapsed && (
             <div className="flex items-center gap-2">
-                <img src="/xkreen-logo.svg" alt="XKREEN" className="h-6 w-auto" />
+              {/* Light mode logo */}
+              <img src="/xkreen-logo-light.svg" alt="XKREEN" className="h-6 w-auto block dark:hidden" />
+              {/* Dark mode logo */}
+              <img src="/xkreen-logo.svg" alt="XKREEN" className="h-6 w-auto hidden dark:block" />
             </div>
           )}
           <Button

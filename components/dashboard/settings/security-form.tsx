@@ -31,34 +31,18 @@ export function SecurityForm({ userEmail }: SecurityFormProps) {
     setSaving(true)
     setMessage(null)
 
-    const supabase = createClient()
-
-    // Re-authenticate with current password first to get a fresh session
-    const { data: userData } = await supabase.auth.getUser()
-    const email = userData?.user?.email
-    if (!email) {
-      setMessage({ type: "error", text: "Could not retrieve your account. Please log in again." })
-      setSaving(false)
-      return
-    }
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password: currentPassword,
+    // Verify current password + update via server-side API to avoid client-side
+    // signInWithPassword triggering a session refresh that unmounts the component
+    const response = await fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
     })
 
-    if (signInError) {
-      setMessage({ type: "error", text: "Current password is incorrect." })
-      setSaving(false)
-      return
-    }
+    const data = await response.json()
 
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
-    })
-
-    if (error) {
-      setMessage({ type: "error", text: error.message })
+    if (!response.ok) {
+      setMessage({ type: "error", text: data.error || "Failed to update password." })
     } else {
       setMessage({ type: "success", text: "Password updated successfully." })
       setCurrentPassword("")

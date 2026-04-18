@@ -20,6 +20,7 @@ type Plan = {
   id: string
   name: string
   description: string
+  is_recommended: boolean
   max_screens: number
   max_playlists: number
   max_media_storage: number
@@ -138,7 +139,7 @@ export default function PricingCards({ plans }: PricingCardsProps) {
       {/* Pricing Cards */}
       <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
         {plans.map((plan) => {
-          const isRecommended = plan.name === "Pro"
+          const isRecommended = plan.is_recommended === true
           const features = extractFeatures(plan)
           const currentPrice = getPrice(plan, billingCycle)
           const savings = billingCycle === "yearly" ? getYearlySavings(plan) : null

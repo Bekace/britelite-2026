@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { requireSuperAdminAPI } from "@/lib/admin/auth"
 import { logAdminAction } from "@/lib/admin/audit"
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const authResult = await requireSuperAdminAPI()
     if ("error" in authResult && authResult.error !== null) {
@@ -10,8 +10,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     }
     const { supabase } = authResult
 
-    const body = await request.json()
-    const planId = params.id
+    const [body, { id: planId }] = await Promise.all([request.json(), params])
 
     const { monthly_price, yearly_price, trial_days, features, ...planData } = body
 
@@ -31,6 +30,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         max_schedules: planData.max_schedules ?? 1,
         max_team_members: planData.max_team_members ?? 0,
         is_active: planData.is_active,
+        is_recommended: planData.is_recommended ?? false,
         display_branding: planData.display_branding,
       })
       .eq("id", planId)
@@ -118,7 +118,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const authResult = await requireSuperAdminAPI()
     if ("error" in authResult && authResult.error !== null) {
@@ -126,7 +126,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
     const { supabase } = authResult
 
-    const planId = params.id
+    const { id: planId } = await params
 
     // Check if plan has active subscribers
     const { data: subscribers, error: checkError } = await supabase

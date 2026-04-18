@@ -131,7 +131,8 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
   }
 
   const handleUpgrade = async (planId: string) => {
-    const price = getPrice(plans.find((p) => p.id === planId)!, billingCycle)
+    const selectedPlan = plans.find((p) => p.id === planId)
+    const price = getPrice(selectedPlan!, billingCycle)
 
     if (!price) {
       toast({
@@ -142,9 +143,23 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
       return
     }
 
+    if (!price.stripe_price_id) {
+      toast({
+        title: "Error",
+        description: "Stripe price not configured for this plan",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsLoading(planId)
     try {
+      // Call server action to create checkout session
+      // On success, this will redirect to Stripe Checkout (server action handles redirect)
+      // On error, it returns an error object
       const result = await createUpgradeCheckoutSession(planId, price.id)
+      
+      // Only reached if there's an error (redirect throws and interrupts)
       if (result?.error) {
         toast({
           title: "Error",
@@ -153,8 +168,9 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
         })
         setIsLoading(null)
       }
-      // If successful, user will be redirected to Stripe Checkout
     } catch (error) {
+      // Catch any unexpected errors
+      console.error("[v0] Upgrade error:", error)
       toast({
         title: "Error",
         description: "Failed to start upgrade process",

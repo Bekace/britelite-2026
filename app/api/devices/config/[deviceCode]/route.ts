@@ -53,7 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
 
     const { data: screen, error: screenError } = await supabase
       .from("screens")
-      .select("id, user_id, name, orientation, status, media_id, content_type, enable_audio_management, shuffle, is_active, scale_image, scale_video, scale_document, background_color, default_transition")
+      .select("id, user_id, name, orientation, status, media_id, content_type, enable_audio_management, shuffle, is_active, scale_image, scale_video, scale_document, background_color, default_transition, timezone")
       .eq("id", device.screen_id)
       .single()
 
@@ -173,16 +173,19 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
           schedules!screen_schedules_schedule_id_fkey (
             id,
             name,
-            is_active
+            is_active,
+            default_content_type,
+            default_content_id
           )
         `)
         .eq("screen_id", screen.id)
-        .eq("is_active", true)
         .maybeSingle()
 
       console.log("[v0] Screen schedule lookup:", { screenSchedule, scheduleError })
 
-      const scheduleData = screenSchedule?.schedules
+      // schedules join may return array or object depending on Supabase version — normalise to object
+      const rawSchedules = screenSchedule?.schedules
+      const scheduleData = Array.isArray(rawSchedules) ? rawSchedules[0] : rawSchedules
 
       if (scheduleData) {
         console.log("[v0] Active schedule found:", {
@@ -207,26 +210,48 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         console.log("[v0] Schedule items lookup:", { count: scheduleItems?.length, scheduleItemsError })
 
         if (!scheduleItemsError && scheduleItems && scheduleItems.length > 0) {
-          // Determine which schedule item is active based on current time
+          // Use the screen's configured timezone to evaluate schedule time windows.
+          const screenTimezone = screen.timezone || "UTC"
           const now = new Date()
-          const currentDay = now.getDay() // 0=Sunday, 1=Monday ... 6=Saturday — same as DB convention
-          const currentTime = now.toTimeString().slice(0, 8) // HH:MM:SS to match DB format
 
-          const activeScheduleItem = scheduleItems.find((item) => {
-            // Daily recurrence or weekly with matching day
-            const daysActive =
-              item.recurrence_type === "daily" ||
-              (item.days_of_week && Array.isArray(item.days_of_week) && item.days_of_week.includes(currentDay))
-            // Time window check — all values in HH:MM:SS format
-            const timeActive =
-              item.start_time && item.end_time
-                ? currentTime >= item.start_time && currentTime <= item.end_time
-                : true
+          // Reliably extract day-of-week (0=Sun…6=Sat) using Intl.DateTimeFormat parts
+          const dateParts = new Intl.DateTimeFormat("en-US", {
+            timeZone: screenTimezone,
+            weekday: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          }).formatToParts(now)
 
-            return daysActive && timeActive
-          })
+          const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+          const weekdayPart = dateParts.find((p) => p.type === "weekday")?.value ?? ""
+          const currentDay = dayMap[weekdayPart] ?? now.getDay()
 
-          console.log("[v0] Active schedule item:", activeScheduleItem)
+          const h = dateParts.find((p) => p.type === "hour")?.value?.padStart(2, "0") ?? "00"
+          const m = dateParts.find((p) => p.type === "minute")?.value?.padStart(2, "0") ?? "00"
+          const s = dateParts.find((p) => p.type === "second")?.value?.padStart(2, "0") ?? "00"
+          const currentTime = `${h}:${m}:${s}`
+
+          console.log("[v0] Schedule time check — timezone:", screenTimezone, "day:", currentDay, "time:", currentTime)
+
+          const itemMatchesDay = (item: typeof scheduleItems[0]) => {
+            if (item.recurrence_type === "daily") return true
+            if (!item.days_of_week || !Array.isArray(item.days_of_week) || item.days_of_week.length === 0) return true
+            return item.days_of_week.includes(currentDay)
+          }
+
+          const itemMatchesTime = (item: typeof scheduleItems[0]) => {
+            if (!item.start_time || !item.end_time) return true
+            return currentTime >= item.start_time && currentTime <= item.end_time
+          }
+
+          // Find the best matching item: day + time window
+          const activeScheduleItem = scheduleItems.find(
+            (item) => itemMatchesDay(item) && itemMatchesTime(item)
+          )
+
+          console.log("[v0] Active schedule item:", activeScheduleItem?.id ?? "none")
 
           if (activeScheduleItem) {
             const { content_id, content_type } = activeScheduleItem
@@ -293,11 +318,55 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
               }
             }
           } else {
-            console.log("[v0] No active schedule item found for current time/day")
+            // No schedule item matches — fall back to the schedule's default content
+            console.log("[v0] No active schedule item — loading schedule default content")
+            const { default_content_type, default_content_id } = scheduleData as any
+
+            if (default_content_type === "playlist" && default_content_id) {
+              const { data: defaultPlaylist } = await supabase
+                .from("playlists")
+                .select("id, name, is_active")
+                .eq("id", default_content_id)
+                .single()
+
+              if (defaultPlaylist) {
+                activePlaylist = defaultPlaylist
+                const { data: defaultItems } = await supabase
+                  .from("playlist_items")
+                  .select(`
+                    id, position, duration_override, transition_type, transition_duration,
+                    media ( id, name, file_path, mime_type, file_size, duration )
+                  `)
+                  .eq("playlist_id", default_content_id)
+                  .order("position")
+
+                if (defaultItems) {
+                  playlistContent = defaultItems.filter((item) => item.media)
+                }
+              }
+            } else if (default_content_type === "media" && default_content_id) {
+              const { data: defaultMedia } = await supabase
+                .from("media")
+                .select("id, name, file_path, mime_type, file_size, duration")
+                .eq("id", default_content_id)
+                .single()
+
+              if (defaultMedia) {
+                activePlaylist = { id: `schedule-default-${defaultMedia.id}`, name: defaultMedia.name, is_active: true }
+                playlistContent = [{
+                  id: `schedule-default-asset-${defaultMedia.id}`,
+                  position: 1,
+                  duration_override: null,
+                  transition_type: null,
+                  transition_duration: null,
+                  media: defaultMedia,
+                }]
+              }
+            }
           }
         }
       } else {
-        console.log("[v0] No active schedule found for screen")
+        console.log("[v0] No schedule linked to screen")
       }
     }
     // If content type is playlist, check for active playlist

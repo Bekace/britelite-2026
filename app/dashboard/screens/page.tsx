@@ -58,6 +58,12 @@ interface Screen {
   scale_document?: string
   background_color?: string
   default_transition?: string
+  timezone?: string
+  stripe_subscription_id?: string | null
+  stripe_price_id?: string | null
+  slot_cancel_at?: string | null
+  is_free_slot?: boolean
+  slot_payment_status?: string | null
 }
 
 interface Playlist {
@@ -131,10 +137,14 @@ export default function ScreensPage() {
     billingCycle?: string
     purchasedSlots?: number
     availableSlots?: number
+    pendingSlotSubscriptionId?: string | null
   } | null>(null)
   const [isBuyScreenDialogOpen, setIsBuyScreenDialogOpen] = useState(false)
   const [isPurchasingScreen, setIsPurchasingScreen] = useState(false)
   const [purchaseError, setPurchaseError] = useState<string | null>(null)
+  const [purchasedSlotData, setPurchasedSlotData] = useState<{ subscriptionId: string; priceId: string } | null>(null)
+  const [cancelingScreen, setCancelingScreen] = useState<Screen | null>(null)
+  const [isCanceling, setIsCanceling] = useState(false)
 
   const [wizardState, setWizardState] = useState<WizardState>({
     step: 1,
@@ -162,47 +172,33 @@ export default function ScreensPage() {
   })
 
   const { toast } = useToast()
-  const router = useRouter() // Import useRouter
+  const router = useRouter()
 
-  // Detect return from Stripe Checkout after purchasing a screen slot
+  // When returning from Stripe Checkout after a slot purchase, confirm it and open the wizard.
+  // We use ?slot_purchased=true only — session ID is read from the DB by the API,
+  // so we are not vulnerable to Stripe template substitution issues in the URL.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const sessionId = params.get("session_id")
-    if (params.get("purchase") === "success" && sessionId) {
-      // Clean the URL immediately so refresh doesn't re-trigger
-      window.history.replaceState({}, "", "/dashboard/screens")
-      // Confirm the purchase server-side — this verifies payment with Stripe and
-      // increments purchased_screen_slots in the DB (no webhook dependency)
-      fetch("/api/stripe/confirm-screen-purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) {
-            fetchScreenLimits().then(() => {
-              toast({
-                title: "Screen slot purchased",
-                description: "Your new screen slot is ready. Click Add Screen to set it up.",
-              })
-            })
-          } else {
-            toast({
-              title: "Purchase error",
-              description: data.error || "Could not confirm your purchase. Please contact support.",
-              variant: "destructive",
-            })
-          }
-        })
-        .catch(() => {
+    if (params.get("slot_purchased") !== "true") return
+    // Clean the URL immediately so refresh doesn't re-trigger
+    window.history.replaceState({}, "", "/dashboard/screens")
+    // Confirm the purchase server-side (increments purchased_screen_slots + stores pending sub ID)
+    fetch("/api/stripe/confirm-screen-purchase", { method: "POST" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          // Refresh limits so the available slot appears in the UI
+          fetchScreenLimits()
+          // Do NOT auto-open the wizard — show a toast so user can click Add Screen when ready
           toast({
-            title: "Purchase error",
-            description: "Could not confirm your purchase. Please contact support.",
-            variant: "destructive",
+            title: "Screen slot purchased",
+            description: "Your new slot is ready. Click \"Add Screen\" whenever you want to set it up.",
           })
-        })
-    }
+        } else {
+          toast({ title: "Purchase error", description: data.error || "Could not confirm purchase.", variant: "destructive" })
+        }
+      })
+      .catch(() => toast({ title: "Purchase error", description: "Could not confirm purchase.", variant: "destructive" }))
   }, [])
 
   useEffect(() => {
@@ -477,6 +473,10 @@ export default function ScreensPage() {
           content_type: contentType,
           enable_audio_management: wizardState.advancedOptions.mute,
           default_transition: wizardState.advancedOptions.defaultTransition,
+          ...(purchasedSlotData ? {
+            stripe_subscription_id: purchasedSlotData.subscriptionId,
+            stripe_price_id: purchasedSlotData.priceId,
+          } : {}),
         }),
       })
 
@@ -602,6 +602,7 @@ export default function ScreensPage() {
       // Reset wizard and close modal
       resetWizard()
       setIsCreateDialogOpen(false)
+      setPurchasedSlotData(null)
       fetchScreens()
       fetchScreenLimits()
     } catch (error) {
@@ -1239,6 +1240,52 @@ export default function ScreensPage() {
     }
   }
 
+  const handleCancelSlot = async () => {
+    if (!cancelingScreen) return
+    setIsCanceling(true)
+    try {
+      const response = await fetch(`/api/screens/${cancelingScreen.id}/cancel-slot`, { method: "POST" })
+      const data = await response.json()
+      if (response.ok) {
+        setScreens((prev) =>
+          prev.map((s) => (s.id === cancelingScreen.id ? { ...s, slot_cancel_at: data.slot_cancel_at } : s))
+        )
+        setCancelingScreen(null)
+        toast({
+          title: "Cancellation scheduled",
+          description: data.message,
+        })
+        fetchScreenLimits()
+      } else if (response.status === 409) {
+        // Already scheduled
+        setCancelingScreen(null)
+        toast({ title: "Already scheduled", description: data.error })
+      } else {
+        toast({ title: "Error", description: data.error || "Failed to schedule cancellation", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to schedule cancellation", variant: "destructive" })
+    } finally {
+      setIsCanceling(false)
+    }
+  }
+
+  const handleReactivateSlot = async (id: string) => {
+    try {
+      const response = await fetch(`/api/screens/${id}/cancel-slot`, { method: "DELETE" })
+      if (response.ok) {
+        setScreens((prev) => prev.map((s) => (s.id === id ? { ...s, slot_cancel_at: null } : s)))
+        toast({ title: "Slot reactivated", description: "Cancellation has been undone." })
+        fetchScreenLimits()
+      } else {
+        const data = await response.json()
+        toast({ title: "Error", description: data.error || "Failed to reactivate", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to reactivate", variant: "destructive" })
+    }
+  }
+
   const handleDeleteScreen = async (id: string) => {
     try {
       const response = await fetch(`/api/screens/${id}`, {
@@ -1358,6 +1405,14 @@ export default function ScreensPage() {
     if (isPaidPlan) {
       const availableSlots = screenLimits.availableSlots ?? 0
       if (availableSlots > 0) {
+        // Restore pending slot data from limits if the user closed the wizard earlier
+        // without creating the screen — this keeps the stripe_subscription_id available
+        if (!purchasedSlotData && screenLimits.pendingSlotSubscriptionId) {
+          setPurchasedSlotData({
+            subscriptionId: screenLimits.pendingSlotSubscriptionId,
+            priceId: "", // price is looked up from Stripe subscription when needed
+          })
+        }
         resetWizard()
         setIsCreateDialogOpen(true)
       } else {
@@ -1521,6 +1576,19 @@ export default function ScreensPage() {
                   </div>
                 </div>
 
+                {screen.slot_cancel_at && (
+                  <div className="mt-2 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                    Active until {new Date(screen.slot_cancel_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </div>
+                )}
+                {screen.slot_payment_status === "payment_failed" && (
+                  <div className="mt-2 px-2 py-1.5 rounded-md bg-red-500/10 border border-red-500/30 text-red-500 text-xs flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+                    Payment failed — update your billing details
+                  </div>
+                )}
+
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Code:</span>
@@ -1596,6 +1664,23 @@ export default function ScreensPage() {
                         <Eye className="mr-2 h-4 w-4" />
                         Preview
                       </DropdownMenuItem>
+                      {!screen.slot_cancel_at && !screen.is_free_slot && screen.stripe_subscription_id && (
+                        <DropdownMenuItem
+                          onClick={() => setCancelingScreen(screen)}
+                          className="text-amber-500 focus:text-amber-600"
+                        >
+                          Cancel this Screen
+                        </DropdownMenuItem>
+                      )}
+                      {screen.slot_cancel_at && (
+                        <DropdownMenuItem
+                          onClick={() => handleReactivateSlot(screen.id)}
+                          className="text-primary focus:text-primary/80"
+                        >
+                          Undo Cancellation
+                        </DropdownMenuItem>
+                      )}
+
                       <DropdownMenuItem
                         onClick={() => handleDeleteScreen(screen.id)}
                         className="text-red-600 focus:text-red-700"
@@ -1845,6 +1930,69 @@ export default function ScreensPage() {
                           <SelectItem value="slide_right">Slide from Right</SelectItem>
                           <SelectItem value="rotate">Rotate In</SelectItem>
                           <SelectItem value="flip">Flip</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-timezone" className="text-white font-medium">Timezone</Label>
+                      <p className="text-xs text-gray-500">Used to match schedule time windows to the screen&apos;s local time</p>
+                      <Select
+                        value={editingScreen.timezone || "UTC"}
+                        onValueChange={(value) => setEditingScreen({ ...editingScreen, timezone: value })}
+                      >
+                        <SelectTrigger className="border-gray-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64 overflow-y-auto">
+                          <SelectItem value="UTC">UTC</SelectItem>
+                          <SelectItem value="Europe/London">Europe/London (GMT/BST)</SelectItem>
+                          <SelectItem value="Europe/Madrid">Europe/Madrid (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Paris">Europe/Paris (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Berlin">Europe/Berlin (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Rome">Europe/Rome (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Amsterdam">Europe/Amsterdam (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Brussels">Europe/Brussels (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Lisbon">Europe/Lisbon (WET/WEST)</SelectItem>
+                          <SelectItem value="Europe/Athens">Europe/Athens (EET/EEST)</SelectItem>
+                          <SelectItem value="Europe/Helsinki">Europe/Helsinki (EET/EEST)</SelectItem>
+                          <SelectItem value="Europe/Warsaw">Europe/Warsaw (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Stockholm">Europe/Stockholm (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Bucharest">Europe/Bucharest (EET/EEST)</SelectItem>
+                          <SelectItem value="Europe/Moscow">Europe/Moscow (MSK)</SelectItem>
+                          <SelectItem value="America/New_York">America/New_York (EST/EDT)</SelectItem>
+                          <SelectItem value="America/Chicago">America/Chicago (CST/CDT)</SelectItem>
+                          <SelectItem value="America/Denver">America/Denver (MST/MDT)</SelectItem>
+                          <SelectItem value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</SelectItem>
+                          <SelectItem value="America/Toronto">America/Toronto (EST/EDT)</SelectItem>
+                          <SelectItem value="America/Vancouver">America/Vancouver (PST/PDT)</SelectItem>
+                          <SelectItem value="America/Mexico_City">America/Mexico_City (CST/CDT)</SelectItem>
+                          <SelectItem value="America/Bogota">America/Bogota (COT)</SelectItem>
+                          <SelectItem value="America/Lima">America/Lima (PET)</SelectItem>
+                          <SelectItem value="America/Santiago">America/Santiago (CLT/CLST)</SelectItem>
+                          <SelectItem value="America/Sao_Paulo">America/Sao_Paulo (BRT/BRST)</SelectItem>
+                          <SelectItem value="America/Buenos_Aires">America/Argentina/Buenos_Aires (ART)</SelectItem>
+                          <SelectItem value="America/Caracas">America/Caracas (VET)</SelectItem>
+                          <SelectItem value="Africa/Cairo">Africa/Cairo (EET)</SelectItem>
+                          <SelectItem value="Africa/Johannesburg">Africa/Johannesburg (SAST)</SelectItem>
+                          <SelectItem value="Africa/Lagos">Africa/Lagos (WAT)</SelectItem>
+                          <SelectItem value="Africa/Nairobi">Africa/Nairobi (EAT)</SelectItem>
+                          <SelectItem value="Asia/Dubai">Asia/Dubai (GST)</SelectItem>
+                          <SelectItem value="Asia/Kolkata">Asia/Kolkata (IST)</SelectItem>
+                          <SelectItem value="Asia/Bangkok">Asia/Bangkok (ICT)</SelectItem>
+                          <SelectItem value="Asia/Singapore">Asia/Singapore (SGT)</SelectItem>
+                          <SelectItem value="Asia/Shanghai">Asia/Shanghai (CST)</SelectItem>
+                          <SelectItem value="Asia/Tokyo">Asia/Tokyo (JST)</SelectItem>
+                          <SelectItem value="Asia/Seoul">Asia/Seoul (KST)</SelectItem>
+                          <SelectItem value="Asia/Jakarta">Asia/Jakarta (WIB)</SelectItem>
+                          <SelectItem value="Asia/Karachi">Asia/Karachi (PKT)</SelectItem>
+                          <SelectItem value="Asia/Riyadh">Asia/Riyadh (AST)</SelectItem>
+                          <SelectItem value="Asia/Tehran">Asia/Tehran (IRST)</SelectItem>
+                          <SelectItem value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</SelectItem>
+                          <SelectItem value="Australia/Melbourne">Australia/Melbourne (AEST/AEDT)</SelectItem>
+                          <SelectItem value="Australia/Perth">Australia/Perth (AWST)</SelectItem>
+                          <SelectItem value="Pacific/Auckland">Pacific/Auckland (NZST/NZDT)</SelectItem>
+                          <SelectItem value="Pacific/Honolulu">Pacific/Honolulu (HST)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -2139,8 +2287,7 @@ export default function ScreensPage() {
                     setIsPurchasingScreen(false)
                     return
                   }
-                  // Redirect to Stripe Checkout — user completes payment there
-                  // and is sent back to /dashboard/screens?purchase=success
+                  // Redirect to Stripe Checkout — same as plan upgrade flow
                   window.location.href = data.url
                 } catch (err: any) {
                   setPurchaseError("Something went wrong. Please try again.")
@@ -2148,7 +2295,7 @@ export default function ScreensPage() {
                 }
               }}
             >
-              {isPurchasingScreen ? "Redirecting to payment..." : "Proceed to Payment"}
+              {isPurchasingScreen ? "Processing..." : "Proceed to Payment"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2160,6 +2307,41 @@ export default function ScreensPage() {
         isOpen={!!previewingScreen}
         onClose={() => setPreviewingScreen(null)}
       />
+
+      {/* Cancel this Screen confirmation dialog */}
+      <Dialog open={!!cancelingScreen} onOpenChange={(open) => { if (!open) setCancelingScreen(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel this Screen</DialogTitle>
+            <DialogDescription>
+              You are about to cancel the subscription slot for{" "}
+              <span className="font-semibold text-foreground">{cancelingScreen?.name}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-sm text-muted-foreground">
+            <p>
+              The screen will remain active until the end of your current billing period, after which the slot will be
+              removed and you will no longer be billed for it.
+            </p>
+            <p>
+              The device will stop displaying content once the slot is cancelled. You can undo this at any time before
+              the billing period ends.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelingScreen(null)} disabled={isCanceling}>
+              Keep Screen
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelSlot}
+              disabled={isCanceling}
+            >
+              {isCanceling ? "Scheduling..." : "Cancel this Screen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     // </DashboardLayout> - REMOVED AS PER UPDATES
   )

@@ -3,11 +3,11 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; itemId: string } }
+  { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
     const supabase = await createClient()
-    const { itemId } = params
+    const [updates, { itemId }] = await Promise.all([request.json(), params])
 
     if (!supabase) {
       console.error("Failed to create Supabase client")
@@ -22,8 +22,6 @@ export async function PATCH(
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-
-    const updates = await request.json()
 
     // Update schedule item (RLS will check ownership through schedule)
     const { data: item, error } = await supabase
@@ -47,11 +45,11 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; itemId: string } }
+  { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
     const supabase = await createClient()
-    const { itemId } = params
+    const { itemId } = await params
 
     if (!supabase) {
       console.error("Failed to create Supabase client")

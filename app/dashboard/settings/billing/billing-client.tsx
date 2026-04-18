@@ -157,15 +157,8 @@ export default function BillingClient({
 
       // Call the upgrade checkout with the new price
       const { createUpgradeCheckoutSession } = await import("@/lib/actions/stripe")
-      const result = await createUpgradeCheckoutSession(currentPlanId, targetPrice.id)
-
-      if (result.error) {
-        throw new Error(result.error)
-      }
-
-      if (result.url) {
-        window.location.href = result.url
-      }
+      await createUpgradeCheckoutSession(currentPlanId, targetPrice.id)
+      // Server action will redirect automatically
     } catch (error) {
       console.error("[v0] Change billing cycle error:", error)
       toast({
@@ -173,7 +166,6 @@ export default function BillingClient({
         description: error instanceof Error ? error.message : "Failed to change billing cycle",
         variant: "destructive",
       })
-    } finally {
       setIsChangingCycle(false)
     }
   }

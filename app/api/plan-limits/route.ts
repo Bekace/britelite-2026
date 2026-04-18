@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
           aiAnalytics: true,
           teamMembers: true,
           urlMedia: true,
+          restaurantMenus: true,
         },
       })
     }
@@ -160,6 +161,7 @@ export async function GET(request: NextRequest) {
         teamMembers: featureMap["team_members"] ?? false,
         urlMedia: featureMap["url_media"] ?? false,
         displayBranding: featureMap["display_branding"] ?? false,
+        restaurantMenus: featureMap["restaurant_menus"] ?? false,
       },
     }
 

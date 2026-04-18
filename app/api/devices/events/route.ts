@@ -25,7 +25,16 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const body = await request.json()
 
-    const { device_code, event_type, media_id, playlist_id, metadata } = body
+    const { 
+      device_code, 
+      event_type, 
+      media_id, 
+      playlist_id, 
+      metadata,
+      duration_played,
+      total_duration,
+      error_message
+    } = body
 
     // Validate required fields
     if (!device_code) {
@@ -51,12 +60,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log("[v0] Event received:", { device_code, event_type, media_id })
+    console.log("[v0] Event received:", { device_code, event_type, media_id, duration_played })
 
-    // Get device by device_code
+    // Get device by device_code with screen info
     const { data: device, error: deviceError } = await supabase
       .from("devices")
-      .select("id")
+      .select("id, screen_id")
       .eq("device_code", device_code)
       .single()
 
@@ -68,14 +77,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Insert event into device_events table
+    // Insert event into device_events table with enhanced fields
     const { data: event, error: eventError } = await supabase
       .from("device_events")
       .insert({
         device_id: device.id,
+        screen_id: device.screen_id,
         event_type,
         media_id: media_id || null,
         playlist_id: playlist_id || null,
+        duration_played: duration_played || null,
+        total_duration: total_duration || null,
+        error_message: error_message || null,
         metadata: metadata || {},
       })
       .select()
