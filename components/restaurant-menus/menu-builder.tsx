@@ -311,6 +311,7 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
   const [editingItem, setEditingItem] = useState<{ item: MenuItem | null; sectionId: string } | null>(null)
   const [deletingItem, setDeletingItem] = useState<MenuItem | null>(null)
   const [showImport, setShowImport] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
 
   const fetchMenu = useCallback(async () => {
     setLoading(true)
@@ -465,6 +466,46 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
     }
   }
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.currentTarget.files?.[0]
+    if (!file) return
+
+    setUploadingLogo(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("type", "menu_logo")
+
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        body: formData,
+      })
+      if (!res.ok) throw new Error()
+      const { file_path } = await res.json()
+      const logoUrl = `${process.env.NEXT_PUBLIC_GCS_PUBLIC_URL}${file_path}`
+
+      // Update brand settings with logo URL
+      const updateRes = await fetch(`/api/restaurant-menus/${menuId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand_settings: {
+            ...menu?.brand_settings,
+            logo_url: logoUrl,
+          },
+        }),
+      })
+      if (!updateRes.ok) throw new Error()
+      const { menu: updated } = await updateRes.json()
+      setMenu(updated)
+      toast({ title: "Logo uploaded successfully" })
+    } catch {
+      toast({ title: "Error", description: "Failed to upload logo", variant: "destructive" })
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -516,6 +557,30 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
             <LayoutTemplate className="w-4 h-4" />
             {menu.menu_template ? menu.menu_template.name : "Choose Template"}
           </Button>
+          <div className="relative">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleLogoUpload}
+              disabled={uploadingLogo}
+              className="hidden"
+              id="logo-upload"
+            />
+            <label htmlFor="logo-upload">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 cursor-pointer"
+                disabled={uploadingLogo}
+                asChild
+              >
+                <span>
+                  <ImageIcon className="w-4 h-4" />
+                  {uploadingLogo ? "Uploading..." : "Logo"}
+                </span>
+              </Button>
+            </label>
+          </div>
           <Button
             size="sm"
             onClick={() => router.push(`/dashboard/restaurant-menus/${menuId}/preview`)}
