@@ -211,14 +211,15 @@ export function TemplateDesigner({ initial, onSave, onCancel }: TemplateDesigner
       if (description) formData.append("description", description.trim())
       formData.append("is_active", String(isActive))
 
-      // Use GCS URL for bg image if it was uploaded
+      // Strip blob URL from layout_config before sending — API will replace it with GCS URL
       const finalConfig = { ...config }
       if (bgImageFile) {
-        // bg image will be uploaded separately — we keep object URL for preview
-        // The thumbnail handles GCS upload; bg image upload handled via separate flow
+        // Clear the local blob URL; API will upload the file and inject the real GCS URL
+        finalConfig.background = { ...finalConfig.background, image_url: "" }
       }
       formData.append("layout_config", JSON.stringify(finalConfig))
       if (thumbnailFile) formData.append("thumbnail", thumbnailFile)
+      if (bgImageFile) formData.append("bg_image", bgImageFile)
 
       const url = initial
         ? `/api/admin/menu-templates/${initial.id}`
