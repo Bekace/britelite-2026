@@ -482,7 +482,8 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
       })
       if (!res.ok) throw new Error()
       const { file_path } = await res.json()
-      const logoUrl = `${process.env.NEXT_PUBLIC_GCS_PUBLIC_URL}${file_path}`
+      // file_path is already the full public GCS URL returned by the upload API
+      const logoUrl = file_path
 
       // Update brand settings with logo URL
       const updateRes = await fetch(`/api/restaurant-menus/${menuId}`, {
@@ -557,7 +558,7 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
             <LayoutTemplate className="w-4 h-4" />
             {menu.menu_template ? menu.menu_template.name : "Choose Template"}
           </Button>
-          <div className="relative">
+          <div className="flex items-center gap-1.5">
             <input
               type="file"
               accept="image/*"
@@ -566,20 +567,45 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
               className="hidden"
               id="logo-upload"
             />
-            <label htmlFor="logo-upload">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2 cursor-pointer"
-                disabled={uploadingLogo}
-                asChild
-              >
-                <span>
+            <label htmlFor="logo-upload" className="cursor-pointer">
+              <div className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors",
+                "border-border bg-background hover:bg-accent hover:text-accent-foreground",
+                uploadingLogo && "opacity-50 pointer-events-none"
+              )}>
+                {menu.brand_settings?.logo_url ? (
+                  <img
+                    src={menu.brand_settings.logo_url}
+                    alt="Logo"
+                    className="w-5 h-5 object-contain rounded"
+                  />
+                ) : (
                   <ImageIcon className="w-4 h-4" />
-                  {uploadingLogo ? "Uploading..." : "Logo"}
-                </span>
-              </Button>
+                )}
+                {uploadingLogo ? "Uploading..." : menu.brand_settings?.logo_url ? "Change Logo" : "Add Logo"}
+              </div>
             </label>
+            {menu.brand_settings?.logo_url && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-7 h-7 text-muted-foreground hover:text-destructive"
+                onClick={async () => {
+                  const res = await fetch(`/api/restaurant-menus/${menuId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ brand_settings: { ...menu.brand_settings, logo_url: null } }),
+                  })
+                  if (res.ok) {
+                    const { menu: updated } = await res.json()
+                    setMenu(updated)
+                    toast({ title: "Logo removed" })
+                  }
+                }}
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            )}
           </div>
           <Button
             size="sm"
