@@ -162,8 +162,18 @@ export function MenuBoardRenderer({ menu, config, width, height, scale = 1 }: Me
       ? "to bottom right"
       : "to bottom"
     bgStyle.background = `linear-gradient(${dir}, ${background.gradient_from || "#1a1a1a"}, ${background.gradient_to || "#2d2d2d"})`
+  } else if (background.type === "image" && background.image_url) {
+    // Use CSS background-image — most reliable approach inside a scaled container
+    bgStyle.backgroundImage = `url("${background.image_url}")`
+    bgStyle.backgroundSize = "cover"
+    bgStyle.backgroundPosition = background.image_position === "top"
+      ? "top center"
+      : background.image_position === "bottom"
+      ? "bottom center"
+      : "center center"
+    bgStyle.backgroundRepeat = "no-repeat"
+    bgStyle.backgroundColor = "#111111"
   } else if (background.type === "image") {
-    // Always set a dark base so the canvas is never transparent while the image loads
     bgStyle.backgroundColor = "#111111"
   }
 
@@ -217,31 +227,14 @@ export function MenuBoardRenderer({ menu, config, width, height, scale = 1 }: Me
           ...bgStyle,
         }}
       >
-        {/* Background image — z-index 0, always behind content */}
-        {background.type === "image" && background.image_url && (
+        {/* Ken Burns parallax effect — only when explicitly set */}
+        {background.type === "image" && background.image_url && animations.background_effect === "parallax" && (
           <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
-            {animations.background_effect === "parallax" ? (
-              <KenBurnsImage src={background.image_url} alt="Background" />
-            ) : (
-              <img
-                src={background.image_url}
-                alt="Background"
-                crossOrigin="anonymous"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  objectPosition: background.image_position === "top" ? "top center"
-                    : background.image_position === "bottom" ? "bottom center"
-                    : "center center",
-                  display: "block",
-                }}
-              />
-            )}
+            <KenBurnsImage src={background.image_url} alt="" />
           </div>
         )}
 
-        {/* Background overlay — z-index 1, sits on top of image */}
+        {/* Background overlay — sits on top of CSS background-image */}
         {background.type === "image" && (
           <div
             style={{
@@ -250,6 +243,7 @@ export function MenuBoardRenderer({ menu, config, width, height, scale = 1 }: Me
               zIndex: 1,
               backgroundColor: background.overlay_color || "#000000",
               opacity: background.overlay_opacity ?? 0.5,
+              pointerEvents: "none",
             }}
           />
         )}
@@ -340,11 +334,7 @@ export function MenuBoardRenderer({ menu, config, width, height, scale = 1 }: Me
                   {restaurantName}
                 </div>
               </div>
-              {layout.header_style === "logo-left" && (
-                <div style={{ textAlign: "right", fontSize: sizes.itemDesc * 0.85, color: typography.text_color + "88" }}>
-                  <div style={{ color: accent_color, letterSpacing: 1 }}>MENU</div>
-                </div>
-              )}
+
             </motion.div>
           )}
 

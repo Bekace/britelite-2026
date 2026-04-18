@@ -60,13 +60,15 @@ export function TemplatePreview({ config, scale = 0.4, logoUrl }: TemplatePrevie
       : "to bottom"
     bgStyle.background = `linear-gradient(${dir}, ${background.gradient_from || "#1a1a1a"}, ${background.gradient_to || "#2d2d2d"})`
   } else if (background.type === "image" && background.image_url) {
-    bgStyle.backgroundImage = `url('${background.image_url}')`
-    bgStyle.backgroundSize = background.image_position === "fill" ? "cover" : "contain"
+    bgStyle.backgroundImage = `url("${background.image_url}")`
+    bgStyle.backgroundSize = "cover"
     bgStyle.backgroundPosition = background.image_position === "top" ? "top center"
       : background.image_position === "bottom" ? "bottom center"
       : "center center"
     bgStyle.backgroundRepeat = "no-repeat"
-    bgStyle.backgroundAttachment = "fixed"
+    bgStyle.backgroundColor = "#111111"
+  } else if (background.type === "image") {
+    bgStyle.backgroundColor = "#111111"
   }
 
   const canvasWidth = orientation === "landscape" ? 1920 : 1080
@@ -121,15 +123,16 @@ export function TemplatePreview({ config, scale = 0.4, logoUrl }: TemplatePrevie
           ...bgStyle,
         }}
       >
-        {/* Background overlay for image type */}
-        {background.type === "image" && background.image_url && (
+        {/* Background overlay — z-index 1, sits on CSS background-image */}
+        {background.type === "image" && (
           <div
             style={{
               position: "absolute",
               inset: 0,
               backgroundColor: background.overlay_color || "#000000",
               opacity: background.overlay_opacity ?? 0.5,
-              zIndex: 0,
+              zIndex: 1,
+              pointerEvents: "none",
             }}
           />
         )}
@@ -154,7 +157,7 @@ export function TemplatePreview({ config, scale = 0.4, logoUrl }: TemplatePrevie
         )}
 
         {/* Main content */}
-        <div style={{ position: "relative", zIndex: 1, height: "100%", display: "flex", flexDirection: "column" }}>
+        <div style={{ position: "relative", zIndex: 2, height: "100%", display: "flex", flexDirection: "column" }}>
           {/* Header */}
           {layout.header_style !== "none" && (
             <div
