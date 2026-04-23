@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Plus, Edit, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { createClient } from "@/lib/supabase/client"
 import type { StorageUnit } from "@/lib/storage-utils"
 
 interface SubscriptionPrice {
@@ -37,15 +38,23 @@ interface SubscriptionPlan {
   name: string
   description: string
   max_screens: number
+  free_screens: number
   max_media_storage: number
+  max_file_upload_size?: number
   storage_unit?: StorageUnit
   max_playlists: number
+  max_locations?: number
+  max_schedules?: number
+  max_team_members?: number
   is_active: boolean
+  display_branding?: boolean
   stripe_product_id: string | null
   subscriber_count?: number
   created_at: string
   // Prices from subscription_prices table
   prices?: SubscriptionPrice[]
+  // Feature permissions from feature_permissions table
+  feature_permissions?: { feature_key: string; is_enabled: boolean }[]
   // Computed from prices for display
   monthly_price?: number
   yearly_price?: number
@@ -58,10 +67,29 @@ interface PlanFormData {
   yearly_price: string
   trial_days: string
   max_screens: string
+  free_screens: string
   max_media_storage: string
+  max_file_upload_size: string
   storage_unit: string
+  file_upload_unit: string
   max_playlists: string
+  max_locations: string
+  max_schedules: string
+  max_team_members: string
   is_active: boolean
+  is_recommended: boolean
+  // Feature toggles - control navigation visibility
+  enable_media_library: boolean
+  enable_playlists: boolean
+  enable_screens: boolean
+  enable_locations: boolean
+  enable_schedules: boolean
+  enable_analytics: boolean
+  enable_ai_analytics: boolean
+  enable_team_members: boolean
+  enable_url_media: boolean
+  enable_display_branding: boolean
+  enable_restaurant_menus: boolean
 }
 
 export function PlanManagement() {
@@ -69,7 +97,7 @@ export function PlanManagement() {
   const [loading, setLoading] = useState(true)
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null)
   const [deletingPlan, setDeletingPlan] = useState<SubscriptionPlan | null>(null)
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false)
   const [deleteConfirmation, setDeleteConfirmation] = useState("")
   const [formData, setFormData] = useState<PlanFormData>({
     name: "",
@@ -78,10 +106,27 @@ export function PlanManagement() {
     yearly_price: "0",
     trial_days: "0",
     max_screens: "1",
+    free_screens: "0",
     max_media_storage: "1",
+    max_file_upload_size: "10",
     storage_unit: "GB",
+    file_upload_unit: "GB",
     max_playlists: "1",
+    max_locations: "1",
+    max_schedules: "1",
+    max_team_members: "0",
     is_active: true,
+    enable_media_library: true,
+    enable_playlists: true,
+    enable_screens: true,
+    enable_locations: false,
+    enable_schedules: false,
+    enable_analytics: false,
+    enable_ai_analytics: false,
+    enable_team_members: false,
+    enable_url_media: true,
+    enable_display_branding: true,
+    enable_restaurant_menus: false,
   })
   const { toast } = useToast()
 
@@ -113,6 +158,11 @@ export function PlanManagement() {
 
   useEffect(() => {
     fetchPlans()
+
+    // Refetch plans when the user returns to this page/tab
+    const handleFocus = () => fetchPlans()
+    window.addEventListener("focus", handleFocus)
+    return () => window.removeEventListener("focus", handleFocus)
   }, [])
 
   const fetchPlans = async () => {
@@ -147,6 +197,11 @@ export function PlanManagement() {
         formData.storage_unit,
       )
 
+      const fileUploadInBytes = convertDisplayValueToBytes(
+        Number.parseInt(formData.max_file_upload_size),
+        formData.file_upload_unit,
+      )
+
       const planData = {
         name: formData.name,
         description: formData.description,
@@ -154,10 +209,31 @@ export function PlanManagement() {
         yearly_price: Number.parseFloat(formData.yearly_price),
         trial_days: Number.parseInt(formData.trial_days),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
+        free_screens: Number.parseInt(formData.free_screens) || 0,
         max_media_storage: storageInBytes,
+        max_file_upload_size: fileUploadInBytes,
         storage_unit: formData.storage_unit,
         max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
+        max_locations: formData.max_locations === "-1" ? -1 : Number.parseInt(formData.max_locations),
+        max_schedules: formData.max_schedules === "-1" ? -1 : Number.parseInt(formData.max_schedules),
+        max_team_members: formData.max_team_members === "-1" ? -1 : Number.parseInt(formData.max_team_members),
         is_active: formData.is_active,
+        is_recommended: formData.is_recommended,
+        display_branding: formData.enable_display_branding,
+        // Feature toggles
+        features: {
+          media_library: formData.enable_media_library,
+          playlists: formData.enable_playlists,
+          screens: formData.enable_screens,
+          locations: formData.enable_locations,
+          schedules: formData.enable_schedules,
+          analytics: formData.enable_analytics,
+          ai_analytics: formData.enable_ai_analytics,
+          team_members: formData.enable_team_members,
+          url_media: formData.enable_url_media,
+          display_branding: formData.enable_display_branding,
+          restaurant_menus: formData.enable_restaurant_menus,
+        },
       }
 
       const response = await fetch("/api/admin/plans", {
@@ -201,6 +277,11 @@ export function PlanManagement() {
         formData.storage_unit,
       )
 
+      const fileUploadInBytes = convertDisplayValueToBytes(
+        Number.parseInt(formData.max_file_upload_size),
+        formData.file_upload_unit,
+      )
+
       const planData = {
         name: formData.name,
         description: formData.description,
@@ -208,10 +289,31 @@ export function PlanManagement() {
         yearly_price: Number.parseFloat(formData.yearly_price),
         trial_days: Number.parseInt(formData.trial_days),
         max_screens: formData.max_screens === "-1" ? -1 : Number.parseInt(formData.max_screens),
+        free_screens: Number.parseInt(formData.free_screens) || 0,
         max_media_storage: storageInBytes,
+        max_file_upload_size: fileUploadInBytes,
         storage_unit: formData.storage_unit,
         max_playlists: formData.max_playlists === "-1" ? -1 : Number.parseInt(formData.max_playlists),
+        max_locations: formData.max_locations === "-1" ? -1 : Number.parseInt(formData.max_locations),
+        max_schedules: formData.max_schedules === "-1" ? -1 : Number.parseInt(formData.max_schedules),
+        max_team_members: formData.max_team_members === "-1" ? -1 : Number.parseInt(formData.max_team_members),
         is_active: formData.is_active,
+        is_recommended: formData.is_recommended,
+        display_branding: formData.enable_display_branding,
+        // Feature toggles
+        features: {
+          media_library: formData.enable_media_library,
+          playlists: formData.enable_playlists,
+          screens: formData.enable_screens,
+          locations: formData.enable_locations,
+          schedules: formData.enable_schedules,
+          analytics: formData.enable_analytics,
+          ai_analytics: formData.enable_ai_analytics,
+          team_members: formData.enable_team_members,
+          url_media: formData.enable_url_media,
+          display_branding: formData.enable_display_branding,
+          restaurant_menus: formData.enable_restaurant_menus,
+        },
       }
 
       const response = await fetch(`/api/admin/plans/${editingPlan.id}`, {
@@ -223,6 +325,7 @@ export function PlanManagement() {
       if (response.ok) {
         await fetchPlans()
         setEditingPlan(null)
+        setIsPlanDialogOpen(false)
         resetForm()
         toast({
           title: "Success",
@@ -284,20 +387,54 @@ export function PlanManagement() {
       yearly_price: "0",
       trial_days: "0",
       max_screens: "1",
+      free_screens: "0",
       max_media_storage: "1",
+      max_file_upload_size: "10",
       storage_unit: "GB",
       max_playlists: "1",
-      is_active: true,
-    })
+      max_locations: "1",
+      max_schedules: "1",
+      max_team_members: "0",
+    is_active: true,
+    is_recommended: false,
+    enable_media_library: true,
+    enable_playlists: true,
+    enable_screens: true,
+    enable_locations: false,
+    enable_schedules: false,
+    enable_analytics: false,
+    enable_ai_analytics: false,
+    enable_team_members: false,
+    enable_url_media: true,
+    enable_display_branding: false,
+    enable_restaurant_menus: false,
+  })
   }
 
   const openEditDialog = (plan: SubscriptionPlan) => {
     const displayValue = convertStorageToDisplayValue(plan.max_media_storage, plan.storage_unit)
+    // Determine the best unit for file upload size independently of max storage unit
+    const fileUploadBytes = plan.max_file_upload_size || 10737418240
+    const fileUploadUnit =
+      fileUploadBytes >= 1024 * 1024 * 1024
+        ? "GB"
+        : fileUploadBytes >= 1024 * 1024
+          ? "MB"
+          : "KB"
+    const fileUploadValue = convertStorageToDisplayValue(fileUploadBytes, fileUploadUnit)
 
     // Extract monthly and yearly prices from the prices array
     const monthlyPrice = plan.prices?.find((p) => p.billing_cycle === "monthly")?.price || plan.monthly_price || 0
     const yearlyPrice = plan.prices?.find((p) => p.billing_cycle === "yearly")?.price || plan.yearly_price || 0
     const trialDays = plan.prices?.[0]?.trial_days || 0
+
+    // Use feature permissions already loaded in the plan object from fetchPlans
+    const features: any = {}
+    if (plan.feature_permissions) {
+      plan.feature_permissions.forEach((fp: any) => {
+        features[fp.feature_key] = fp.is_enabled
+      })
+    }
 
     setFormData({
       name: plan.name,
@@ -306,12 +443,31 @@ export function PlanManagement() {
       yearly_price: yearlyPrice.toString(),
       trial_days: trialDays.toString(),
       max_screens: plan.max_screens.toString(),
+      free_screens: (plan.free_screens ?? 0).toString(),
       max_media_storage: displayValue.toString(),
+      max_file_upload_size: fileUploadValue.toString(),
       storage_unit: plan.storage_unit || "GB",
+      file_upload_unit: fileUploadUnit,
       max_playlists: plan.max_playlists.toString(),
+      max_locations: (plan.max_locations ?? 1).toString(),
+      max_schedules: (plan.max_schedules ?? 1).toString(),
+      max_team_members: (plan.max_team_members ?? 0).toString(),
       is_active: plan.is_active,
+      is_recommended: (plan as any).is_recommended ?? false,
+      enable_media_library: features.media_library ?? true,
+      enable_playlists: features.playlists ?? true,
+      enable_screens: features.screens ?? true,
+      enable_locations: features.locations ?? false,
+      enable_schedules: features.schedules ?? false,
+      enable_analytics: features.analytics ?? false,
+      enable_ai_analytics: features.ai_analytics ?? false,
+      enable_team_members: features.team_members ?? false,
+      enable_url_media: features.url_media ?? true,
+      enable_display_branding: plan.display_branding ?? false,
+      enable_restaurant_menus: features.restaurant_menus ?? false,
     })
     setEditingPlan(plan)
+    setIsPlanDialogOpen(true)
   }
 
   const formatCurrency = (amount: number) => {
@@ -342,7 +498,7 @@ export function PlanManagement() {
           <h1 className="text-3xl font-bold text-foreground">Plan Management</h1>
           <p className="text-muted-foreground mt-1">Manage subscription plans and pricing</p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)} className="bg-emerald-500 hover:bg-emerald-600">
+        <Button onClick={() => setIsPlanDialogOpen(true)} className="bg-emerald-500 hover:bg-emerald-600">
           <Plus className="w-4 h-4 mr-2" />
           Add Plan
         </Button>
@@ -378,6 +534,10 @@ export function PlanManagement() {
                     <span className="font-medium">{plan.max_screens === -1 ? "Unlimited" : plan.max_screens}</span>
                   </div>
                   <div className="flex justify-between">
+                    <span className="text-muted-foreground">Free Screens:</span>
+                    <span className="font-medium">{plan.free_screens ?? 0}</span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Storage:</span>
                     <span className="font-medium">
                       {convertStorageToDisplayValue(plan.max_media_storage, plan.storage_unit)}{" "}
@@ -387,6 +547,10 @@ export function PlanManagement() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Max Playlists:</span>
                     <span className="font-medium">{plan.max_playlists === -1 ? "Unlimited" : plan.max_playlists}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Team Members:</span>
+                    <span className="font-medium">{plan.max_team_members === -1 ? "Unlimited" : (plan.max_team_members ?? 0)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Subscribers:</span>
@@ -427,8 +591,10 @@ export function PlanManagement() {
                   <TableHead>Monthly Price</TableHead>
                   <TableHead>Yearly Price</TableHead>
                   <TableHead>Max Screens</TableHead>
+                  <TableHead>Free Screens</TableHead>
                   <TableHead>Storage</TableHead>
                   <TableHead>Max Playlists</TableHead>
+                  <TableHead>Team</TableHead>
                   <TableHead>Subscribers</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Actions</TableHead>
@@ -441,11 +607,13 @@ export function PlanManagement() {
                     <TableCell>{formatCurrency(getPlanPrice(plan, "monthly"))}</TableCell>
                     <TableCell>{formatCurrency(getPlanPrice(plan, "yearly"))}</TableCell>
                     <TableCell>{plan.max_screens === -1 ? "Unlimited" : plan.max_screens}</TableCell>
+                    <TableCell>{plan.free_screens ?? 0}</TableCell>
                     <TableCell>
                       {convertStorageToDisplayValue(plan.max_media_storage, plan.storage_unit)}{" "}
                       {plan.storage_unit || "GB"}
                     </TableCell>
                     <TableCell>{plan.max_playlists === -1 ? "Unlimited" : plan.max_playlists}</TableCell>
+                    <TableCell>{plan.max_team_members === -1 ? "Unlimited" : (plan.max_team_members ?? 0)}</TableCell>
                     <TableCell>{plan.subscriber_count || 0}</TableCell>
                     <TableCell>
                       <Badge
@@ -474,12 +642,8 @@ export function PlanManagement() {
       </Card>
 
       <Dialog
-        open={showCreateDialog || !!editingPlan}
-        onOpenChange={() => {
-          setShowCreateDialog(false)
-          setEditingPlan(null)
-          resetForm()
-        }}
+        open={isPlanDialogOpen}
+        onOpenChange={setIsPlanDialogOpen}
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -561,53 +725,307 @@ export function PlanManagement() {
               <Label>Active Plan</Label>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-base font-semibold">Plan Limits</Label>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-sm text-muted-foreground">Max Screens</Label>
-                  <Input
-                    type="number"
-                    min="-1"
-                    value={formData.max_screens}
-                    onChange={(e) => setFormData({ ...formData, max_screens: e.target.value })}
-                    placeholder="e.g., 5 (-1 for unlimited)"
-                  />
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={formData.is_recommended}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_recommended: checked })}
+              />
+              <Label>Recommended Plan</Label>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-semibold">Plan Limits & Features</Label>
+                <p className="text-xs text-muted-foreground">Use -1 for unlimited. Toggle controls navigation visibility.</p>
+              </div>
+
+              {/* Media Library */}
+              <div className="space-y-3 pb-4 border-b">
+                <Label className="text-lg font-medium">Media Library</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Max Storage</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        min="-1"
+                        value={formData.max_media_storage}
+                        onChange={(e) => setFormData({ ...formData, max_media_storage: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Select
+                        value={formData.storage_unit}
+                        onValueChange={(value) => setFormData({ ...formData, storage_unit: value })}
+                      >
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MB">MB</SelectItem>
+                          <SelectItem value="GB">GB</SelectItem>
+                          <SelectItem value="TB">TB</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_media_library}
+                        onCheckedChange={(checked) => setFormData({ ...formData, enable_media_library: checked })}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Max Playlists</Label>
-                  <Input
-                    type="number"
-                    min="-1"
-                    value={formData.max_playlists}
-                    onChange={(e) => setFormData({ ...formData, max_playlists: e.target.value })}
-                    placeholder="e.g., 10 (-1 for unlimited)"
-                  />
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">File Upload Limit</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={formData.max_file_upload_size}
+                        onChange={(e) => setFormData({ ...formData, max_file_upload_size: e.target.value })}
+                        className="flex-1"
+                      />
+                      <Select
+                        value={formData.file_upload_unit}
+                        onValueChange={(value) => setFormData({ ...formData, file_upload_unit: value })}
+                      >
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MB">MB</SelectItem>
+                          <SelectItem value="GB">GB</SelectItem>
+                          <SelectItem value="TB">TB</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable URL Media</Label>
+                      <Switch
+                        checked={formData.enable_url_media}
+                        onCheckedChange={(checked) => setFormData({ ...formData, enable_url_media: checked })}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Storage</Label>
-                  <div className="flex gap-2">
+              </div>
+
+              {/* Playlists */}
+              <div className="space-y-3 pb-4 border-b">
+                <Label className="text-lg font-medium">Playlists</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Max Playlists</Label>
+                    <Input
+                      type="number"
+                      min="-1"
+                      value={formData.max_playlists}
+                      onChange={(e) => setFormData({ ...formData, max_playlists: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_playlists}
+                        onCheckedChange={(checked) => setFormData({ ...formData, enable_playlists: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Screens */}
+              <div className="space-y-3 pb-4 border-b">
+                <Label className="text-lg font-medium">Screens</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Max Screens</Label>
+                    <Input
+                      type="number"
+                      min="-1"
+                      value={formData.max_screens}
+                      onChange={(e) => setFormData({ ...formData, max_screens: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_screens}
+                        onCheckedChange={(checked) => setFormData({ ...formData, enable_screens: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Free Screens</Label>
                     <Input
                       type="number"
                       min="0"
-                      value={formData.max_media_storage}
-                      onChange={(e) => setFormData({ ...formData, max_media_storage: e.target.value })}
-                      placeholder="e.g., 10"
-                      className="flex-1"
+                      value={formData.free_screens}
+                      onChange={(e) => setFormData({ ...formData, free_screens: e.target.value })}
                     />
-                    <Select
-                      value={formData.storage_unit}
-                      onValueChange={(value) => setFormData({ ...formData, storage_unit: value })}
-                    >
-                      <SelectTrigger className="w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="MB">MB</SelectItem>
-                        <SelectItem value="GB">GB</SelectItem>
-                        <SelectItem value="TB">TB</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Screens included at no charge. Screens above this number are billed via Stripe.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Locations */}
+              <div className="space-y-3 pb-4 border-b">
+                <Label className="text-lg font-medium">Locations</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Max Locations</Label>
+                    <Input
+                      type="number"
+                      min="-1"
+                      value={formData.max_locations}
+                      onChange={(e) => setFormData({ ...formData, max_locations: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_locations}
+                        onCheckedChange={(checked) => setFormData({ ...formData, enable_locations: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Schedules */}
+              <div className="space-y-3 pb-4 border-b">
+                <Label className="text-lg font-medium">Schedules</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Max Schedules</Label>
+                    <Input
+                      type="number"
+                      min="-1"
+                      value={formData.max_schedules}
+                      onChange={(e) => setFormData({ ...formData, max_schedules: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_schedules}
+                        onCheckedChange={(checked) => setFormData({ ...formData, enable_schedules: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Analytics */}
+              <div className="space-y-3 pb-4 border-b">
+                <Label className="text-lg font-medium">Analytics</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Enable On This Plan</Label>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_analytics}
+                        onCheckedChange={(checked) => setFormData({ ...formData, enable_analytics: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">AI Analytics</Label>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_ai_analytics}
+                        onCheckedChange={(checked) => setFormData({ ...formData, enable_ai_analytics: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Team Members */}
+              <div className="space-y-3 pb-4 border-b">
+                <Label className="text-lg font-medium">Team Members</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Max Team Members</Label>
+                    <Input
+                      type="number"
+                      min="-1"
+                      value={formData.max_team_members}
+                      onChange={(e) => setFormData({ ...formData, max_team_members: e.target.value })}
+                    />
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_team_members}
+                        onCheckedChange={(checked) => setFormData({ ...formData, enable_team_members: checked })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Restaurant Menus */}
+              <div className="space-y-3 pb-4 border-b">
+                <Label className="text-lg font-medium">Restaurant Menus</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">
+                      Allow users to create and manage animated digital menu boards.
+                    </Label>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_restaurant_menus}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, enable_restaurant_menus: checked })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Display Branding */}
+              <div className="space-y-3 pb-4">
+                <Label className="text-lg font-medium">Branding</Label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Display Xkreen Logo on Player</Label>
+                  </div>
+                  <div className="flex flex-col justify-end">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm">Enable On This Plan</Label>
+                      <Switch
+                        checked={formData.enable_display_branding}
+                        onCheckedChange={(checked) => setFormData({ ...formData, enable_display_branding: checked })}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -617,7 +1035,7 @@ export function PlanManagement() {
             <Button
               variant="outline"
               onClick={() => {
-                setShowCreateDialog(false)
+                setIsPlanDialogOpen(false)
                 setEditingPlan(null)
                 resetForm()
               }}

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
 
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { media_id, duration = 10 } = await request.json()
+    const [{ media_id, duration = 10 }, { id }] = await Promise.all([request.json(), params])
 
     if (!media_id) {
       return NextResponse.json({ error: "Media ID is required" }, { status: 400 })
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const { data: playlist, error: playlistError } = await supabase
       .from("playlists")
       .select("id")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single()
 
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const { data: lastItem } = await supabase
       .from("playlist_items")
       .select("position")
-      .eq("playlist_id", params.id)
+      .eq("playlist_id", id)
       .order("position", { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const { data: playlistItem, error } = await supabase
       .from("playlist_items")
       .insert({
-        playlist_id: params.id,
+        playlist_id: id,
         media_id,
         duration_override: duration,
         position: nextPosition,
@@ -66,12 +66,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: "Failed to add media to playlist" }, { status: 500 })
     }
 
-    await supabase.from("playlists").update({ updated_at: new Date().toISOString() }).eq("id", params.id)
+    await supabase.from("playlists").update({ updated_at: new Date().toISOString() }).eq("id", id)
 
     const { data: screenPlaylists } = await supabase
       .from("screen_playlists")
       .select("screen_id")
-      .eq("playlist_id", params.id)
+      .eq("playlist_id", id)
 
     if (screenPlaylists && screenPlaylists.length > 0) {
       const screenIds = screenPlaylists.map((sp) => sp.screen_id)
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
 
@@ -103,7 +103,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { playlist_item_id, duration_override, transition_type, transition_duration } = await request.json()
+    const [{ playlist_item_id, duration_override, transition_type, transition_duration }, { id }] = await Promise.all([request.json(), params])
 
     if (!playlist_item_id || duration_override === undefined) {
       return NextResponse.json({ error: "Playlist item ID and duration are required" }, { status: 400 })
@@ -148,12 +148,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Failed to update playlist item" }, { status: 500 })
     }
 
-    await supabase.from("playlists").update({ updated_at: new Date().toISOString() }).eq("id", params.id)
+    await supabase.from("playlists").update({ updated_at: new Date().toISOString() }).eq("id", id)
 
     const { data: screenPlaylists } = await supabase
       .from("screen_playlists")
       .select("screen_id")
-      .eq("playlist_id", params.id)
+      .eq("playlist_id", id)
 
     if (screenPlaylists && screenPlaylists.length > 0) {
       const screenIds = screenPlaylists.map((sp) => sp.screen_id)
@@ -167,7 +167,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
 
@@ -185,7 +185,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { playlist_item_id } = await request.json()
+    const [{ playlist_item_id }, { id }] = await Promise.all([request.json(), params])
 
     if (!playlist_item_id) {
       return NextResponse.json({ error: "Playlist item ID is required" }, { status: 400 })
@@ -214,12 +214,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Failed to delete playlist item" }, { status: 500 })
     }
 
-    await supabase.from("playlists").update({ updated_at: new Date().toISOString() }).eq("id", params.id)
+    await supabase.from("playlists").update({ updated_at: new Date().toISOString() }).eq("id", id)
 
     const { data: screenPlaylists } = await supabase
       .from("screen_playlists")
       .select("screen_id")
-      .eq("playlist_id", params.id)
+      .eq("playlist_id", id)
 
     if (screenPlaylists && screenPlaylists.length > 0) {
       const screenIds = screenPlaylists.map((sp) => sp.screen_id)

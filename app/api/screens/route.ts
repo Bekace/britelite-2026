@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
+
 const OFFLINE_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
 
 function isScreenOffline(lastSeen: string | null): boolean {
@@ -38,6 +39,11 @@ export async function GET() {
         screen_media(
           media_id,
           media(id, name, mime_type, file_path)
+        ),
+        screen_schedules(
+          schedule_id,
+          is_active,
+          schedules(id, name)
         )
       `)
       .eq("user_id", user.id)
@@ -91,61 +97,98 @@ export async function POST(request: NextRequest) {
     const isSuperAdmin = profile?.role === "super_admin"
 
     if (!isSuperAdmin) {
-      // Get current screen count
-      const { count: currentScreens } = await supabase
-        .from("screens")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-
-      // Get user's active subscription or default to Free plan
+      // New billing model: paid users have unlimited screens (billed per screen via Stripe).
+      // Free plan users are still capped by max_screens.
       const { data: subscription } = await supabase
         .from("user_subscriptions")
-        .select(
-          `
+        .select(`
+          status,
           subscription_plans (
-            max_screens,
-            name
+            name,
+            max_screens
           )
-        `,
-        )
+        `)
         .eq("user_id", user.id)
         .in("status", ["active", "trialing"])
         .single()
 
-      let maxScreens = 1 // Default Free plan limit
+      const hasPaidSubscription = !!subscription
+      // Supabase returns joined relations as an array — extract the first element
+      const planRaw = subscription?.subscription_plans
+      const planObj = (Array.isArray(planRaw) ? planRaw[0] : planRaw) as { name: string; max_screens: number } | null
+      const planName = planObj?.name
 
-      if (subscription?.subscription_plans) {
-        const plan = subscription.subscription_plans as { max_screens: number; name: string }
-        maxScreens = plan.max_screens
-      } else {
-        // No active subscription - use Free plan limits
-        const { data: freePlan } = await supabase
-          .from("subscription_plans")
-          .select("max_screens")
-          .eq("name", "Free")
-          .single()
+      if (!hasPaidSubscription || planName === "Free") {
+        // Fall back to max_screens cap for Free plan / no subscription
+        const { count: currentScreens } = await supabase
+          .from("screens")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
 
-        if (freePlan) {
-          maxScreens = freePlan.max_screens
+        let maxScreens = 1 // default if nothing found
+
+        if (planObj) {
+          maxScreens = planObj.max_screens
+        } else {
+          const { data: freePlan } = await supabase
+            .from("subscription_plans")
+            .select("max_screens")
+            .eq("name", "Free")
+            .single()
+          if (freePlan) maxScreens = freePlan.max_screens
+        }
+
+        if (maxScreens !== -1 && (currentScreens || 0) >= maxScreens) {
+          return NextResponse.json(
+            {
+              error: "Screen limit reached",
+              message: `Your current plan allows ${maxScreens} screen${maxScreens > 1 ? "s" : ""}. Please upgrade to create more screens.`,
+            },
+            { status: 403 },
+          )
         }
       }
-
-      // Check if limit reached (unlimited = -1)
-      if (maxScreens !== -1 && (currentScreens || 0) >= maxScreens) {
-        return NextResponse.json(
-          {
-            error: "Screen limit reached",
-            message: `Your current plan allows ${maxScreens} screen${maxScreens > 1 ? "s" : ""}. Please upgrade to create more screens.`,
-          },
-          { status: 403 },
-        )
-      }
+      // Paid plan users (non-Free) have unlimited screens — gating is done via Stripe billing
     }
 
-    const { name, location, resolution, orientation, content_type, enable_audio_management } = await request.json()
+    const { 
+      name, 
+      location, 
+      resolution, 
+      orientation, 
+      content_type, 
+      enable_audio_management,
+      shuffle,
+      is_active,
+      scale_image,
+      scale_video,
+      scale_document,
+      background_color,
+      default_transition,
+      stripe_subscription_id: clientStripeSubId,
+      stripe_price_id,
+    } = await request.json()
 
     if (!name) {
       return NextResponse.json({ error: "Screen name is required" }, { status: 400 })
+    }
+
+    // If the client didn't send a stripe_subscription_id (e.g. wizard was closed and re-opened),
+    // auto-lookup pending_slot_subscription_id from the DB so the slot is always correctly linked.
+    let stripe_subscription_id = clientStripeSubId ?? null
+    let pendingSubCleared = false
+
+    if (!stripe_subscription_id) {
+      const { data: userSubRow } = await supabase
+        .from("user_subscriptions")
+        .select("pending_slot_subscription_id, purchased_screen_slots")
+        .eq("user_id", user.id)
+        .single()
+
+      if (userSubRow?.pending_slot_subscription_id) {
+        stripe_subscription_id = userSubRow.pending_slot_subscription_id
+        pendingSubCleared = true
+      }
     }
 
     // Generate unique screen code
@@ -164,6 +207,15 @@ export async function POST(request: NextRequest) {
         status: "offline",
         content_type: content_type || "none",
         enable_audio_management: enable_audio_management ?? false,
+        shuffle: shuffle ?? false,
+        is_active: is_active ?? true,
+        scale_image: scale_image || "fit",
+        scale_video: scale_video || "fit",
+        scale_document: scale_document || "fit",
+        background_color: background_color || "#000000",
+        default_transition: default_transition || "fade",
+        ...(stripe_subscription_id ? { stripe_subscription_id } : {}),
+        ...(stripe_price_id ? { stripe_price_id } : {}),
       })
       .select()
       .single()
@@ -171,6 +223,15 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("Database error:", error)
       return NextResponse.json({ error: "Failed to create screen" }, { status: 500 })
+    }
+
+    // Clear pending_slot_subscription_id now that the screen has been created
+    // so the next "Add Screen" click correctly shows the buy dialog
+    if (stripe_subscription_id && (pendingSubCleared || clientStripeSubId)) {
+      await supabase
+        .from("user_subscriptions")
+        .update({ pending_slot_subscription_id: null })
+        .eq("user_id", user.id)
     }
 
     return NextResponse.json({ screen })

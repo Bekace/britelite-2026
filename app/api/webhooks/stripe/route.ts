@@ -1,14 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
-import Stripe from "stripe"
+import { getStripe } from "@/lib/stripe"
 import { createServiceRoleClient } from "@/lib/supabase/server"
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-04-30.basil",
-})
+import type Stripe from "stripe"
 
 export async function POST(req: NextRequest) {
+  const stripe = getStripe()
   const body = await req.text()
-  const sig = req.headers.get("stripe-signature")!
+  const sig = req.headers.get("stripe-signature")
+
+  if (!sig) {
+    return NextResponse.json({ error: "No signature" }, { status: 400 })
+  }
 
   let event: Stripe.Event
 
@@ -16,38 +18,40 @@ export async function POST(req: NextRequest) {
     event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!)
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error"
-    console.error("[v0] Webhook signature verification failed:", errorMessage)
     return NextResponse.json({ error: `Webhook Error: ${errorMessage}` }, { status: 400 })
   }
 
-  const supabase = createServiceRoleClient()
+  const supabase = await createServiceRoleClient()
 
   try {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session
 
+        // Screen slot purchase — store the new subscription ID so the screens page
+        // can use it when the user creates their screen after returning from Stripe.
+        if (session.metadata?.type === "screen_slot") {
+          const userId = session.metadata?.user_id
+          if (userId && session.subscription) {
+            // Store pending slot subscription ID on the user_subscriptions row
+            // so the confirm endpoint can hand it off to the screen wizard.
+            await supabase
+              .from("user_subscriptions")
+              .update({ pending_slot_subscription_id: session.subscription.toString() })
+              .eq("user_id", userId)
+            console.log(`[webhook] screen_slot checkout complete, subscription ${session.subscription} for user ${userId}`)
+          }
+          break
+        }
+
         let planId = session.metadata?.plan_id
         let priceId = session.metadata?.price_id
         const customerEmail = session.metadata?.email || session.customer_email
 
-        console.log("[v0] checkout.session.completed")
-        console.log("[v0] session metadata - planId:", planId, "priceId:", priceId, "email:", customerEmail)
-        console.log(
-          "[v0] session.id:",
-          session.id,
-          "subscription:",
-          session.subscription,
-          "customer:",
-          session.customer,
-        )
-
         if (session.subscription) {
-          console.log("[v0] Fetching subscription metadata from Stripe")
           const subscription = await stripe.subscriptions.retrieve(session.subscription.toString())
           planId = subscription.metadata?.plan_id || planId
           priceId = subscription.metadata?.price_id || priceId
-          console.log("[v0] subscription metadata - planId:", planId, "priceId:", priceId)
         }
 
         // Look up pending signup by stripe_session_id
@@ -57,14 +61,9 @@ export async function POST(req: NextRequest) {
           .eq("stripe_session_id", session.id)
           .single()
 
-        console.log("[v0] pendingSignup found:", !!pendingSignup)
-        if (pendingError) console.log("[v0] pendingError:", pendingError.message)
-
         let userId: string | null = null
 
         if (pendingSignup) {
-          console.log("[v0] Creating user for:", pendingSignup.email)
-
           // Create user in Supabase Auth with admin API
           const { data: authData, error: authError } = await supabase.auth.admin.createUser({
             email: pendingSignup.email,
@@ -76,32 +75,24 @@ export async function POST(req: NextRequest) {
           })
 
           if (authError) {
-            console.error("[v0] Failed to create user:", authError)
+            console.error("Failed to create user:", authError)
             return NextResponse.json({ error: "Failed to create user" }, { status: 500 })
           }
 
           userId = authData.user.id
-          console.log("[v0] User created with id:", userId)
 
-          // Update password hash directly in auth.users
           const { error: passwordError } = await supabase.rpc("set_user_password_hash", {
             user_id: userId,
             password_hash: pendingSignup.password_hash,
           })
 
           if (passwordError) {
-            console.error("[v0] Failed to set password:", passwordError)
+            console.error("Failed to set password:", passwordError)
           }
 
-          // Update profile with Stripe customer ID
           await supabase.from("profiles").update({ stripe_customer_id: session.customer?.toString() }).eq("id", userId)
-
-          // Delete pending signup record
           await supabase.from("pending_signups").delete().eq("id", pendingSignup.id)
-          console.log("[v0] Deleted pending signup record")
         } else {
-          console.log("[v0] No pending signup found, looking up existing user by customer:", session.customer)
-
           if (session.customer) {
             const { data: existingSubscription } = await supabase
               .from("user_subscriptions")
@@ -111,9 +102,7 @@ export async function POST(req: NextRequest) {
 
             if (existingSubscription) {
               userId = existingSubscription.user_id
-              console.log("[v0] Found existing user by customer ID from subscriptions:", userId)
             } else {
-              // Try profiles table as fallback
               const { data: profile } = await supabase
                 .from("profiles")
                 .select("id")
@@ -122,16 +111,12 @@ export async function POST(req: NextRequest) {
 
               if (profile) {
                 userId = profile.id
-                console.log("[v0] Found existing user by customer ID from profiles:", userId)
               }
             }
           }
 
-          // If not found by customer ID, try by email
           if (!userId && customerEmail) {
-            console.log("[v0] Looking up user by email:", customerEmail)
-
-            const { data: profile, error: profileError } = await supabase
+            const { data: profile } = await supabase
               .from("profiles")
               .select("id")
               .eq("email", customerEmail)
@@ -139,32 +124,20 @@ export async function POST(req: NextRequest) {
 
             if (profile) {
               userId = profile.id
-              console.log("[v0] Found user by email:", userId)
 
               if (session.customer) {
-                const { error: updateError } = await supabase
+                await supabase
                   .from("profiles")
                   .update({ stripe_customer_id: session.customer.toString() })
                   .eq("id", userId)
-
-                if (updateError) {
-                  console.error("[v0] Failed to update profile with customer ID:", updateError)
-                } else {
-                  console.log("[v0] Updated profile with stripe_customer_id:", session.customer.toString())
-                }
               }
-            } else {
-              console.error("[v0] No user found for email:", customerEmail, "Error:", profileError)
             }
           }
 
           if (!userId && session.customer) {
-            console.log("[v0] Attempting to fetch customer from Stripe:", session.customer)
             try {
               const customer = await stripe.customers.retrieve(session.customer.toString())
               if (!customer.deleted && customer.email) {
-                console.log("[v0] Found customer email from Stripe:", customer.email)
-
                 const { data: profile } = await supabase
                   .from("profiles")
                   .select("id")
@@ -173,9 +146,6 @@ export async function POST(req: NextRequest) {
 
                 if (profile) {
                   userId = profile.id
-                  console.log("[v0] Found user by Stripe customer email:", userId)
-
-                  // Update profile with customer ID
                   await supabase
                     .from("profiles")
                     .update({ stripe_customer_id: session.customer.toString() })
@@ -183,21 +153,10 @@ export async function POST(req: NextRequest) {
                 }
               }
             } catch (error) {
-              console.error("[v0] Failed to retrieve Stripe customer:", error)
+              console.error("Failed to retrieve Stripe customer:", error)
             }
           }
         }
-
-        console.log(
-          "[v0] Before subscription - userId:",
-          userId,
-          "planId:",
-          planId,
-          "priceId:",
-          priceId,
-          "subscription:",
-          session.subscription,
-        )
 
         if (userId && planId && priceId && session.subscription) {
           const { data: existingSub } = await supabase
@@ -207,9 +166,6 @@ export async function POST(req: NextRequest) {
             .single()
 
           if (existingSub) {
-            console.log("[v0] Existing subscription found, updating for upgrade")
-            console.log("[v0] Old stripe_subscription_id:", existingSub.stripe_subscription_id)
-            console.log("[v0] New stripe_subscription_id:", session.subscription.toString())
 
             // Get trial info from price if available
             const { data: priceData } = await supabase
@@ -222,31 +178,39 @@ export async function POST(req: NextRequest) {
             const now = new Date()
             const trialEnd = trialDays > 0 ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null
 
-            const { error: updateError } = await supabase
+            const updateData = {
+              plan_id: planId,
+              price_id: priceId,
+              stripe_subscription_id: session.subscription.toString(),
+              stripe_customer_id: session.customer?.toString(),
+              status: trialDays > 0 ? "trialing" : "active",
+              trial_ends_at: trialEnd?.toISOString() || null,
+              started_at: now.toISOString(),
+              expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              updated_at: now.toISOString(),
+            }
+
+            console.log("[v0] Update data:", JSON.stringify(updateData, null, 2))
+
+            const { data: updatedSub, error: updateError } = await supabase
               .from("user_subscriptions")
-              .update({
-                plan_id: planId,
-                price_id: priceId,
-                stripe_subscription_id: session.subscription.toString(),
-                stripe_customer_id: session.customer?.toString(),
-                status: trialDays > 0 ? "trialing" : "active",
-                trial_ends_at: trialEnd?.toISOString() || null,
-                started_at: now.toISOString(),
-                expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-              })
+              .update(updateData)
               .eq("id", existingSub.id)
+              .select()
+              .single()
 
             if (updateError) {
-              console.error("[v0] Failed to update subscription:", updateError)
-            } else {
-              console.log(
-                "[v0] Successfully updated subscription for user:",
-                userId,
-                "to plan:",
-                planId,
-                "price:",
-                priceId,
-              )
+              console.error("[v0] ❌ Failed to update subscription:", updateError)
+              return NextResponse.json({ error: "Failed to update subscription" }, { status: 500 })
+            }
+
+            // The upgrade payment = purchasing 1 screen slot.
+            // Increment purchased_screen_slots by 1 so the user can create a new screen immediately.
+            const { error: slotError } = await supabase.rpc("increment_purchased_screen_slots", {
+              p_subscription_id: existingSub.id,
+            })
+            if (slotError) {
+              console.error("[v0] Failed to grant screen slot on upgrade:", slotError)
             }
           } else {
             console.log("[v0] No existing subscription, creating new one")
@@ -277,22 +241,9 @@ export async function POST(req: NextRequest) {
             })
 
             if (subError) {
-              console.error("[v0] Failed to create subscription:", subError)
-            } else {
-              console.log("[v0] Created subscription for user:", userId)
+              console.error("Failed to create subscription:", subError)
             }
           }
-        } else {
-          console.error(
-            "[v0] Missing data for subscription - userId:",
-            userId,
-            "planId:",
-            planId,
-            "priceId:",
-            priceId,
-            "subscription:",
-            session.subscription,
-          )
         }
 
         break
@@ -301,21 +252,25 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription
 
+        // current_period_end moved to the item level in Stripe API 2025-11-17.
+        // Fall back gracefully: item level → top level → 30 days from now.
+        const periodEnd: number =
+          (subscription.items?.data?.[0] as any)?.current_period_end ??
+          (subscription as any).current_period_end ??
+          Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60
+
         const { error } = await supabase
           .from("user_subscriptions")
           .update({
             status: subscription.status,
-            expires_at: new Date(subscription.current_period_end * 1000).toISOString(),
+            expires_at: new Date(periodEnd * 1000).toISOString(),
             cancel_at_period_end: subscription.cancel_at_period_end || false,
-            // Track when subscription was canceled if applicable
             canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
           })
           .eq("stripe_subscription_id", subscription.id)
 
         if (error) {
-          console.error("[v0] Failed to update subscription:", error)
-        } else {
-          console.log("[v0] Updated subscription status and cancellation tracking for:", subscription.id)
+          console.error("Failed to update subscription:", error)
         }
         break
       }
@@ -323,40 +278,78 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription
 
-        const { error } = await supabase
-          .from("user_subscriptions")
-          .update({
-            status: "canceled",
-          })
-          .eq("stripe_subscription_id", subscription.id)
+        if (subscription.metadata?.type === "screen_slot") {
+          // This is a screen slot subscription — delete the corresponding screen row
+          const { data: screen } = await supabase
+            .from("screens")
+            .select("id, user_id")
+            .eq("stripe_subscription_id", subscription.id)
+            .single()
 
-        if (error) {
-          console.error("[v0] Failed to cancel subscription:", error)
-        }
-        break
-      }
+          if (screen) {
+            await supabase.from("screens").delete().eq("id", screen.id)
+            console.log(`[webhook] Screen slot deleted for subscription ${subscription.id}, screen ${screen.id}`)
+          }
+        } else {
+          // This is a plan subscription — revert account to Free plan
+          const { data: freePlan } = await supabase
+            .from("subscription_plans")
+            .select("id")
+            .eq("name", "Free")
+            .single()
 
-      case "invoice.payment_succeeded": {
-        const invoice = event.data.object as Stripe.Invoice
-        if (invoice.subscription) {
-          await supabase
+          const { error } = await supabase
             .from("user_subscriptions")
             .update({
-              status: "active",
-              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              status: "canceled",
+              ...(freePlan ? { plan_id: freePlan.id } : {}),
             })
-            .eq("stripe_subscription_id", invoice.subscription.toString())
+            .eq("stripe_subscription_id", subscription.id)
+
+          if (error) {
+            console.error("[webhook] Failed to cancel plan subscription:", error)
+          }
         }
         break
       }
 
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice
-        if (invoice.subscription) {
+        if (!invoice.subscription) break
+
+        const subId = invoice.subscription.toString()
+
+        // Check if this is a screen slot subscription
+        const stripeSubData = await stripe.subscriptions.retrieve(subId).catch(() => null)
+        if (stripeSubData?.metadata?.type === "screen_slot") {
+          // Mark the associated screen as payment_failed
+          await supabase
+            .from("screens")
+            .update({ slot_payment_status: "payment_failed" })
+            .eq("stripe_subscription_id", subId)
+          console.log(`[webhook] Payment failed for screen slot subscription ${subId}`)
+        } else {
+          // Plan subscription payment failed
           await supabase
             .from("user_subscriptions")
             .update({ status: "past_due" })
-            .eq("stripe_subscription_id", invoice.subscription.toString())
+            .eq("stripe_subscription_id", subId)
+        }
+        break
+      }
+
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice
+        if (!invoice.subscription) break
+        const subId = invoice.subscription.toString()
+
+        const stripeSubData = await stripe.subscriptions.retrieve(subId).catch(() => null)
+        if (stripeSubData?.metadata?.type === "screen_slot") {
+          // Clear payment_failed flag when payment recovers
+          await supabase
+            .from("screens")
+            .update({ slot_payment_status: "active" })
+            .eq("stripe_subscription_id", subId)
         }
         break
       }
@@ -364,7 +357,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error("[v0] Webhook handler error:", error)
+    console.error("Webhook handler error:", error)
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 })
   }
 }

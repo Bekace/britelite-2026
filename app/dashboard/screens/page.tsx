@@ -11,18 +11,22 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
-  Eye,
-  PlayCircle,
-  ImageIcon,
   Tv,
-  Smartphone,
+  PlayCircle,
+  Circle,
   CheckCircle,
-  Wifi,
+  CheckCircle2,
+  Calendar,
+  VolumeX,
   RotateCw,
   Edit,
-  Circle,
-  CheckCircle2,
+  Eye,
+  MoreVertical,
+  Wifi,
+  ImageIcon,
+  Smartphone,
 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { transformScreenData } from "@/utils/transformScreenData"
 import { ScreenPreviewModal } from "@/components/screen-preview-modal" // Import the real ScreenPreviewModal component instead of using placeholder
@@ -44,8 +48,22 @@ interface Screen {
   media_id?: string
   screen_playlists?: { playlist_id: string; is_active: boolean; playlists?: { id: string; name: string } }[] // Added playlists relation
   screen_media?: { media_id: string; media?: { id: string; name: string } }[] // Added screen_media
-  content_type?: "playlist" | "asset" | "none" // Added content_type
+  content_type?: "playlist" | "asset" | "schedule" | "none" // Added content_type
   enable_audio_management?: boolean
+  screen_schedules?: { schedule_id: string; schedules?: { id: string; name: string } }[]
+  shuffle?: boolean
+  is_active?: boolean
+  scale_image?: string
+  scale_video?: string
+  scale_document?: string
+  background_color?: string
+  default_transition?: string
+  timezone?: string
+  stripe_subscription_id?: string | null
+  stripe_price_id?: string | null
+  slot_cancel_at?: string | null
+  is_free_slot?: boolean
+  slot_payment_status?: string | null
 }
 
 interface Playlist {
@@ -81,7 +99,8 @@ interface WizardState {
     preloadAssets: boolean
     showOfflineIndicator: boolean
     mute: boolean
-    notificationsEnabled: boolean // Added notificationsEnabled
+    notificationsEnabled: boolean
+    defaultTransition: string
   }
 }
 
@@ -89,25 +108,43 @@ export default function ScreensPage() {
   const [screens, setScreens] = useState<Screen[]>([])
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
+  const [schedules, setSchedules] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingScreen, setEditingScreen] = useState<Screen | null>(null)
   const [creating, setCreating] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date())
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [updating, setUpdating] = useState(false)
   const [repairingScreen, setRepairingScreen] = useState<Screen | null>(null)
   const [newPairingCode, setNewPairingCode] = useState("")
   const [isCreatingScreen, setIsCreatingScreen] = useState(false)
-  const [editingContentType, setEditingContentType] = useState<"playlist" | "asset">("playlist")
+  const [editingContentType, setEditingContentType] = useState<"playlist" | "asset" | "schedule" | "none">("playlist")
   const [previewingScreen, setPreviewingScreen] = useState<Screen | null>(null)
   const [editingSelectedContentIds, setEditingSelectedContentIds] = useState<string[]>([])
+  const [deviceOnlineStatus, setDeviceOnlineStatus] = useState<Record<string, boolean>>({})
+  const [wizardContentTab, setWizardContentTab] = useState<"playlist" | "asset" | "schedule">("playlist")
 
   const [screenLimits, setScreenLimits] = useState<{
     current: number
     limit: number
     canCreate: boolean
     plan: string
+    freeScreens?: number
+    billableScreens?: number
+    pricePerScreen?: number
+    billingCycle?: string
+    purchasedSlots?: number
+    availableSlots?: number
+    pendingSlotSubscriptionId?: string | null
   } | null>(null)
+  const [isBuyScreenDialogOpen, setIsBuyScreenDialogOpen] = useState(false)
+  const [isPurchasingScreen, setIsPurchasingScreen] = useState(false)
+  const [purchaseError, setPurchaseError] = useState<string | null>(null)
+  const [purchasedSlotData, setPurchasedSlotData] = useState<{ subscriptionId: string; priceId: string } | null>(null)
+  const [cancelingScreen, setCancelingScreen] = useState<Screen | null>(null)
+  const [isCanceling, setIsCanceling] = useState(false)
 
   const [wizardState, setWizardState] = useState<WizardState>({
     step: 1,
@@ -129,19 +166,69 @@ export default function ScreensPage() {
       preloadAssets: false,
       showOfflineIndicator: true,
       mute: false,
-      notificationsEnabled: true, // Added notificationsEnabled
+      notificationsEnabled: true,
+      defaultTransition: "fade",
     },
   })
 
   const { toast } = useToast()
-  const router = useRouter() // Import useRouter
+  const router = useRouter()
+
+  // When returning from Stripe Checkout after a slot purchase, confirm it and open the wizard.
+  // We use ?slot_purchased=true only — session ID is read from the DB by the API,
+  // so we are not vulnerable to Stripe template substitution issues in the URL.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("slot_purchased") !== "true") return
+    // Clean the URL immediately so refresh doesn't re-trigger
+    window.history.replaceState({}, "", "/dashboard/screens")
+    // Confirm the purchase server-side (increments purchased_screen_slots + stores pending sub ID)
+    fetch("/api/stripe/confirm-screen-purchase", { method: "POST" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          // Refresh limits so the available slot appears in the UI
+          fetchScreenLimits()
+          // Do NOT auto-open the wizard — show a toast so user can click Add Screen when ready
+          toast({
+            title: "Screen slot purchased",
+            description: "Your new slot is ready. Click \"Add Screen\" whenever you want to set it up.",
+          })
+        } else {
+          toast({ title: "Purchase error", description: data.error || "Could not confirm purchase.", variant: "destructive" })
+        }
+      })
+      .catch(() => toast({ title: "Purchase error", description: "Could not confirm purchase.", variant: "destructive" }))
+  }, [])
 
   useEffect(() => {
     fetchScreenLimits()
     fetchScreens()
     fetchPlaylists()
     fetchMediaItems()
+    fetchSchedules()
+    fetchDeviceStatus()
+
+    // Poll for screen status updates every 30 seconds
+    const pollInterval = setInterval(() => {
+      fetchScreens()
+      fetchDeviceStatus()
+    }, 30000)
+
+    // Cleanup interval on unmount
+    return () => clearInterval(pollInterval)
   }, [])
+
+  // Update elapsed seconds counter every second
+  useEffect(() => {
+    setElapsedSeconds(0) // Reset when lastUpdated changes
+
+    const timerInterval = setInterval(() => {
+      setElapsedSeconds(Math.floor((new Date().getTime() - lastUpdated.getTime()) / 1000))
+    }, 1000)
+
+    return () => clearInterval(timerInterval)
+  }, [lastUpdated])
 
   const fetchScreenLimits = async () => {
     try {
@@ -155,6 +242,32 @@ export default function ScreensPage() {
     }
   }
 
+  const fetchDeviceStatus = async () => {
+    try {
+      console.log("[v0] Fetching device status...")
+      const response = await fetch("/api/devices/status")
+      console.log("[v0] Device status response:", response.status)
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log("[v0] Device status data:", data)
+
+        const statusMap: Record<string, boolean> = {}
+        data.devices.forEach((device: any) => {
+          if (device.screen_id) {
+            console.log(`[v0] Device ${device.device_code} for screen ${device.screen_id}: is_online=${device.is_online}`)
+            statusMap[device.screen_id] = device.is_online
+          }
+        })
+
+        console.log("[v0] Final status map:", statusMap)
+        setDeviceOnlineStatus(statusMap)
+      }
+    } catch (error) {
+      console.error("[v0] Error fetching device status:", error)
+    }
+  }
+
   const fetchScreens = async () => {
     try {
       const response = await fetch("/api/screens")
@@ -162,6 +275,7 @@ export default function ScreensPage() {
         const data = await response.json()
         const transformedScreens = data.screens.map(transformScreenData)
         setScreens(transformedScreens)
+        setLastUpdated(new Date())
       } else {
         toast({
           title: "Error",
@@ -202,6 +316,18 @@ export default function ScreensPage() {
       }
     } catch (error) {
       console.error("Error fetching media items:", error)
+    }
+  }
+
+  const fetchSchedules = async () => {
+    try {
+      const response = await fetch("/api/schedules")
+      if (response.ok) {
+        const data = await response.json()
+        setSchedules(data.schedules || [])
+      }
+    } catch (error) {
+      console.error("Error fetching schedules:", error)
     }
   }
 
@@ -291,15 +417,6 @@ export default function ScreensPage() {
   }
 
   const handleCreateScreen = async () => {
-    if (screenLimits && !screenLimits.canCreate) {
-      toast({
-        title: "Screen Limit Reached",
-        description: `Your ${screenLimits.plan} plan allows ${screenLimits.limit} screen${screenLimits.limit > 1 ? "s" : ""}. Please upgrade to create more screens.`,
-        variant: "destructive",
-      })
-      return
-    }
-
     if (!wizardState.name.trim()) {
       toast({
         title: "Error",
@@ -327,6 +444,21 @@ export default function ScreensPage() {
         contentCount: wizardState.selectedContentIds.length,
       })
 
+      // Determine content type based on selected content
+      let contentType = "none"
+      if (wizardState.selectedContentIds.length > 0) {
+        const selectedId = wizardState.selectedContentIds[0]
+        if (playlists.some((p) => p.id === selectedId)) {
+          contentType = "playlist"
+        } else if (schedules.some((s) => s.id === selectedId)) {
+          contentType = "schedule"
+        } else if (mediaItems.some((m) => m.id === selectedId)) {
+          contentType = "asset"
+        }
+      }
+
+      console.log("[v0] Detected content type:", contentType)
+
       const screenResponse = await fetch("/api/screens", {
         method: "POST",
         headers: {
@@ -338,8 +470,13 @@ export default function ScreensPage() {
           location: wizardState.location,
           orientation: wizardState.orientation,
           resolution: wizardState.resolution,
-          content_type: wizardState.selectedContentIds.length > 0 ? "playlist" : "none",
+          content_type: contentType,
           enable_audio_management: wizardState.advancedOptions.mute,
+          default_transition: wizardState.advancedOptions.defaultTransition,
+          ...(purchasedSlotData ? {
+            stripe_subscription_id: purchasedSlotData.subscriptionId,
+            stripe_price_id: purchasedSlotData.priceId,
+          } : {}),
         }),
       })
 
@@ -376,10 +513,14 @@ export default function ScreensPage() {
 
         const assignmentPromises = wizardState.selectedContentIds.map(async (contentId, index) => {
           const isPlaylist = playlists.some((p) => p.id === contentId)
+          const isSchedule = schedules.some((s) => s.id === contentId)
+          const isMedia = mediaItems.some((m) => m.id === contentId)
 
           console.log(`[v0] Assigning content ${index + 1}/${wizardState.selectedContentIds.length}:`, {
             contentId,
             isPlaylist,
+            isSchedule,
+            isMedia,
           })
 
           if (isPlaylist) {
@@ -401,15 +542,39 @@ export default function ScreensPage() {
             }
 
             console.log("[v0] Playlist assigned successfully")
-          } else {
-            // It's a media item - update screen's media_id
+          } else if (isSchedule) {
+            const response = await fetch(`/api/screens/${screenData.screen.id}/schedules`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                schedule_id: contentId,
+                is_active: true,
+              }),
+            })
+
+            if (!response.ok) {
+              const errorData = await response.json()
+              console.error("[v0] Failed to assign schedule:", errorData)
+              throw new Error(errorData.error || "Failed to assign schedule")
+            }
+
+            console.log("[v0] Schedule assigned successfully")
+          } else if (isMedia) {
+            // Assign media via screen_media junction table, same pattern as playlist/schedule
             const response = await fetch(`/api/screens/${screenData.screen.id}`, {
               method: "PUT",
               headers: {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                media_id: contentId,
+                name: wizardState.name,
+                location: wizardState.location,
+                resolution: wizardState.resolution,
+                orientation: wizardState.orientation,
+                content_type: "asset",
+                selectedContentIds: [contentId],
               }),
             })
 
@@ -437,6 +602,7 @@ export default function ScreensPage() {
       // Reset wizard and close modal
       resetWizard()
       setIsCreateDialogOpen(false)
+      setPurchasedSlotData(null)
       fetchScreens()
       fetchScreenLimits()
     } catch (error) {
@@ -590,112 +756,170 @@ export default function ScreensPage() {
     </div>
   )
 
-  const renderStep2 = () => (
-    <div className="space-y-4">
-      <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold mb-2">Select Content</h3>
-        <p className="text-gray-600">Choose playlists and/or media assets to display on this screen.</p>
-      </div>
+  const renderStep2 = () => {
+    const activeTab = wizardContentTab
+    const setActiveTab = setWizardContentTab
 
-      <div className="space-y-6">
-        {/* Playlists Section */}
-        <div className="space-y-3">
-          <h4 className="font-semibold flex items-center gap-2">
-            <PlayCircle className="h-5 w-5 text-cyan-500" />
+    return (
+      <div className="space-y-4">
+        <div className="text-center mb-6">
+          <h3 className="text-lg font-semibold mb-2">Select Content</h3>
+          <p className="text-gray-600">Choose one playlist, media asset, or schedule to display on this screen.</p>
+        </div>
+
+        {/* Content Type Tabs */}
+        <div className="flex gap-4">
+          <Button
+            variant={activeTab === "playlist" ? "default" : "outline"}
+            className={activeTab === "playlist" ? "bg-cyan-500 hover:bg-cyan-600" : ""}
+            onClick={() => setActiveTab("playlist")}
+          >
             Playlists
-          </h4>
-          <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
-            {playlists.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">No playlists available</p>
-            ) : (
-              playlists.map((playlist) => (
-                <Card
-                  key={playlist.id}
-                  className={`cursor-pointer transition-colors ${
-                    wizardState.selectedContentIds.includes(playlist.id)
-                      ? "ring-2 ring-cyan-500 bg-cyan-50"
-                      : "hover:bg-gray-50"
-                  }`}
-                  onClick={() => {
-                    setWizardState((prev) => ({
-                      ...prev,
-                      selectedContentIds: prev.selectedContentIds.includes(playlist.id)
-                        ? prev.selectedContentIds.filter((id) => id !== playlist.id)
-                        : [...prev.selectedContentIds, playlist.id],
-                    }))
-                  }}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {wizardState.selectedContentIds.includes(playlist.id) ? (
-                          <CheckCircle2 className="h-5 w-5 text-cyan-500" />
-                        ) : (
-                          <Circle className="h-5 w-5 text-gray-300" />
-                        )}
-                        <div>
-                          <h4 className="font-medium">{playlist.name}</h4>
-                          {playlist.description && <p className="text-sm text-gray-600">{playlist.description}</p>}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
+          </Button>
+          <Button
+            variant={activeTab === "asset" ? "default" : "outline"}
+            className={activeTab === "asset" ? "bg-cyan-500 hover:bg-cyan-600" : ""}
+            onClick={() => setActiveTab("asset")}
+          >
+            Media Assets
+          </Button>
+          <Button
+            variant={activeTab === "schedule" ? "default" : "outline"}
+            className={activeTab === "schedule" ? "bg-cyan-500 hover:bg-cyan-600" : ""}
+            onClick={() => setActiveTab("schedule")}
+          >
+            Schedules
+          </Button>
         </div>
 
-        {/* Media Assets Section */}
-        <div className="space-y-3">
-          <h4 className="font-semibold flex items-center gap-2">
-            <ImageIcon className="h-5 w-5 text-cyan-500" />
-            Media Assets
-          </h4>
-          <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3">
-            {mediaItems.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">No media assets available</p>
-            ) : (
-              mediaItems.map((media) => (
-                <Card
-                  key={media.id}
-                  className={`cursor-pointer transition-colors ${
-                    wizardState.selectedContentIds.includes(media.id)
-                      ? "ring-2 ring-cyan-500 bg-cyan-50"
-                      : "hover:bg-gray-50"
-                  }`}
-                  onClick={() => {
-                    setWizardState((prev) => ({
-                      ...prev,
-                      selectedContentIds: prev.selectedContentIds.includes(media.id)
-                        ? prev.selectedContentIds.filter((id) => id !== media.id)
-                        : [...prev.selectedContentIds, media.id],
-                    }))
-                  }}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {wizardState.selectedContentIds.includes(media.id) ? (
-                          <CheckCircle2 className="h-5 w-5 text-cyan-500" />
-                        ) : (
-                          <Circle className="h-5 w-5 text-gray-300" />
-                        )}
-                        <div>
-                          <h4 className="font-medium">{media.name}</h4>
-                          <p className="text-xs text-gray-500">{media.mime_type}</p>
-                        </div>
+        {/* Playlists Tab */}
+        {activeTab === "playlist" && (
+          <div className="space-y-3">
+            <h4 className="font-semibold flex items-center gap-2">
+              <PlayCircle className="h-5 w-5 text-cyan-500" />
+              Playlists
+            </h4>
+            <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
+              {playlists.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">No playlists available</p>
+              ) : (
+                playlists.map((playlist) => (
+                  <div
+                    key={playlist.id}
+                    className={`p-3 rounded-lg cursor-pointer transition-all ${wizardState.selectedContentIds.includes(playlist.id)
+                        ? "bg-cyan-50 ring-2 ring-cyan-500"
+                        : "bg-white hover:bg-gray-50"
+                      }`}
+                    onClick={() => {
+                      setWizardState((prev) => ({
+                        ...prev,
+                        selectedContentIds: [playlist.id],
+                      }))
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      {wizardState.selectedContentIds.includes(playlist.id) ? (
+                        <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                      ) : (
+                        <Circle className="h-5 w-5 text-gray-300" />
+                      )}
+                      <div>
+                        <h4 className="font-medium">{playlist.name}</h4>
+                        {playlist.description && <p className="text-sm text-gray-600">{playlist.description}</p>}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Media Assets Tab */}
+        {activeTab === "asset" && (
+          <div className="space-y-3">
+            <h4 className="font-semibold flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-cyan-500" />
+              Media Assets
+            </h4>
+            <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
+              {mediaItems.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">No media assets available</p>
+              ) : (
+                mediaItems.map((media) => (
+                  <div
+                    key={media.id}
+                    className={`p-3 rounded-lg cursor-pointer transition-all ${wizardState.selectedContentIds.includes(media.id)
+                        ? "bg-cyan-50 ring-2 ring-cyan-500"
+                        : "bg-white hover:bg-gray-50"
+                      }`}
+                    onClick={() => {
+                      setWizardState((prev) => ({
+                        ...prev,
+                        selectedContentIds: [media.id],
+                      }))
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      {wizardState.selectedContentIds.includes(media.id) ? (
+                        <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                      ) : (
+                        <Circle className="h-5 w-5 text-gray-300" />
+                      )}
+                      <div>
+                        <h4 className="font-medium">{media.name}</h4>
+                        <p className="text-xs text-gray-500">{media.mime_type}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Schedules Tab */}
+        {activeTab === "schedule" && (
+          <div className="space-y-3">
+            <h4 className="font-semibold flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-cyan-500" />
+              Schedules
+            </h4>
+            <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
+              {schedules.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">No schedules available</p>
+              ) : (
+                schedules.map((schedule) => (
+                  <div
+                    key={schedule.id}
+                    className={`p-3 rounded-lg cursor-pointer transition-all ${wizardState.selectedContentIds.includes(schedule.id)
+                        ? "bg-cyan-50 ring-2 ring-cyan-500"
+                        : "bg-white hover:bg-gray-50"
+                      }`}
+                    onClick={() => {
+                      setWizardState((prev) => ({
+                        ...prev,
+                        selectedContentIds: [schedule.id],
+                      }))
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      {wizardState.selectedContentIds.includes(schedule.id) ? (
+                        <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                      ) : (
+                        <Circle className="h-5 w-5 text-gray-300" />
+                      )}
+                      <span className="text-sm font-medium">{schedule.name}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  )
+    )
+  }
 
   const renderStep3 = () => (
     <div className="space-y-4">
@@ -931,6 +1155,32 @@ export default function ScreensPage() {
             }
           />
         </div>
+
+        <div>
+          <Label>Default Transition</Label>
+          <p className="text-sm text-gray-600">Transition effect for Android devices</p>
+          <Select
+            value={wizardState.advancedOptions.defaultTransition}
+            onValueChange={(value) =>
+              setWizardState((prev) => ({
+                ...prev,
+                advancedOptions: { ...prev.advancedOptions, defaultTransition: value },
+              }))
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="fade">Fade</SelectItem>
+              <SelectItem value="slide_left">Slide from Left</SelectItem>
+              <SelectItem value="slide_right">Slide from Right</SelectItem>
+              <SelectItem value="rotate">Rotate In</SelectItem>
+              <SelectItem value="flip">Flip</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   )
@@ -990,6 +1240,52 @@ export default function ScreensPage() {
     }
   }
 
+  const handleCancelSlot = async () => {
+    if (!cancelingScreen) return
+    setIsCanceling(true)
+    try {
+      const response = await fetch(`/api/screens/${cancelingScreen.id}/cancel-slot`, { method: "POST" })
+      const data = await response.json()
+      if (response.ok) {
+        setScreens((prev) =>
+          prev.map((s) => (s.id === cancelingScreen.id ? { ...s, slot_cancel_at: data.slot_cancel_at } : s))
+        )
+        setCancelingScreen(null)
+        toast({
+          title: "Cancellation scheduled",
+          description: data.message,
+        })
+        fetchScreenLimits()
+      } else if (response.status === 409) {
+        // Already scheduled
+        setCancelingScreen(null)
+        toast({ title: "Already scheduled", description: data.error })
+      } else {
+        toast({ title: "Error", description: data.error || "Failed to schedule cancellation", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to schedule cancellation", variant: "destructive" })
+    } finally {
+      setIsCanceling(false)
+    }
+  }
+
+  const handleReactivateSlot = async (id: string) => {
+    try {
+      const response = await fetch(`/api/screens/${id}/cancel-slot`, { method: "DELETE" })
+      if (response.ok) {
+        setScreens((prev) => prev.map((s) => (s.id === id ? { ...s, slot_cancel_at: null } : s)))
+        toast({ title: "Slot reactivated", description: "Cancellation has been undone." })
+        fetchScreenLimits()
+      } else {
+        const data = await response.json()
+        toast({ title: "Error", description: data.error || "Failed to reactivate", variant: "destructive" })
+      }
+    } catch {
+      toast({ title: "Error", description: "Failed to reactivate", variant: "destructive" })
+    }
+  }
+
   const handleDeleteScreen = async (id: string) => {
     try {
       const response = await fetch(`/api/screens/${id}`, {
@@ -1041,6 +1337,8 @@ export default function ScreensPage() {
     // Determine the initial content_type based on existing assignments
     if (screen.screen_playlists && screen.screen_playlists.length > 0) {
       setEditingContentType("playlist")
+    } else if (screen.screen_schedules && screen.screen_schedules.length > 0) {
+      setEditingContentType("schedule")
     } else if (screen.screen_media && screen.screen_media.length > 0) {
       setEditingContentType("asset")
     } else if (screen.media_id) {
@@ -1051,31 +1349,86 @@ export default function ScreensPage() {
 
     const selectedIds: string[] = []
 
-    // Add all playlists from screen_playlists
-    if (screen.screen_playlists) {
-      screen.screen_playlists.forEach((sp: any) => {
-        if (sp.playlist_id) {
-          selectedIds.push(sp.playlist_id)
-        }
-      })
+    // Add only the first playlist from screen_playlists (single select)
+    if (screen.screen_playlists && screen.screen_playlists.length > 0) {
+      const firstPlaylist = screen.screen_playlists[0]
+      if (firstPlaylist.playlist_id) {
+        selectedIds.push(firstPlaylist.playlist_id)
+      }
     }
 
-    // Add all media from screen_media junction table
-    if (screen.screen_media) {
-      screen.screen_media.forEach((sm: any) => {
-        if (sm.media_id) {
-          selectedIds.push(sm.media_id)
-        }
-      })
+    // Add only the first schedule from screen_schedules (single select)
+    if (selectedIds.length === 0 && screen.screen_schedules && screen.screen_schedules.length > 0) {
+      const firstSchedule = screen.screen_schedules[0]
+      if (firstSchedule.schedule_id) {
+        selectedIds.push(firstSchedule.schedule_id)
+      }
+    }
+
+    // Add only the first media from screen_media junction table (single select)
+    if (selectedIds.length === 0 && screen.screen_media && screen.screen_media.length > 0) {
+      const firstMedia = screen.screen_media[0]
+      if (firstMedia.media_id) {
+        selectedIds.push(firstMedia.media_id)
+      }
     }
 
     // Fallback: if no screen_media but has media_id, add it
-    if (!screen.screen_media?.length && screen.media_id) {
+    if (selectedIds.length === 0 && screen.media_id) {
       selectedIds.push(screen.media_id)
     }
 
-    console.log("[v0] openEditDialog - selectedIds:", selectedIds)
+    console.log("[v0] openEditDialog - selectedIds (single select):", selectedIds)
     setEditingSelectedContentIds(selectedIds)
+  }
+
+  // Decides what happens when user clicks "Add Screen":
+  // - Super admin: always open wizard directly
+  // - Paid plan with available slots (free + purchased > current): open wizard directly
+  // - Paid plan with no slots left: open inline buy confirmation dialog
+  // - Free/capped plan: open wizard if canCreate, otherwise blocked
+  function handleAddScreenClick() {
+    if (!screenLimits) {
+      resetWizard()
+      setIsCreateDialogOpen(true)
+      return
+    }
+
+    const isSuperAdmin = screenLimits.plan === "Super Admin"
+    if (isSuperAdmin) {
+      resetWizard()
+      setIsCreateDialogOpen(true)
+      return
+    }
+
+    const isPaidPlan = screenLimits.limit === -1
+    if (isPaidPlan) {
+      const availableSlots = screenLimits.availableSlots ?? 0
+      if (availableSlots > 0) {
+        // Restore pending slot data from limits if the user closed the wizard earlier
+        // without creating the screen — this keeps the stripe_subscription_id available
+        if (!purchasedSlotData && screenLimits.pendingSlotSubscriptionId) {
+          setPurchasedSlotData({
+            subscriptionId: screenLimits.pendingSlotSubscriptionId,
+            priceId: "", // price is looked up from Stripe subscription when needed
+          })
+        }
+        resetWizard()
+        setIsCreateDialogOpen(true)
+      } else {
+        setPurchaseError(null)
+        setIsBuyScreenDialogOpen(true)
+      }
+      return
+    }
+
+    // Free / capped plan — redirect to billing so user can upgrade
+    if (!screenLimits.canCreate) {
+      router.push("/dashboard/settings/billing")
+      return
+    }
+    resetWizard()
+    setIsCreateDialogOpen(true)
   }
 
   return (
@@ -1086,21 +1439,72 @@ export default function ScreensPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Screens</h1>
           <p className="text-muted-foreground">Manage your digital signage screens</p>
-          {screenLimits && (
-            <p className="text-sm text-muted-foreground mt-1">
-              {screenLimits.limit === -1
-                ? `${screenLimits.current} screens (Unlimited)`
-                : `${screenLimits.current} / ${screenLimits.limit} screens used`}
-            </p>
-          )}
+          {screenLimits && (() => {
+            const freeScreens = Math.max(0, screenLimits.freeScreens ?? 0)
+            const total = screenLimits.current
+            const isPaidPlan = screenLimits.limit === -1
+
+            if (isPaidPlan) {
+              const usedFree = Math.min(total, freeScreens)
+              const usedPaid = Math.max(0, total - freeScreens)
+              const availableSlots = screenLimits.availableSlots ?? 0
+
+              return (
+                <p className="text-sm text-muted-foreground mt-1">
+                  You have{" "}
+                  {usedPaid > 0 && <><strong>{usedPaid}</strong> Paid Screen{usedPaid !== 1 ? "s" : ""}</>}
+                  {usedPaid > 0 && usedFree > 0 && " and "}
+                  {usedFree > 0 && <><strong>{usedFree}</strong> Free Screen{usedFree !== 1 ? "s" : ""} <span className="opacity-70">(Included in {screenLimits.plan} Plan)</span></>}
+                  {usedPaid === 0 && usedFree === 0 && <>no screens yet</>}
+                  {availableSlots > 0 && (
+                    <span className="ml-2 text-cyan-500 font-medium">
+                      · {availableSlots} slot{availableSlots !== 1 ? "s" : ""} available
+                    </span>
+                  )}
+                </p>
+              )
+            }
+
+            // Free / capped plan: show used / limit
+            return (
+              <p className="text-sm text-muted-foreground mt-1">
+                You have <strong>{total}</strong> of <strong>{screenLimits.limit}</strong> screen{screenLimits.limit !== 1 ? "s" : ""} used
+                {freeScreens > 0 && (
+                  <span className="ml-1">
+                    · <strong>{freeScreens}</strong> free screen{freeScreens !== 1 ? "s" : ""} included
+                  </span>
+                )}
+              </p>
+            )
+          })()}
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-xs text-muted-foreground">
+                Monitoring status · Last updated {elapsedSeconds}s ago
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                fetchScreens()
+                fetchDeviceStatus()
+                setLastUpdated(new Date())
+              }}
+              className="h-6 px-2 text-xs"
+            >
+              <RotateCw className="h-3 w-3 mr-1" />
+              Refresh
+            </Button>
+          </div>
         </div>
         <Button
-          onClick={() => setIsCreateDialogOpen(true)}
+          onClick={() => handleAddScreenClick()}
           className="bg-cyan-500 hover:bg-cyan-600"
-          disabled={screenLimits ? !screenLimits.canCreate : false}
         >
           <Plus className="h-4 w-4 mr-2" />
-          {screenLimits && !screenLimits.canCreate ? "Limit Reached" : "Create Screen"}
+          {screenLimits?.limit !== -1 && screenLimits && !screenLimits.canCreate ? "Upgrade Plan" : "Add Screen"}
         </Button>
       </div>
 
@@ -1130,13 +1534,10 @@ export default function ScreensPage() {
               {searchTerm ? "No screens match your search" : "No screens configured yet"}
             </p>
             <Button
-              onClick={() => {
-                resetWizard()
-                setIsCreateDialogOpen(true)
-              }}
+              onClick={() => handleAddScreenClick()}
               className="bg-cyan-500 hover:bg-cyan-600"
             >
-              Create First Screen
+              Add Screen
             </Button>
           </CardContent>
         </Card>
@@ -1153,18 +1554,40 @@ export default function ScreensPage() {
                       {screen.location && <p className="text-sm text-gray-600">{screen.location}</p>}
                     </div>
                   </div>
-                  <div
-                    className={`px-2 py-1 rounded text-xs font-medium ${
-                      screen.status === "online"
-                        ? "bg-green-100 text-green-700"
-                        : screen.status === "paired"
-                          ? "bg-blue-100 text-blue-700"
+                  <div className="flex items-center gap-2">
+                    {screen.enable_audio_management && (
+                      <div className="p-1.5 rounded bg-gray-100" title="Audio muted">
+                        <VolumeX className="h-4 w-4 text-gray-600" />
+                      </div>
+                    )}
+                    <div
+                      className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1.5 ${deviceOnlineStatus[screen.id]
+                          ? "bg-green-100 text-green-700"
                           : "bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    {screen.status}
+                        }`}
+                      title={deviceOnlineStatus[screen.id] ? "Device online" : "Device offline"}
+                    >
+                      <div
+                        className={`h-2 w-2 rounded-full ${deviceOnlineStatus[screen.id] ? "bg-green-500 animate-pulse" : "bg-gray-400"
+                          }`}
+                      />
+                      {deviceOnlineStatus[screen.id] ? "Online" : "Offline"}
+                    </div>
                   </div>
                 </div>
+
+                {screen.slot_cancel_at && (
+                  <div className="mt-2 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                    Active until {new Date(screen.slot_cancel_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </div>
+                )}
+                {screen.slot_payment_status === "payment_failed" && (
+                  <div className="mt-2 px-2 py-1.5 rounded-md bg-red-500/10 border border-red-500/30 text-red-500 text-xs flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+                    Payment failed — update your billing details
+                  </div>
+                )}
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -1184,11 +1607,13 @@ export default function ScreensPage() {
                     <span className="capitalize">
                       {screen.screen_playlists && screen.screen_playlists.length > 0
                         ? "Playlist"
-                        : screen.screen_media && screen.screen_media.length > 0
-                          ? "Media Asset"
-                          : screen.media_id
+                        : screen.screen_schedules && screen.screen_schedules.length > 0
+                          ? "Schedule"
+                          : screen.screen_media && screen.screen_media.length > 0
                             ? "Media Asset"
-                            : "None"}
+                            : screen.media_id
+                              ? "Media Asset"
+                              : "None"}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1198,16 +1623,20 @@ export default function ScreensPage() {
                       title={
                         screen.screen_playlists && screen.screen_playlists.length > 0
                           ? screen.screen_playlists.map((sp: any) => sp.playlists?.name || "Unknown").join(", ")
-                          : screen.screen_media && screen.screen_media.length > 0
-                            ? screen.screen_media.map((sm: any) => sm.media?.name || "Unknown").join(", ")
-                            : "Not assigned"
+                          : screen.screen_schedules && screen.screen_schedules.length > 0
+                            ? screen.screen_schedules.map((ss: any) => ss.schedules?.name || "Unknown").join(", ")
+                            : screen.screen_media && screen.screen_media.length > 0
+                              ? screen.screen_media.map((sm: any) => sm.media?.name || "Unknown").join(", ")
+                              : "Not assigned"
                       }
                     >
                       {screen.screen_playlists && screen.screen_playlists.length > 0
                         ? screen.screen_playlists.map((sp: any) => sp.playlists?.name || "Unknown").join(", ")
-                        : screen.screen_media && screen.screen_media.length > 0
-                          ? screen.screen_media.map((sm: any) => sm.media?.name || "Unknown").join(", ")
-                          : "Not assigned"}
+                        : screen.screen_schedules && screen.screen_schedules.length > 0
+                          ? screen.screen_schedules.map((ss: any) => ss.schedules?.name || "Unknown").join(", ")
+                          : screen.screen_media && screen.screen_media.length > 0
+                            ? screen.screen_media.map((sm: any) => sm.media?.name || "Unknown").join(", ")
+                            : "Not assigned"}
                     </span>
                   </div>
                   {/* End content type and name display */}
@@ -1235,6 +1664,23 @@ export default function ScreensPage() {
                         <Eye className="mr-2 h-4 w-4" />
                         Preview
                       </DropdownMenuItem>
+                      {!screen.slot_cancel_at && !screen.is_free_slot && screen.stripe_subscription_id && (
+                        <DropdownMenuItem
+                          onClick={() => setCancelingScreen(screen)}
+                          className="text-amber-500 focus:text-amber-600"
+                        >
+                          Cancel this Screen
+                        </DropdownMenuItem>
+                      )}
+                      {screen.slot_cancel_at && (
+                        <DropdownMenuItem
+                          onClick={() => handleReactivateSlot(screen.id)}
+                          className="text-primary focus:text-primary/80"
+                        >
+                          Undo Cancellation
+                        </DropdownMenuItem>
+                      )}
+
                       <DropdownMenuItem
                         onClick={() => handleDeleteScreen(screen.id)}
                         className="text-red-600 focus:text-red-700"
@@ -1272,9 +1718,8 @@ export default function ScreensPage() {
                 {[1, 2, 3, 4].map((step) => (
                   <div
                     key={step}
-                    className={`h-2 flex-1 rounded-full transition-colors ${
-                      step <= wizardState.step ? "bg-cyan-500" : "bg-gray-200"
-                    }`}
+                    className={`h-2 flex-1 rounded-full transition-colors ${step <= wizardState.step ? "bg-cyan-500" : "bg-gray-200"
+                      }`}
                   />
                 ))}
               </div>
@@ -1317,7 +1762,7 @@ export default function ScreensPage() {
                       disabled={creating || !wizardState.name.trim()}
                       className="bg-cyan-500 hover:bg-cyan-600"
                     >
-                      {creating ? "Creating..." : "Create Screen"}
+                      {creating ? "Adding..." : "Add Screen"}
                     </Button>
                   )}
                 </div>
@@ -1405,20 +1850,213 @@ export default function ScreensPage() {
                   </Select>
                 </div>
 
-                <div className="space-y-4 border-t pt-4">
-                  <Label className="text-base font-semibold">Advanced Options</Label>
+                {/* Advanced Options Section */}
+                <div className="space-y-4 border-t border-gray-700 pt-6 mt-6">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1 w-1 rounded-full bg-cyan-500"></div>
+                    <h3 className="text-base font-semibold text-white">Advanced Options</h3>
+                  </div>
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Mute</Label>
-                      <p className="text-sm text-gray-600">Disable audio playback</p>
+                  <div className="space-y-4 pl-3">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-700 hover:border-gray-600 transition-colors">
+                      <div>
+                        <Label className="text-white font-medium">Active</Label>
+                        <p className="text-sm text-gray-400 mt-1">Enable this screen for display</p>
+                      </div>
+                      <Switch
+                        checked={editingScreen.is_active !== false}
+                        onCheckedChange={(checked) =>
+                          setEditingScreen({ ...editingScreen, is_active: checked })
+                        }
+                      />
                     </div>
-                    <Switch
-                      checked={editingScreen.enable_audio_management || false}
-                      onCheckedChange={(checked) =>
-                        setEditingScreen({ ...editingScreen, enable_audio_management: checked })
-                      }
-                    />
+
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-700 hover:border-gray-600 transition-colors">
+                      <div>
+                        <Label className="text-white font-medium">Mute Audio</Label>
+                        <p className="text-sm text-gray-400 mt-1">Disable audio playback</p>
+                      </div>
+                      <Switch
+                        checked={editingScreen.enable_audio_management || false}
+                        onCheckedChange={(checked) =>
+                          setEditingScreen({ ...editingScreen, enable_audio_management: checked })
+                        }
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-700 hover:border-gray-600 transition-colors">
+                      <div>
+                        <Label className="text-white font-medium">Shuffle Content</Label>
+                        <p className="text-sm text-gray-400 mt-1">Randomize playback order</p>
+                      </div>
+                      <Switch
+                        checked={editingScreen.shuffle || false}
+                        onCheckedChange={(checked) =>
+                          setEditingScreen({ ...editingScreen, shuffle: checked })
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-background-color" className="text-white font-medium">Background Color</Label>
+                      <div className="flex items-center gap-3">
+                        <Input
+                          id="edit-background-color"
+                          type="color"
+                          value={editingScreen.background_color || "#000000"}
+                          onChange={(e) => setEditingScreen({ ...editingScreen, background_color: e.target.value })}
+                          className="h-12 w-20 cursor-pointer border-gray-700"
+                        />
+                        <span className="text-sm text-gray-400 font-mono">
+                          {editingScreen.background_color || "#000000"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-transition" className="text-white font-medium">Default Transition</Label>
+                      <p className="text-xs text-gray-500">Transition effect used on Android devices</p>
+                      <Select
+                        value={editingScreen.default_transition || "fade"}
+                        onValueChange={(value) => setEditingScreen({ ...editingScreen, default_transition: value })}
+                      >
+                        <SelectTrigger className="border-gray-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="fade">Fade</SelectItem>
+                          <SelectItem value="slide_left">Slide from Left</SelectItem>
+                          <SelectItem value="slide_right">Slide from Right</SelectItem>
+                          <SelectItem value="rotate">Rotate In</SelectItem>
+                          <SelectItem value="flip">Flip</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-timezone" className="text-white font-medium">Timezone</Label>
+                      <p className="text-xs text-gray-500">Used to match schedule time windows to the screen&apos;s local time</p>
+                      <Select
+                        value={editingScreen.timezone || "UTC"}
+                        onValueChange={(value) => setEditingScreen({ ...editingScreen, timezone: value })}
+                      >
+                        <SelectTrigger className="border-gray-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64 overflow-y-auto">
+                          <SelectItem value="UTC">UTC</SelectItem>
+                          <SelectItem value="Europe/London">Europe/London (GMT/BST)</SelectItem>
+                          <SelectItem value="Europe/Madrid">Europe/Madrid (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Paris">Europe/Paris (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Berlin">Europe/Berlin (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Rome">Europe/Rome (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Amsterdam">Europe/Amsterdam (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Brussels">Europe/Brussels (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Lisbon">Europe/Lisbon (WET/WEST)</SelectItem>
+                          <SelectItem value="Europe/Athens">Europe/Athens (EET/EEST)</SelectItem>
+                          <SelectItem value="Europe/Helsinki">Europe/Helsinki (EET/EEST)</SelectItem>
+                          <SelectItem value="Europe/Warsaw">Europe/Warsaw (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Stockholm">Europe/Stockholm (CET/CEST)</SelectItem>
+                          <SelectItem value="Europe/Bucharest">Europe/Bucharest (EET/EEST)</SelectItem>
+                          <SelectItem value="Europe/Moscow">Europe/Moscow (MSK)</SelectItem>
+                          <SelectItem value="America/New_York">America/New_York (EST/EDT)</SelectItem>
+                          <SelectItem value="America/Chicago">America/Chicago (CST/CDT)</SelectItem>
+                          <SelectItem value="America/Denver">America/Denver (MST/MDT)</SelectItem>
+                          <SelectItem value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</SelectItem>
+                          <SelectItem value="America/Toronto">America/Toronto (EST/EDT)</SelectItem>
+                          <SelectItem value="America/Vancouver">America/Vancouver (PST/PDT)</SelectItem>
+                          <SelectItem value="America/Mexico_City">America/Mexico_City (CST/CDT)</SelectItem>
+                          <SelectItem value="America/Bogota">America/Bogota (COT)</SelectItem>
+                          <SelectItem value="America/Lima">America/Lima (PET)</SelectItem>
+                          <SelectItem value="America/Santiago">America/Santiago (CLT/CLST)</SelectItem>
+                          <SelectItem value="America/Sao_Paulo">America/Sao_Paulo (BRT/BRST)</SelectItem>
+                          <SelectItem value="America/Buenos_Aires">America/Argentina/Buenos_Aires (ART)</SelectItem>
+                          <SelectItem value="America/Caracas">America/Caracas (VET)</SelectItem>
+                          <SelectItem value="Africa/Cairo">Africa/Cairo (EET)</SelectItem>
+                          <SelectItem value="Africa/Johannesburg">Africa/Johannesburg (SAST)</SelectItem>
+                          <SelectItem value="Africa/Lagos">Africa/Lagos (WAT)</SelectItem>
+                          <SelectItem value="Africa/Nairobi">Africa/Nairobi (EAT)</SelectItem>
+                          <SelectItem value="Asia/Dubai">Asia/Dubai (GST)</SelectItem>
+                          <SelectItem value="Asia/Kolkata">Asia/Kolkata (IST)</SelectItem>
+                          <SelectItem value="Asia/Bangkok">Asia/Bangkok (ICT)</SelectItem>
+                          <SelectItem value="Asia/Singapore">Asia/Singapore (SGT)</SelectItem>
+                          <SelectItem value="Asia/Shanghai">Asia/Shanghai (CST)</SelectItem>
+                          <SelectItem value="Asia/Tokyo">Asia/Tokyo (JST)</SelectItem>
+                          <SelectItem value="Asia/Seoul">Asia/Seoul (KST)</SelectItem>
+                          <SelectItem value="Asia/Jakarta">Asia/Jakarta (WIB)</SelectItem>
+                          <SelectItem value="Asia/Karachi">Asia/Karachi (PKT)</SelectItem>
+                          <SelectItem value="Asia/Riyadh">Asia/Riyadh (AST)</SelectItem>
+                          <SelectItem value="Asia/Tehran">Asia/Tehran (IRST)</SelectItem>
+                          <SelectItem value="Australia/Sydney">Australia/Sydney (AEST/AEDT)</SelectItem>
+                          <SelectItem value="Australia/Melbourne">Australia/Melbourne (AEST/AEDT)</SelectItem>
+                          <SelectItem value="Australia/Perth">Australia/Perth (AWST)</SelectItem>
+                          <SelectItem value="Pacific/Auckland">Pacific/Auckland (NZST/NZDT)</SelectItem>
+                          <SelectItem value="Pacific/Honolulu">Pacific/Honolulu (HST)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Scaling Options Section */}
+                <div className="space-y-4 border-t border-gray-700 pt-6 mt-6">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1 w-1 rounded-full bg-cyan-500"></div>
+                    <h3 className="text-base font-semibold text-white">Content Scaling</h3>
+                  </div>
+
+                  <div className="space-y-4 pl-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-scale-image" className="text-white font-medium">Image Scaling</Label>
+                      <Select
+                        value={editingScreen.scale_image || "fit"}
+                        onValueChange={(value) => setEditingScreen({ ...editingScreen, scale_image: value })}
+                      >
+                        <SelectTrigger className="border-gray-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fill">Fill (Cover entire screen)</SelectItem>
+                          <SelectItem value="fit">Fit (Maintain aspect ratio)</SelectItem>
+                          <SelectItem value="stretch">Stretch (Fill without ratio)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-scale-video" className="text-white font-medium">Video Scaling</Label>
+                      <Select
+                        value={editingScreen.scale_video || "fit"}
+                        onValueChange={(value) => setEditingScreen({ ...editingScreen, scale_video: value })}
+                      >
+                        <SelectTrigger className="border-gray-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fill">Fill (Cover entire screen)</SelectItem>
+                          <SelectItem value="fit">Fit (Maintain aspect ratio)</SelectItem>
+                          <SelectItem value="stretch">Stretch (Fill without ratio)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-scale-document" className="text-white font-medium">Document Scaling</Label>
+                      <Select
+                        value={editingScreen.scale_document || "fit"}
+                        onValueChange={(value) => setEditingScreen({ ...editingScreen, scale_document: value })}
+                      >
+                        <SelectTrigger className="border-gray-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fill">Fill (Cover entire screen)</SelectItem>
+                          <SelectItem value="fit">Fit (Maintain aspect ratio)</SelectItem>
+                          <SelectItem value="stretch">Stretch (Fill without ratio)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
@@ -1441,6 +2079,13 @@ export default function ScreensPage() {
                     >
                       Media Assets
                     </Button>
+                    <Button
+                      variant={editingContentType === "schedule" ? "default" : "outline"}
+                      className={editingContentType === "schedule" ? "bg-cyan-500 hover:bg-cyan-600" : ""}
+                      onClick={() => setEditingContentType("schedule")}
+                    >
+                      Schedules
+                    </Button>
                   </div>
 
                   {/* Playlists Section */}
@@ -1457,17 +2102,12 @@ export default function ScreensPage() {
                           playlists.map((playlist) => (
                             <div
                               key={playlist.id}
-                              className={`p-3 rounded-lg cursor-pointer transition-all ${
-                                editingSelectedContentIds.includes(playlist.id)
+                              className={`p-3 rounded-lg cursor-pointer transition-all ${editingSelectedContentIds.includes(playlist.id)
                                   ? "bg-cyan-50 ring-2 ring-cyan-500"
                                   : "bg-white hover:bg-gray-50"
-                              }`}
+                                }`}
                               onClick={() => {
-                                setEditingSelectedContentIds((prev) =>
-                                  prev.includes(playlist.id)
-                                    ? prev.filter((id) => id !== playlist.id)
-                                    : [...prev, playlist.id],
-                                )
+                                setEditingSelectedContentIds([playlist.id])
                               }}
                             >
                               <div className="flex items-center gap-3 text-popover">
@@ -1499,15 +2139,12 @@ export default function ScreensPage() {
                           mediaItems.map((media) => (
                             <div
                               key={media.id}
-                              className={`p-3 rounded-lg cursor-pointer transition-all ${
-                                editingSelectedContentIds.includes(media.id)
+                              className={`p-3 rounded-lg cursor-pointer transition-all ${editingSelectedContentIds.includes(media.id)
                                   ? "bg-cyan-50 ring-2 ring-cyan-500"
                                   : "bg-white hover:bg-gray-50"
-                              }`}
+                                }`}
                               onClick={() => {
-                                setEditingSelectedContentIds((prev) =>
-                                  prev.includes(media.id) ? prev.filter((id) => id !== media.id) : [...prev, media.id],
-                                )
+                                setEditingSelectedContentIds([media.id])
                               }}
                             >
                               <div className="flex items-center gap-3">
@@ -1520,6 +2157,43 @@ export default function ScreensPage() {
                                   <span className="text-sm font-medium block">{media.name}</span>
                                   <p className="text-xs text-gray-500">{media.mime_type}</p>
                                 </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Schedules Section */}
+                  {editingContentType === "schedule" && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-cyan-500" />
+                        Schedules
+                      </h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
+                        {schedules.length === 0 ? (
+                          <p className="text-sm text-gray-500 text-center py-4">No schedules available</p>
+                        ) : (
+                          schedules.map((schedule) => (
+                            <div
+                              key={schedule.id}
+                              className={`p-3 rounded-lg cursor-pointer transition-all ${editingSelectedContentIds.includes(schedule.id)
+                                  ? "bg-cyan-50 ring-2 ring-cyan-500"
+                                  : "bg-white hover:bg-gray-50"
+                                }`}
+                              onClick={() => {
+                                setEditingSelectedContentIds([schedule.id])
+                              }}
+                            >
+                              <div className="flex items-center gap-3 text-popover">
+                                {editingSelectedContentIds.includes(schedule.id) ? (
+                                  <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                                ) : (
+                                  <Circle className="h-5 w-5 text-gray-300" />
+                                )}
+                                <span className="text-sm font-medium text-popover">{schedule.name}</span>
                               </div>
                             </div>
                           ))
@@ -1552,12 +2226,122 @@ export default function ScreensPage() {
         </div>
       )}
 
+      {/* Buy Screen Slot Dialog — shown when all screen slots are used and user wants to add more */}
+      <Dialog open={isBuyScreenDialogOpen} onOpenChange={(open) => { setIsBuyScreenDialogOpen(open); if (!open) setPurchaseError(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add a New Screen</DialogTitle>
+            <DialogDescription>
+              You have used all your available screens. Adding a new screen will charge{" "}
+              <strong>
+                {screenLimits?.pricePerScreen
+                  ? `$${Number(screenLimits.pricePerScreen).toFixed(2)}/month`
+                  : "the per-screen rate"}
+              </strong>{" "}
+              to your subscription immediately (prorated for the current billing period).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-md border border-border bg-muted/40 p-4 text-sm space-y-2">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Current screens</span>
+              <span className="font-medium">{screenLimits?.current ?? 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Free screens (included in plan)</span>
+              <span className="font-medium">{Math.max(0, screenLimits?.freeScreens ?? 0)}</span>
+            </div>
+            <div className="flex justify-between border-t border-border pt-2">
+              <span className="text-muted-foreground">Cost for new screen</span>
+              <span className="font-semibold text-foreground">
+                {screenLimits?.pricePerScreen
+                  ? `$${Number(screenLimits.pricePerScreen).toFixed(2)}/month`
+                  : "—"}
+              </span>
+            </div>
+          </div>
+
+          {purchaseError && (
+            <p className="text-sm text-destructive">{purchaseError}</p>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => { setIsBuyScreenDialogOpen(false); setPurchaseError(null) }}
+              disabled={isPurchasingScreen}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-cyan-500 hover:bg-cyan-600"
+              disabled={isPurchasingScreen}
+              onClick={async () => {
+                setIsPurchasingScreen(true)
+                setPurchaseError(null)
+                try {
+                  const res = await fetch("/api/stripe/purchase-screen", { method: "POST" })
+                  const data = await res.json()
+                  if (!res.ok || data.error) {
+                    setPurchaseError(data.error || "Failed to start payment. Please try again.")
+                    setIsPurchasingScreen(false)
+                    return
+                  }
+                  // Redirect to Stripe Checkout — same as plan upgrade flow
+                  window.location.href = data.url
+                } catch (err: any) {
+                  setPurchaseError("Something went wrong. Please try again.")
+                  setIsPurchasingScreen(false)
+                }
+              }}
+            >
+              {isPurchasingScreen ? "Processing..." : "Proceed to Payment"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add ScreenPreviewModal component at the end before closing tag */}
       <ScreenPreviewModal
         screen={previewingScreen}
         isOpen={!!previewingScreen}
         onClose={() => setPreviewingScreen(null)}
       />
+
+      {/* Cancel this Screen confirmation dialog */}
+      <Dialog open={!!cancelingScreen} onOpenChange={(open) => { if (!open) setCancelingScreen(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel this Screen</DialogTitle>
+            <DialogDescription>
+              You are about to cancel the subscription slot for{" "}
+              <span className="font-semibold text-foreground">{cancelingScreen?.name}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2 text-sm text-muted-foreground">
+            <p>
+              The screen will remain active until the end of your current billing period, after which the slot will be
+              removed and you will no longer be billed for it.
+            </p>
+            <p>
+              The device will stop displaying content once the slot is cancelled. You can undo this at any time before
+              the billing period ends.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelingScreen(null)} disabled={isCanceling}>
+              Keep Screen
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelSlot}
+              disabled={isCanceling}
+            >
+              {isCanceling ? "Scheduling..." : "Cancel this Screen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     // </DashboardLayout> - REMOVED AS PER UPDATES
   )

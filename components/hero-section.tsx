@@ -11,7 +11,7 @@ export function HeroSection() {
     >
       {/* SVG Background */}
       <div className="absolute inset-0 z-0">
-        <svg
+        <svg className="bg-teal-950"
           width="100%"
           height="100%"
           viewBox="0 0 1220 810"
@@ -437,12 +437,12 @@ export function HeroSection() {
         <Header />
       </div>
 
-      <div className="relative z-10 space-y-4 md:space-y-5 lg:space-y-6 mb-6 md:mb-7 lg:mb-9 max-w-md md:max-w-[500px] lg:max-w-[788px] mt-16 md:mt-[120px] lg:mt-[160px] px-4">
+      <div className="relative z-10 space-y-4 md:space-y-5 lg:space-y-6 mb-6 md:mb-7 lg:mb-9 max-w-md md:max-w-[900px] lg:max-w-[988px] mt-16 md:mt-[120px] lg:mt-[160px] px-4">
         <h1 className="text-foreground text-3xl md:text-4xl lg:text-6xl font-semibold leading-tight">
-          AI-Powered Audience Analytics and Smart Programmatic Digital Signage
+          {"Smart Programmatic \nDigital Signage for Retail"} 
         </h1>
-        <p className="text-muted-foreground text-base md:text-base lg:text-lg font-medium leading-relaxed max-w-lg mx-auto">
-          We use AI with Media Intelligence &amp; Audience Analytics to analyze visitor insights, captivate audiences with digital signage, and maximize revenue from your prime spaces.
+        <p className="text-muted-foreground text-base md:text-base lg:text-lg font-medium leading-relaxed mx-auto">
+          {"Xkreen helps retailers manage and scale digital signage across one or hundreds of locations, from promotions and brand content to in-store advertising, using a single, centralized platform.\nAI-powered audience analytics enhance performance when needed, but the core value is simple:\n smarter retail signage that drives results."}
         </p>
       </div>
 

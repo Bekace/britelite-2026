@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const supabase = await createClient()
 
     if (!supabase) {
@@ -23,16 +24,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: "playlist_id is required" }, { status: 400 })
     }
 
-    // Check if assignment already exists
     const { data: existingAssignment } = await supabase
       .from("screen_playlists")
       .select("id")
-      .eq("screen_id", params.id)
+      .eq("screen_id", id)
       .eq("playlist_id", playlist_id)
       .single()
 
     if (existingAssignment) {
-      // Update existing assignment
       const { error: updateError } = await supabase
         .from("screen_playlists")
         .update({ is_active: is_active ?? true })
@@ -43,9 +42,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         return NextResponse.json({ error: "Failed to update playlist assignment" }, { status: 500 })
       }
     } else {
-      // Create new assignment
       const { error: insertError } = await supabase.from("screen_playlists").insert({
-        screen_id: params.id,
+        screen_id: id,
         playlist_id: playlist_id,
         is_active: is_active ?? true,
       })
@@ -63,8 +61,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const supabase = await createClient()
 
     if (!supabase) {
@@ -88,7 +87,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const { error } = await supabase
       .from("screen_playlists")
       .delete()
-      .eq("screen_id", params.id)
+      .eq("screen_id", id)
       .eq("playlist_id", playlist_id)
 
     if (error) {

@@ -28,19 +28,39 @@ export default async function PricingPage() {
     .from("subscription_prices")
     .select("*")
     .eq("is_active", true)
+    .order("created_at", { ascending: false })
+
+  // Fetch admin-managed pricing bullets (visible only)
+  const { data: pricingBullets } = await supabase
+    .from("plan_pricing_features")
+    .select("plan_id, label, sort_order")
+    .eq("is_visible", true)
+    .order("sort_order", { ascending: true })
 
   if (plansError) {
-    console.error("[v0] Error fetching plans:", plansError)
+    console.error("Error fetching plans:", plansError)
   }
   if (pricesError) {
-    console.error("[v0] Error fetching prices:", pricesError)
+    console.error("Error fetching prices:", pricesError)
   }
 
-  // Combine plans with their prices
+  // Group bullets by plan_id
+  const bulletsByPlan: Record<string, string[]> = {}
+  for (const bullet of pricingBullets ?? []) {
+    if (!bulletsByPlan[bullet.plan_id]) bulletsByPlan[bullet.plan_id] = []
+    bulletsByPlan[bullet.plan_id].push(bullet.label)
+  }
+
+  // Combine plans with their prices and admin-managed bullets
   const plansWithPrices =
     plans?.map((plan) => ({
       ...plan,
       prices: prices?.filter((price) => price.plan_id === plan.id) || [],
+      features: {
+        ...(plan.features ?? {}),
+        // If admin has set bullets for this plan, use them; otherwise fall back to derived features
+        ...(bulletsByPlan[plan.id]?.length ? { display_features: bulletsByPlan[plan.id] } : {}),
+      },
     })) || []
 
   return (
@@ -48,7 +68,7 @@ export default async function PricingPage() {
       {/* Header */}
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-foreground hover:text-foreground/80">
+          <Link href="https://xkreen.com/" className="flex items-center gap-2 text-foreground hover:text-foreground/80">
             <ArrowLeft className="h-4 w-4" />
             <span>Back to Home</span>
           </Link>

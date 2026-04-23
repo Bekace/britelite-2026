@@ -33,6 +33,11 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
+    // Password recovery codes should go straight to reset-password — skip all profile/subscription logic
+    if (!error && data.session?.user?.aud === "authenticated" && next === "/auth/reset-password") {
+      return NextResponse.redirect(new URL("/auth/reset-password", requestUrl.origin))
+    }
+
     if (!error && data.user) {
       const serviceSupabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -65,7 +70,11 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(new URL("/auth/login?error=account_deleted", requestUrl.origin))
       }
 
-      if (mode === "login" && !existingProfile) {
+      // Detect if this is a team invite — invited users have team_member_id in metadata
+      const teamMemberId = data.user.user_metadata?.team_member_id
+      const isTeamInvite = !!teamMemberId
+
+      if (mode === "login" && !existingProfile && !isTeamInvite) {
         // Sign out the user
         await supabase.auth.signOut()
 
@@ -77,13 +86,21 @@ export async function GET(request: NextRequest) {
       }
 
       if (!existingProfile) {
-        // Create profile for OAuth user (only happens in signup mode now)
+        // Create profile for new user (OAuth signup or team invite)
         await serviceSupabase.from("profiles").insert({
           id: data.user.id,
           email: data.user.email,
           full_name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || "",
           role: "user",
         })
+      }
+
+      // If user accepted a team invite, mark them as active
+      if (teamMemberId) {
+        await serviceSupabase
+          .from("team_members")
+          .update({ status: "active", joined_at: new Date().toISOString() })
+          .eq("id", teamMemberId)
       }
 
       // If so, DON'T create any subscription - let oauth-checkout handle it

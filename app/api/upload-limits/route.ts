@@ -31,8 +31,8 @@ export async function GET() {
         subscription_plans (
           name,
           max_media_storage,
-          storage_unit,
-          max_file_size
+          max_file_upload_size,
+          storage_unit
         )
       `)
       .eq("user_id", user.id)
@@ -51,24 +51,19 @@ export async function GET() {
       const plan = subscriptionData.subscription_plans
       maxStorage = Number.parseInt(plan.max_media_storage)
       storageUnit = plan.storage_unit || "MB"
+      const planFileSize = plan.max_file_upload_size || 52428800
+      // enforce_globally acts as a hard ceiling — use the smaller of plan limit vs global limit
       maxFileSize =
         uploadSettings?.enforce_globally && uploadSettings.max_file_size
-          ? uploadSettings.max_file_size
-          : plan.max_file_size || 52428800
+          ? Math.min(planFileSize, uploadSettings.max_file_size)
+          : planFileSize
       planName = plan.name || "Free"
-      console.log("[v0] Using subscription plan storage:", {
-        maxStorage,
-        storageUnit,
-        maxFileSize,
-        planName,
-        enforceGlobally: uploadSettings?.enforce_globally,
-      })
     } else {
       console.log("[v0] No active subscription found, fetching Free plan")
 
       const { data: freePlan, error: freePlanError } = await supabase
         .from("subscription_plans")
-        .select("max_media_storage, storage_unit, name, max_file_size")
+        .select("max_media_storage, max_file_upload_size, storage_unit, name")
         .eq("price", 0)
         .eq("is_active", true)
         .maybeSingle()
@@ -78,18 +73,13 @@ export async function GET() {
       if (freePlan && !freePlanError) {
         maxStorage = Number.parseInt(freePlan.max_media_storage)
         storageUnit = freePlan.storage_unit || "MB"
+        const freePlanFileSize = freePlan.max_file_upload_size || 52428800
+        // enforce_globally acts as a hard ceiling — use the smaller of plan limit vs global limit
         maxFileSize =
           uploadSettings?.enforce_globally && uploadSettings.max_file_size
-            ? uploadSettings.max_file_size
-            : freePlan.max_file_size || 52428800
+            ? Math.min(freePlanFileSize, uploadSettings.max_file_size)
+            : freePlanFileSize
         planName = freePlan.name || "Free"
-        console.log("[v0] Using Free plan storage:", {
-          maxStorage,
-          storageUnit,
-          maxFileSize,
-          planName,
-          enforceGlobally: uploadSettings?.enforce_globally,
-        })
       } else {
         console.log("[v0] Free plan not found, using hardcoded defaults")
         if (uploadSettings?.enforce_globally && uploadSettings.max_file_size) {

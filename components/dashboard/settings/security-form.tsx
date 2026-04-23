@@ -31,13 +31,18 @@ export function SecurityForm({ userEmail }: SecurityFormProps) {
     setSaving(true)
     setMessage(null)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.updateUser({
-      password: newPassword,
+    // Verify current password + update via server-side API to avoid client-side
+    // signInWithPassword triggering a session refresh that unmounts the component
+    const response = await fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
     })
 
-    if (error) {
-      setMessage({ type: "error", text: error.message })
+    const data = await response.json()
+
+    if (!response.ok) {
+      setMessage({ type: "error", text: data.error || "Failed to update password." })
     } else {
       setMessage({ type: "success", text: "Password updated successfully." })
       setCurrentPassword("")

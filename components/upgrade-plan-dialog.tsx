@@ -77,16 +77,16 @@ function extractFeatures(plan: Plan): string[] {
 }
 
 function getPlanTier(plan: Plan): number {
-  // Assign tier based on plan limits (higher number = higher tier)
-  // Free: tier 1, Pro: tier 2, Enterprise: tier 3
-  if (plan.name.toLowerCase() === "free") return 1
-  if (plan.name.toLowerCase() === "pro") return 2
-  if (plan.name.toLowerCase() === "enterprise") return 3
-
-  // Fallback: use max_screens as tier indicator
-  // -1 (unlimited) is highest tier
-  if (plan.max_screens === -1) return 999
-  return plan.max_screens
+  switch (plan.name.toLowerCase()) {
+    case "free":       return 1
+    case "standard":   return 2
+    case "pro":        return 3
+    case "enterprise": return 4
+    default:
+      // Fallback: unlimited (-1) is highest
+      if (plan.max_screens === -1) return 999
+      return plan.max_screens + 1
+  }
 }
 
 export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPlanId }: UpgradePlanDialogProps) {
@@ -131,7 +131,8 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
   }
 
   const handleUpgrade = async (planId: string) => {
-    const price = getPrice(plans.find((p) => p.id === planId)!, billingCycle)
+    const selectedPlan = plans.find((p) => p.id === planId)
+    const price = getPrice(selectedPlan!, billingCycle)
 
     if (!price) {
       toast({
@@ -142,9 +143,23 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
       return
     }
 
+    if (!price.stripe_price_id) {
+      toast({
+        title: "Error",
+        description: "Stripe price not configured for this plan",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsLoading(planId)
     try {
+      // Call server action to create checkout session
+      // On success, this will redirect to Stripe Checkout (server action handles redirect)
+      // On error, it returns an error object
       const result = await createUpgradeCheckoutSession(planId, price.id)
+      
+      // Only reached if there's an error (redirect throws and interrupts)
       if (result?.error) {
         toast({
           title: "Error",
@@ -153,8 +168,9 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
         })
         setIsLoading(null)
       }
-      // If successful, user will be redirected to Stripe Checkout
     } catch (error) {
+      // Catch any unexpected errors
+      console.error("[v0] Upgrade error:", error)
       toast({
         title: "Error",
         description: "Failed to start upgrade process",
@@ -216,7 +232,8 @@ export default function UpgradePlanDialog({ open, onOpenChange, plans, currentPl
           {/* Pricing Cards */}
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {availablePlans.map((plan) => {
-              const isRecommended = plan.name === "Pro"
+              // Recommend the lowest-tier available upgrade
+              const isRecommended = getPlanTier(plan) === Math.min(...availablePlans.map(getPlanTier))
               const features = extractFeatures(plan)
               const currentPrice = getPrice(plan, billingCycle)
               const savings = billingCycle === "yearly" ? getYearlySavings(plan) : null

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
 
@@ -18,7 +18,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get playlist with media items
+    const { id } = await params
+
+    // Get playlist with media items and menu scenes
     const { data: playlist, error: playlistError } = await supabase
       .from("playlists")
       .select(`
@@ -29,10 +31,24 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           position,
           transition_type,
           transition_duration,
-          media(*)
+          content_type,
+          menu_scene_id,
+          media(*),
+          menu_scene:menu_scenes(
+            id,
+            name,
+            orientation,
+            menu:restaurant_menus(
+              id,
+              name,
+              brand_settings,
+              menu_template:menu_templates(id, name, layout_config, orientation),
+              menu_sections(*, menu_items(*))
+            )
+          )
         )
       `)
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single()
 
@@ -48,7 +64,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
 
@@ -56,7 +72,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
     }
 
-    const { name, description } = await request.json()
+    const [{ name, description }, { id }] = await Promise.all([request.json(), params])
 
     const { data: playlist, error: updateError } = await supabase
       .from("playlists")
@@ -65,7 +81,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         description,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single()
 
@@ -77,7 +93,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const { data: screenPlaylists } = await supabase
       .from("screen_playlists")
       .select("screen_id")
-      .eq("playlist_id", params.id)
+      .eq("playlist_id", id)
 
     if (screenPlaylists && screenPlaylists.length > 0) {
       const screenIds = screenPlaylists.map((sp) => sp.screen_id)
@@ -91,7 +107,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = await createClient()
 
@@ -99,67 +115,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
     }
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { background_color, scale_image, scale_video, scale_document, shuffle, default_transition } =
-      await request.json()
-
-    const updateData: any = {}
-    if (background_color !== undefined) updateData.background_color = background_color
-    if (scale_image !== undefined) updateData.scale_image = scale_image
-    if (scale_video !== undefined) updateData.scale_video = scale_video
-    if (scale_document !== undefined) updateData.scale_document = scale_document
-    if (shuffle !== undefined) updateData.shuffle = shuffle
-    if (default_transition !== undefined) updateData.default_transition = default_transition
-
-    updateData.updated_at = new Date().toISOString()
-
-    const { data: playlist, error: updateError } = await supabase
-      .from("playlists")
-      .update(updateData)
-      .eq("id", params.id)
-      .eq("user_id", user.id)
-      .select()
-      .single()
-
-    if (updateError) {
-      console.error("Database error:", updateError)
-      return NextResponse.json({ error: "Failed to update playlist settings" }, { status: 500 })
-    }
-
-    const { data: screenPlaylists } = await supabase
-      .from("screen_playlists")
-      .select("screen_id")
-      .eq("playlist_id", params.id)
-
-    if (screenPlaylists && screenPlaylists.length > 0) {
-      const screenIds = screenPlaylists.map((sp) => sp.screen_id)
-      await supabase.from("screens").update({ updated_at: new Date().toISOString() }).in("id", screenIds)
-    }
-
-    return NextResponse.json({ playlist })
-  } catch (error) {
-    console.error("Error updating playlist settings:", error)
-    return NextResponse.json({ error: "Failed to update playlist settings" }, { status: 500 })
-  }
-}
-
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  try {
-    const supabase = await createClient()
-
-    if (!supabase) {
-      return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
-    }
+    const { id } = await params
 
     // Delete playlist (cascade will handle playlist_items)
-    const { error: deleteError } = await supabase.from("playlists").delete().eq("id", params.id)
+    const { error: deleteError } = await supabase.from("playlists").delete().eq("id", id)
 
     if (deleteError) {
       console.error("Database error:", deleteError)

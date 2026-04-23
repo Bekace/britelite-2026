@@ -47,7 +47,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
+import { usePlanLimits } from "@/hooks/use-plan-limits"
+import { UpgradeBanner } from "@/components/upgrade-banner"
 import { Label } from "@/components/ui/label"
+import { ProofOfPlay } from "@/components/analytics/proof-of-play"
 
 interface AnalyticsData {
   overview: {
@@ -115,6 +118,8 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export default function AnalyticsPage() {
+  const { features, planName, loading: limitsLoading } = usePlanLimits()
+  // analytics has no numeric limit — gated purely by feature_permissions toggle
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -124,12 +129,36 @@ export default function AnalyticsPage() {
   const [loadingScreenAnalytics, setLoadingScreenAnalytics] = useState(false)
   const [analyticsEnabled, setAnalyticsEnabled] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
+  const [screenMetrics, setScreenMetrics] = useState<Record<string, {
+    total_plays: number
+    engagement_rate: number
+    uptime_percent: number
+    trend: number[]
+    has_real_data: boolean
+  }>>({})
   const { toast } = useToast()
 
   useEffect(() => {
     fetchAnalytics()
     fetchScreens()
+    fetchScreenMetrics()
   }, [])
+
+  const fetchScreenMetrics = async () => {
+    try {
+      const response = await fetch("/api/analytics/screens?time_range=7d")
+      if (response.ok) {
+        const { screens: metricsData } = await response.json()
+        const metricsMap: Record<string, any> = {}
+        ;(metricsData || []).forEach((m: any) => {
+          metricsMap[m.screen_id] = m
+        })
+        setScreenMetrics(metricsMap)
+      }
+    } catch (error) {
+      console.error("Error fetching screen metrics:", error)
+    }
+  }
 
   const fetchScreens = async () => {
     try {
@@ -238,6 +267,7 @@ export default function AnalyticsPage() {
     setRefreshing(true)
     fetchAnalytics()
     fetchScreens()
+    fetchScreenMetrics()
   }
 
   const formatBytes = (bytes: number) => {
@@ -274,12 +304,24 @@ export default function AnalyticsPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
-      </div>
-    )
+  if (loading || limitsLoading) {
+  return (
+  <div className="flex items-center justify-center h-64">
+  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+  </div>
+  )
+  }
+
+  if (!features?.analytics) {
+  return (
+  <div className="p-6">
+    <UpgradeBanner
+      feature="Analytics & Reports"
+      description="Track screen performance, content engagement, uptime metrics, and get actionable insights for your digital signage network."
+      currentPlan={planName}
+    />
+  </div>
+  )
   }
 
   if (!data) {
@@ -491,27 +533,32 @@ export default function AnalyticsPage() {
                     {/* Key Metrics */}
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div>
-                        <div className="text-lg font-bold text-cyan-600">{screen.uptime || 0}%</div>
+                        <div className="text-lg font-bold text-cyan-600">
+                          {screenMetrics[screen.id]?.uptime_percent ?? 0}%
+                        </div>
                         <div className="text-xs text-muted-foreground">Uptime</div>
                       </div>
                       <div>
-                        <div className="text-lg font-bold text-blue-600">{screen.views || 0}</div>
+                        <div className="text-lg font-bold text-blue-600">
+                          {screenMetrics[screen.id]?.total_plays ?? 0}
+                        </div>
                         <div className="text-xs text-muted-foreground">Views</div>
                       </div>
                       <div>
-                        <div className="text-lg font-bold text-green-600">{screen.engagement || 0}%</div>
+                        <div className="text-lg font-bold text-green-600">
+                          {screenMetrics[screen.id]?.engagement_rate ?? 0}%
+                        </div>
                         <div className="text-xs text-muted-foreground">Engage</div>
                       </div>
                     </div>
 
-                    {/* Mini Sparkline */}
+                    {/* Mini Sparkline - real trend data, flat line if no data yet */}
                     <div className="h-12 w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart
-                          data={
-                            screen.trend?.map((value, index) => ({ value, index })) ||
-                            Array.from({ length: 7 }, (_, i) => ({ value: Math.random() * 100, index: i }))
-                          }
+                          data={(screenMetrics[screen.id]?.trend ?? Array(7).fill(0)).map(
+                            (value: number, index: number) => ({ value, index })
+                          )}
                         >
                           <Line type="monotone" dataKey="value" stroke="#06b6d4" strokeWidth={2} dot={false} />
                         </LineChart>
@@ -588,6 +635,9 @@ export default function AnalyticsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Proof of Play Analytics */}
+      <ProofOfPlay />
 
       {/* Sheet (slide-over) for detailed screen analytics */}
       <Sheet open={!!selectedScreen} onOpenChange={(open) => !open && setSelectedScreen(null)}>

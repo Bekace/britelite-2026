@@ -1,9 +1,15 @@
+import dynamic from "next/dynamic"
 import AiCodeReviews from "./bento/ai-code-reviews"
 import RealtimeCodingPreviews from "./bento/real-time-previews"
-import OneClickIntegrationsIllustration from "./bento/one-click-integrations-illustration"
-import MCPConnectivityIllustration from "./bento/mcp-connectivity-illustration" // Updated import
+import MCPConnectivityIllustration from "./bento/mcp-connectivity-illustration"
 import EasyDeployment from "./bento/easy-deployment"
-import ParallelCodingAgents from "./bento/parallel-agents" // Updated import
+import ParallelCodingAgents from "./bento/parallel-agents"
+
+// Loaded lazily to avoid webpack serializing the large inline SVG strings into the main bundle cache
+const OneClickIntegrationsIllustration = dynamic(
+  () => import("./bento/one-click-integrations-illustration"),
+  { ssr: false }
+)
 
 const BentoCard = ({ title, description, Component }) => (
   <div className="overflow-hidden rounded-2xl border border-white/20 flex flex-col justify-start items-start relative">

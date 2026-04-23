@@ -6,19 +6,26 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { useUser } from "@/lib/hooks/use-user"
+import { usePlanLimits } from "@/hooks/use-plan-limits"
 import {
   LayoutDashboard,
   Monitor,
   ImageIcon,
   PlayCircle,
+  Calendar,
   BarChart3,
   Settings,
   ChevronLeft,
   ChevronRight,
   Shield,
-  Users,
+  Users as UsersIcon,
   CreditCard,
   Zap,
+  MapPin,
+  UserPlus,
+  LayoutList,
+  UtensilsCrossed,
+  ChefHat,
 } from "lucide-react"
 
 const navigation = [
@@ -33,6 +40,11 @@ const navigation = [
     icon: Monitor,
   },
   {
+    name: "Locations",
+    href: "/dashboard/locations",
+    icon: MapPin,
+  },
+  {
     name: "Media Library",
     href: "/dashboard/media",
     icon: ImageIcon,
@@ -43,9 +55,24 @@ const navigation = [
     icon: PlayCircle,
   },
   {
+    name: "Schedules",
+    href: "/dashboard/schedules",
+    icon: Calendar,
+  },
+  {
     name: "Analytics",
     href: "/dashboard/analytics",
     icon: BarChart3,
+  },
+  {
+    name: "Restaurant Menus",
+    href: "/dashboard/restaurant-menus",
+    icon: UtensilsCrossed,
+  },
+  {
+    name: "Team",
+    href: "/dashboard/team",
+    icon: UserPlus,
   },
   {
     name: "Settings",
@@ -63,7 +90,7 @@ const adminNavigation = [
   {
     name: "User Management",
     href: "/dashboard/user-management",
-    icon: Users,
+    icon: UsersIcon,
   },
   {
     name: "Plan Management",
@@ -75,14 +102,50 @@ const adminNavigation = [
     href: "/dashboard/feature-management",
     icon: Zap,
   },
+  {
+    name: "Pricing Bullets",
+    href: "/dashboard/pricing-bullets",
+    icon: LayoutList,
+  },
+  {
+    name: "Menu Templates",
+    href: "/dashboard/admin/restaurant-menus",
+    icon: ChefHat,
+  },
 ]
 
 export function DashboardSidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
   const { profile, loading } = useUser()
+  const { limits, features, loading: limitsLoading } = usePlanLimits()
 
   const isAdmin = profile?.role === "admin" || profile?.role === "superadmin"
+  const isSuperAdmin = limits?.isSuperAdmin || false
+
+  // Filter navigation based on feature toggles (super admin sees everything)
+  // While loading, only show Overview and Settings (safe defaults)
+  const filteredNavigation = navigation.filter((item) => {
+    // Overview and Settings are always visible
+    if (item.href === "/dashboard" || item.href === "/dashboard/settings") return true
+    
+    // While limits are loading, hide feature-gated items
+    if (limitsLoading || !features) return false
+    
+    if (isSuperAdmin) return true
+    
+    // Map navigation items to feature toggles
+    if (item.href === "/dashboard/screens") return features.screens
+    if (item.href === "/dashboard/locations") return features.locations
+    if (item.href === "/dashboard/media") return features.mediaLibrary
+    if (item.href === "/dashboard/playlists") return features.playlists
+    if (item.href === "/dashboard/schedules") return features.schedules
+    if (item.href === "/dashboard/analytics") return features.analytics
+    if (item.href === "/dashboard/team") return features.teamMembers
+    if (item.href === "/dashboard/restaurant-menus") return (features as any).restaurantMenus ?? false
+    
+    return true
+  })
 
   return (
     <div
@@ -96,7 +159,10 @@ export function DashboardSidebar() {
         <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
           {!collapsed && (
             <div className="flex items-center gap-2">
-                <img src="/xkreen-logo.svg" alt="XKREEN" className="h-6 w-auto" />
+              {/* Light mode logo */}
+              <img src="/xkreen-logo-light.svg" alt="XKREEN" className="h-6 w-auto block dark:hidden" />
+              {/* Dark mode logo */}
+              <img src="/xkreen-logo.svg" alt="XKREEN" className="h-6 w-auto hidden dark:block" />
             </div>
           )}
           <Button
@@ -111,7 +177,7 @@ export function DashboardSidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2">
-          {navigation.map((item) => {
+          {filteredNavigation.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
 

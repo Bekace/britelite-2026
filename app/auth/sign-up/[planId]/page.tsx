@@ -3,6 +3,8 @@ export const dynamic = "force-dynamic"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import SignUpForm from "@/components/sign-up-form"
+import Link from "next/link"
+import { Check } from "lucide-react"
 
 interface SignUpPageProps {
   params: Promise<{
@@ -88,8 +90,63 @@ export default async function SignUpWithPlanPage({ params, searchParams }: SignU
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8">
-      <SignUpForm selectedPlan={planWithPrice} />
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Logo Header */}
+      <div className="border-b border-border px-6 py-4">
+        <Link href="/auth/pricing" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          {/* Light mode logo */}
+          <img src="/xkreen-logo-light.svg" alt="XKREEN" className="h-6 w-auto block dark:hidden" />
+          {/* Dark mode logo */}
+          <img src="/xkreen-logo.svg" alt="XKREEN" className="h-6 w-auto hidden dark:block" />
+        </Link>
+      </div>
+
+      {/* Main content - stacks on mobile, 2 columns on desktop */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
+        {/* Plan Card - full width on mobile, 40% on desktop */}
+        <div className="w-full md:w-2/5 md:border-r border-b md:border-b-0 border-border px-4 py-6 md:p-8 flex items-center justify-center bg-muted/30 md:overflow-y-auto">
+          <div className="bg-card border border-border rounded-lg p-6 w-full max-w-sm space-y-6">
+            {/* Plan Header */}
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Selected Plan</p>
+              <h2 className="text-2xl font-semibold text-foreground">{planWithPrice.name}</h2>
+            </div>
+
+            {/* Pricing */}
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-bold text-foreground">${planWithPrice.price}</span>
+              <span className="text-muted-foreground">/{planWithPrice.billing_cycle}</span>
+            </div>
+
+            {/* Trial Info */}
+            {planWithPrice.trialDays && planWithPrice.trialDays > 0 && (
+              <p className="text-sm text-primary font-medium">{planWithPrice.trialDays}-day free trial included</p>
+            )}
+
+            {/* Features */}
+            <div className="space-y-3">
+              {displayFeatures.map((feature: string, idx: number) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                  <span className="text-sm text-foreground">{feature}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Change Plan Link */}
+            <Link href="/auth/pricing" className="text-sm text-primary hover:underline block pt-2">
+              Change plan
+            </Link>
+          </div>
+        </div>
+
+        {/* Sign-up Form - full width on mobile, 60% on desktop */}
+        <div className="w-full md:w-3/5 px-4 py-6 md:p-8 flex items-start md:items-center justify-center md:overflow-y-auto">
+          <div className="w-full max-w-md">
+            <SignUpForm selectedPlan={planWithPrice} />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

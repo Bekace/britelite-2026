@@ -4,6 +4,165 @@ import { stripe } from "@/lib/stripe"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
+/**
+ * Syncs the Stripe subscription quantity to match the user's current screen count,
+ * minus any free screens granted by their plan.
+ *
+ * Formula: stripe_quantity = max(0, total_screens - plan.free_screens)
+ *
+ * This is called after every screen create or delete.
+ * Returns { success, billableScreens } or { error }.
+ */
+export async function syncStripeQuantityWithScreens(userId: string): Promise<{
+  success?: boolean
+  billableScreens?: number
+  error?: string
+}> {
+  const supabase = await createClient()
+
+  // Get user's active subscription including plan free_screens
+  const { data: subscription, error: subError } = await supabase
+    .from("user_subscriptions")
+    .select(`
+      id,
+      stripe_subscription_id,
+      status,
+      subscription_plans (
+        id,
+        name,
+        free_screens
+      )
+    `)
+    .eq("user_id", userId)
+    .in("status", ["active", "trialing"])
+    .single()
+
+  if (subError || !subscription) {
+    // No paid subscription — nothing to sync (Free plan users don't bill via Stripe)
+    return { success: true, billableScreens: 0 }
+  }
+
+  if (!subscription.stripe_subscription_id) {
+    return { success: true, billableScreens: 0 }
+  }
+
+  const plan = subscription.subscription_plans as { id: string; name: string; free_screens: number }
+  const freeScreens = plan?.free_screens ?? 0
+
+  // Count current total screens for this user
+  const { count: totalScreens, error: countError } = await supabase
+    .from("screens")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+
+  if (countError) {
+    return { error: "Failed to count screens" }
+  }
+
+  const billableScreens = Math.max(0, (totalScreens ?? 0) - freeScreens)
+
+  try {
+    // Retrieve the subscription to find the subscription item ID
+    const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripe_subscription_id)
+    const subscriptionItem = stripeSubscription.items.data[0]
+
+    if (!subscriptionItem) {
+      return { error: "No subscription item found on Stripe subscription" }
+    }
+
+    // Update Stripe quantity with immediate proration
+    await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+      items: [
+        {
+          id: subscriptionItem.id,
+          quantity: billableScreens,
+        },
+      ],
+      proration_behavior: "create_prorations",
+    })
+
+    return { success: true, billableScreens }
+  } catch (err: any) {
+    console.error("[v0] syncStripeQuantityWithScreens error:", err)
+    return { error: err.message || "Failed to sync Stripe quantity" }
+  }
+}
+
+/**
+ * Purchases one additional screen slot by incrementing the Stripe subscription
+ * quantity by 1 with immediate proration. This is called when the user has
+ * used all their free + previously billed screen slots and clicks "Add Screen".
+ * Returns { success, newQuantity } or { error }.
+ */
+export async function purchaseAdditionalScreen(): Promise<{
+  success?: boolean
+  newQuantity?: number
+  error?: string
+}> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { error: "Not authenticated" }
+  }
+
+  // Get user's active subscription
+  const { data: subscription, error: subError } = await supabase
+    .from("user_subscriptions")
+    .select(`
+      id,
+      stripe_subscription_id,
+      status,
+      subscription_plans (
+        id,
+        name,
+        free_screens
+      )
+    `)
+    .eq("user_id", user.id)
+    .in("status", ["active", "trialing"])
+    .single()
+
+  if (subError || !subscription?.stripe_subscription_id) {
+    return { error: "No active subscription found" }
+  }
+
+  const plan = subscription.subscription_plans as { id: string; name: string; free_screens: number }
+  const freeScreens = plan?.free_screens ?? 0
+
+  // Count current screens
+  const { count: totalScreens } = await supabase
+    .from("screens")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", user.id)
+
+  const currentBillable = Math.max(0, (totalScreens ?? 0) - freeScreens)
+  const newQuantity = currentBillable + 1
+
+  try {
+    const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripe_subscription_id)
+    const subscriptionItem = stripeSubscription.items.data[0]
+
+    if (!subscriptionItem) {
+      return { error: "No subscription item found" }
+    }
+
+    await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+      items: [{ id: subscriptionItem.id, quantity: newQuantity }],
+      proration_behavior: "create_prorations",
+    })
+
+    return { success: true, newQuantity }
+  } catch (err: any) {
+    console.error("[v0] purchaseAdditionalScreen error:", err)
+    return { error: err.message || "Failed to purchase screen slot" }
+  }
+}
+
 export async function createCheckoutSession(planId: string, priceId: string) {
   const supabase = await createClient()
 
@@ -140,99 +299,132 @@ export async function createCustomerPortalSession() {
 export async function createUpgradeCheckoutSession(planId: string, priceId: string) {
   const supabase = await createClient()
 
-  // Get the current user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
+  try {
+    // Get the current user
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
 
-  if (userError || !user) {
-    return { error: "You must be logged in to upgrade" }
-  }
-
-  // Get the selected plan with Stripe price ID
-  const { data: plan, error: planError } = await supabase
-    .from("subscription_plans")
-    .select("*")
-    .eq("id", planId)
-    .single()
-
-  if (planError || !plan) {
-    return { error: "Invalid plan selected" }
-  }
-
-  // Get the selected price
-  const { data: price, error: priceError } = await supabase
-    .from("subscription_prices")
-    .select("*")
-    .eq("id", priceId)
-    .single()
-
-  if (priceError || !price || !price.stripe_price_id) {
-    return { error: "Invalid price selected" }
-  }
-
-  // Get or create Stripe customer
-  const { data: profile } = await supabase.from("profiles").select("email").eq("id", user.id).single()
-
-  let customerId: string
-
-  // Check if user already has a Stripe customer ID
-  const { data: existingSubscription } = await supabase
-    .from("user_subscriptions")
-    .select("stripe_customer_id")
-    .eq("user_id", user.id)
-    .single()
-
-  if (existingSubscription?.stripe_customer_id) {
-    customerId = existingSubscription.stripe_customer_id
-  } else {
-    // Create new Stripe customer
-    const customer = await stripe.customers.create({
-      email: profile?.email || user.email,
-      metadata: {
-        user_id: user.id,
-      },
-    })
-    customerId = customer.id
-
-    // Update user_subscriptions with customer ID
-    if (existingSubscription) {
-      await supabase.from("user_subscriptions").update({ stripe_customer_id: customerId }).eq("user_id", user.id)
+    if (userError || !user) {
+      return { error: "You must be logged in to upgrade" }
     }
-  }
 
-  // Create checkout session for upgrade (no trial for upgrades)
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    line_items: [
-      {
-        price: price.stripe_price_id,
-        quantity: 1,
+    // Get the selected plan with Stripe price ID
+    const { data: plan, error: planError } = await supabase
+      .from("subscription_plans")
+      .select("*")
+      .eq("id", planId)
+      .single()
+
+    if (planError || !plan) {
+      return { error: "Invalid plan selected" }
+    }
+
+    // Get the selected price
+    const { data: price, error: priceError } = await supabase
+      .from("subscription_prices")
+      .select("*")
+      .eq("id", priceId)
+      .single()
+
+    if (priceError || !price || !price.stripe_price_id) {
+      return { error: "Invalid price selected" }
+    }
+
+    // Get or create Stripe customer
+    const { data: profile } = await supabase.from("profiles").select("email").eq("id", user.id).single()
+
+    let customerId: string
+
+    // Check if user already has a Stripe customer ID
+    const { data: existingSubscription } = await supabase
+      .from("user_subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .single()
+
+    if (existingSubscription?.stripe_customer_id) {
+      // Verify the customer still exists in Stripe (handles account migrations)
+      try {
+        await stripe.customers.retrieve(existingSubscription.stripe_customer_id)
+        customerId = existingSubscription.stripe_customer_id
+      } catch (customerError: unknown) {
+        // Customer doesn't exist in current Stripe account - create new one
+        console.log("[v0] Customer not found in Stripe, creating new one:", existingSubscription.stripe_customer_id)
+        const customer = await stripe.customers.create({
+          email: profile?.email || user.email,
+          metadata: {
+            user_id: user.id,
+          },
+        })
+        customerId = customer.id
+        // Update the stored customer ID
+        await supabase.from("user_subscriptions").update({ stripe_customer_id: customerId }).eq("user_id", user.id)
+      }
+    } else {
+      // Create new Stripe customer
+      const customer = await stripe.customers.create({
+        email: profile?.email || user.email,
+        metadata: {
+          user_id: user.id,
+        },
+      })
+      customerId = customer.id
+
+      // Update user_subscriptions with customer ID
+      if (existingSubscription) {
+        await supabase.from("user_subscriptions").update({ stripe_customer_id: customerId }).eq("user_id", user.id)
+      }
+    }
+
+    console.log("[v0] Creating upgrade checkout for:", { user_id: user.id, plan_id: planId, price_id: priceId, billing_cycle: price.billing_cycle })
+
+    // Create checkout session for upgrade (no trial for upgrades)
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      line_items: [
+        {
+          price: price.stripe_price_id,
+          quantity: 1,
+        },
+      ],
+      mode: "subscription",
+      subscription_data: {
+        metadata: {
+          user_id: user.id,
+          plan_id: planId,
+          price_id: priceId,
+          billing_cycle: price.billing_cycle,
+        },
       },
-    ],
-    mode: "subscription",
-    subscription_data: {
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/dashboard/settings/billing?upgraded=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/dashboard/settings/billing`,
       metadata: {
         user_id: user.id,
         plan_id: planId,
         price_id: priceId,
+        billing_cycle: price.billing_cycle,
       },
-    },
-    success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/dashboard/settings/billing?upgraded=true`,
-    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/dashboard/settings/billing`,
-    metadata: {
-      user_id: user.id,
-      plan_id: planId,
-      price_id: priceId,
-    },
-  })
+    })
 
-  if (!session.url) {
-    return { error: "Failed to create checkout session" }
+    console.log("[v0] Checkout session created:", session.id)
+
+    if (!session.url) {
+      return { error: "Failed to create checkout session" }
+    }
+
+    redirect(session.url)
+  } catch (error) {
+    // Re-throw redirect errors - Next.js needs these to perform the redirect
+    if (error instanceof Error && error.message === 'NEXT_REDIRECT') {
+      throw error
+    }
+    
+    console.error("[v0] Create upgrade checkout error:", error)
+    const errorMessage = error instanceof Error ? error.message : "Failed to create checkout session"
+    return { error: errorMessage }
   }
-
-  redirect(session.url)
 }
 
 export async function cancelSubscription(reason?: string, feedback?: string) {
@@ -357,24 +549,56 @@ export async function getInvoices() {
   }
 
   try {
-    const invoices = await stripe.invoices.list({
+    // 1. Fetch subscription invoices (monthly/annual plan charges)
+    const invoicesResponse = await stripe.invoices.list({
       customer: subscription.stripe_customer_id,
-      limit: 12,
+      limit: 24,
     })
 
-    return {
-      success: true,
-      invoices: invoices.data.map((invoice) => ({
-        id: invoice.id,
-        number: invoice.number,
-        status: invoice.status,
-        amount: invoice.amount_paid / 100, // Convert from cents
-        currency: invoice.currency,
-        created: invoice.created,
-        pdfUrl: invoice.invoice_pdf,
-        hostedUrl: invoice.hosted_invoice_url,
-      })),
-    }
+    const invoiceItems = invoicesResponse.data.map((invoice) => ({
+      id: invoice.id,
+      number: invoice.number,
+      status: invoice.status,
+      amount: invoice.amount_paid / 100,
+      currency: invoice.currency,
+      created: invoice.created,
+      pdfUrl: invoice.invoice_pdf,
+      hostedUrl: invoice.hosted_invoice_url,
+      description: invoice.description || "Subscription",
+    }))
+
+    // 2. Fetch one-off charges (screen slot purchases via Checkout Sessions in payment mode)
+    // These are PaymentIntents, not invoices, so they don't appear in the invoice list
+    const chargesResponse = await stripe.charges.list({
+      customer: subscription.stripe_customer_id,
+      limit: 24,
+    })
+
+    // Collect invoice charge IDs so we don't double-count
+    const invoiceChargeIds = new Set(
+      invoicesResponse.data
+        .map((inv) => (typeof inv.charge === "string" ? inv.charge : inv.charge?.id))
+        .filter(Boolean)
+    )
+
+    const chargeItems = chargesResponse.data
+      .filter((charge) => !invoiceChargeIds.has(charge.id) && charge.status === "succeeded")
+      .map((charge) => ({
+        id: charge.id,
+        number: null,
+        status: "paid" as const,
+        amount: charge.amount / 100,
+        currency: charge.currency,
+        created: charge.created,
+        pdfUrl: charge.receipt_url || null,
+        hostedUrl: charge.receipt_url || null,
+        description: charge.description || "Additional Screen Slot",
+      }))
+
+    // Merge and sort newest first
+    const allItems = [...invoiceItems, ...chargeItems].sort((a, b) => b.created - a.created)
+
+    return { success: true, invoices: allItems }
   } catch (error: any) {
     console.error("[v0] Get invoices error:", error)
     return { error: error.message || "Failed to fetch invoices" }

@@ -31,8 +31,10 @@ import {
   Maximize,
   Minimize,
   X,
+  LayoutTemplate,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { MenuBoardRenderer } from "@/components/restaurant-menus/menu-board-renderer"
 
 interface Playlist {
   id: string
@@ -40,25 +42,25 @@ interface Playlist {
   description: string
   created_at: string
   playlist_media: { count: number }[]
-  background_color?: string
-  scale_image?: string
-  scale_video?: string
-  scale_document?: string
-  shuffle?: boolean
-  default_transition?: string
 }
 
 interface PlaylistItem {
   id: string
   position: number
   duration_override: number
+  content_type?: "media" | "menu_scene"
   media: {
     id: string
     name: string
     file_path: string
     mime_type: string
     file_size: number
-  }
+  } | null
+  menu_scene?: {
+    id: string
+    name: string
+    orientation: string
+  } | null
   start_time?: number
   end_time?: number
   notes?: string
@@ -117,17 +119,15 @@ const getGoogleSlidesEmbedUrl = (url: string) => {
   return url.replace("/edit", "/embed").replace("/view", "/embed")
 }
 
-const PlaylistPreviewModal = ({
-  playlist,
-  isOpen,
-  onClose,
-  backgroundColor = "#000000",
-}: {
-  playlist: Playlist
-  isOpen: boolean
-  onClose: () => void
-  backgroundColor?: string
-}) => {
+  const PlaylistPreviewModal = ({
+    playlist,
+    isOpen,
+    onClose,
+  }: {
+    playlist: Playlist
+    isOpen: boolean
+    onClose: () => void
+  }) => {
   const [items, setItems] = useState<PlaylistItem[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -379,6 +379,38 @@ const PlaylistPreviewModal = ({
     const item = items[currentIndex]
     const mediaStyle = getTransitionStyles(isTransitioning)
 
+    // Menu board scene
+    if (item.content_type === "menu_scene" && item.menu_scene?.menu) {
+      const scene = item.menu_scene
+      const menu = scene.menu
+      return (
+        <div style={{ ...mediaStyle, background: "black" }}>
+          <MenuBoardRenderer
+            menu={{
+              id: menu.id,
+              name: menu.name,
+              brand_settings: menu.brand_settings,
+              menu_template: menu.menu_template,
+              menu_sections: (menu.menu_sections || []).map((s: any) => ({
+                ...s,
+                menu_items: s.menu_items || [],
+              })),
+            }}
+            isPreview={false}
+          />
+        </div>
+      )
+    }
+
+    // Guard against null media (shouldn't happen for non-menu-scene items)
+    if (!item.media) {
+      return (
+        <div style={mediaStyle} className="flex items-center justify-center bg-black text-white/50">
+          <p>No media available</p>
+        </div>
+      )
+    }
+
     if (isYouTubeVideo(item.media)) {
       const embedUrl = getYouTubeUrlWithAutoplay(item.media.file_path)
       return (
@@ -499,10 +531,7 @@ const PlaylistPreviewModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className="max-w-none w-full h-full p-0 bg-black border-none"
-        style={{ backgroundColor }} // Apply playlist-specific background color
-      >
+        <DialogContent className="max-w-none w-full h-full p-0 bg-black border-none">
         <div className="absolute top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-sm">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-4">
@@ -600,12 +629,6 @@ export default function PlaylistsPage() {
   const [newPlaylist, setNewPlaylist] = useState({
     name: "",
     description: "",
-    scale_image: "fit",
-    scale_video: "fit",
-    scale_document: "fit",
-    shuffle: false,
-    default_transition: "fade",
-    background_color: "#000000", // Added background_color to newPlaylist state
   })
   const [creating, setCreating] = useState(false)
   const [previewPlaylist, setPreviewPlaylist] = useState<Playlist | null>(null)
@@ -645,9 +668,7 @@ export default function PlaylistsPage() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const [playlistBackgroundColor, setPlaylistBackgroundColor] = useState(
-    selectedPlaylist?.background_color || "#000000",
-  )
+
 
   const { toast } = useToast()
 
@@ -663,16 +684,7 @@ export default function PlaylistsPage() {
     }
   }, [selectedPlaylist])
 
-  useEffect(() => {
-    if (selectedPlaylist) {
-      console.log(
-        "[v0] Setting background color for playlist:",
-        selectedPlaylist.name,
-        selectedPlaylist.background_color,
-      )
-      setPlaylistBackgroundColor(selectedPlaylist.background_color || "#000000")
-    }
-  }, [selectedPlaylist])
+
 
   const fetchPlaylists = async () => {
     try {
@@ -869,12 +881,6 @@ export default function PlaylistsPage() {
         setNewPlaylist({
           name: "",
           description: "",
-          scale_image: "fit",
-          scale_video: "fit",
-          scale_document: "fit",
-          shuffle: false,
-          default_transition: "fade",
-          background_color: "#000000", // Reset background color
         })
         setShowCreateDialog(false)
         setSelectedPlaylist(newPlaylistData) // Select the newly created playlist
@@ -1290,77 +1296,7 @@ export default function PlaylistsPage() {
     )
   }
 
-  const handleUpdatePlaylistBackground = async (backgroundColor: string) => {
-    if (!selectedPlaylist) return
 
-    try {
-      console.log("[v0] Updating background color for playlist:", selectedPlaylist.name, "to:", backgroundColor)
-      const response = await fetch(`/api/playlists/${selectedPlaylist.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ background_color: backgroundColor }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to update background color")
-      }
-
-      const { playlist } = await response.json()
-      console.log("[v0] Background color updated successfully:", playlist.background_color)
-
-      setPlaylists((prev) =>
-        prev.map((p) => (p.id === selectedPlaylist.id ? { ...p, background_color: backgroundColor } : p)),
-      )
-
-      // Update selectedPlaylist to reflect the change
-      if (selectedPlaylist.id === playlist.id) {
-        setSelectedPlaylist({ ...selectedPlaylist, background_color: backgroundColor })
-      }
-    } catch (error) {
-      console.error("Error updating background color:", error)
-      toast({ title: "Failed to update background color", variant: "destructive" })
-    }
-  }
-
-  const handleUpdatePlaylistSettings = async (
-    settings: Partial<{
-      scale_image: string
-      scale_video: string
-      scale_document: string
-      shuffle: boolean
-      default_transition: string
-    }>,
-  ) => {
-    if (!selectedPlaylist) return
-
-    try {
-      const response = await fetch(`/api/playlists/${selectedPlaylist.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to update playlist settings")
-      }
-
-      const { playlist } = await response.json()
-
-      setPlaylists((prev) => prev.map((p) => (p.id === selectedPlaylist.id ? { ...p, ...settings } : p)))
-
-      setSelectedPlaylist({ ...selectedPlaylist, ...settings })
-      toast({ title: "Playlist settings updated successfully" })
-    } catch (error) {
-      console.error("Error updating playlist settings:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update playlist settings",
-        variant: "destructive",
-      })
-    }
-  }
 
   return (
     <div className="flex h-full gap-6">
@@ -1373,7 +1309,7 @@ export default function PlaylistsPage() {
           </Button>
         </div>
 
-        {playlistLimits.maxPlaylists > 0 && (
+        {playlistLimits.maxPlaylists > 0 && playlistLimits.maxPlaylists < 999999 && (
           <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
             <div className="flex justify-between items-center">
               <span>Playlists:</span>
@@ -1476,10 +1412,7 @@ export default function PlaylistsPage() {
                   <FileText className="h-4 w-4" />
                   Content
                 </TabsTrigger>
-                <TabsTrigger value="settings" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </TabsTrigger>
+
               </TabsList>
 
               <TabsContent value="content" className="mt-6 space-y-6">
@@ -1568,20 +1501,29 @@ export default function PlaylistsPage() {
                               </div>
                               <span className="text-sm font-medium w-6 text-primary">{item.position}</span>
                               <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
-                                {item.media.mime_type?.startsWith("image/") ? (
+                                {item.content_type === "menu_scene" ? (
+                                  <LayoutTemplate className="h-6 w-6 text-emerald-500" />
+                                ) : item.media?.mime_type?.startsWith("image/") ? (
                                   <img
                                     src={item.media.file_path || "/placeholder.svg"}
                                     alt={item.media.name}
                                     className="w-full h-full object-cover rounded"
                                   />
-                                ) : item.media.mime_type?.startsWith("video/") ? (
+                                ) : item.media?.mime_type?.startsWith("video/") ? (
                                   <Video className="h-6 w-6 text-gray-400" />
                                 ) : (
                                   <ImageIcon className="h-6 w-6 text-gray-400" />
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium truncate text-primary">{item.media.name}</p>
+                                <p className="font-medium truncate text-primary">
+                                  {item.content_type === "menu_scene"
+                                    ? (item.menu_scene?.name || "Menu Board")
+                                    : item.media?.name}
+                                </p>
+                                {item.content_type === "menu_scene" && (
+                                  <p className="text-xs text-emerald-600">Menu Board</p>
+                                )}
                                 <p className="text-sm font-medium w-6 text-primary">
                                   Duration: {item.duration_override}s
                                 </p>
@@ -1613,192 +1555,7 @@ export default function PlaylistsPage() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="settings" className="mt-6">
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Playlist Information</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <Label>Name</Label>
-                        <Input value={selectedPlaylist.name} readOnly />
-                      </div>
-                      <div>
-                        <Label>Description</Label>
-                        <Textarea value={selectedPlaylist.description || ""} readOnly />
-                      </div>
-                      <div>
-                        <Label>Created</Label>
-                        <Input value={new Date(selectedPlaylist.created_at).toLocaleString()} readOnly />
-                      </div>
-                    </CardContent>
-                  </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Appearance</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <Label htmlFor="background-color">Background Color</Label>
-                        <div className="flex items-center gap-3 mt-2">
-                          <input
-                            id="background-color"
-                            type="color"
-                            value={playlistBackgroundColor}
-                            onChange={(e) => {
-                              setPlaylistBackgroundColor(e.target.value)
-                              handleUpdatePlaylistBackground(e.target.value)
-                            }}
-                            className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
-                          />
-                          <Input
-                            value={playlistBackgroundColor}
-                            onChange={(e) => {
-                              setPlaylistBackgroundColor(e.target.value)
-                              handleUpdatePlaylistBackground(e.target.value)
-                            }}
-                            placeholder="#000000"
-                            className="font-mono text-sm"
-                          />
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1">Choose the background color for playlist preview</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Media Scaling</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <Label htmlFor="scale-image">Scale Image</Label>
-                        <select
-                          id="scale-image"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                          value={selectedPlaylist ? selectedPlaylist.scale_image || "fit" : newPlaylist.scale_image}
-                          onChange={(e) => {
-                            if (selectedPlaylist) {
-                              handleUpdatePlaylistSettings({ scale_image: e.target.value })
-                            } else {
-                              setNewPlaylist((prev) => ({ ...prev, scale_image: e.target.value }))
-                            }
-                          }}
-                        >
-                          <option value="fit">Fit</option>
-                          <option value="fill">Fill</option>
-                          <option value="stretch">Stretch</option>
-                          <option value="center">Center</option>
-                        </select>
-                      </div>
-                      <div>
-                        <Label htmlFor="scale-video">Scale Video</Label>
-                        <select
-                          id="scale-video"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                          value={selectedPlaylist ? selectedPlaylist.scale_video || "fit" : newPlaylist.scale_video}
-                          onChange={(e) => {
-                            if (selectedPlaylist) {
-                              handleUpdatePlaylistSettings({ scale_video: e.target.value })
-                            } else {
-                              setNewPlaylist((prev) => ({ ...prev, scale_video: e.target.value }))
-                            }
-                          }}
-                        >
-                          <option value="fit">Fit</option>
-                          <option value="fill">Fill</option>
-                          <option value="stretch">Stretch</option>
-                          <option value="center">Center</option>
-                        </select>
-                      </div>
-                      <div>
-                        <Label htmlFor="scale-document">Scale Document</Label>
-                        <select
-                          id="scale-document"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                          value={
-                            selectedPlaylist ? selectedPlaylist.scale_document || "fit" : newPlaylist.scale_document
-                          }
-                          onChange={(e) => {
-                            if (selectedPlaylist) {
-                              handleUpdatePlaylistSettings({ scale_document: e.target.value })
-                            } else {
-                              setNewPlaylist((prev) => ({ ...prev, scale_document: e.target.value }))
-                            }
-                          }}
-                        >
-                          <option value="fit">Fit</option>
-                          <option value="fill">Fill</option>
-                          <option value="stretch">Stretch</option>
-                          <option value="center">Center</option>
-                        </select>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Playback Settings</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label htmlFor="shuffle">Shuffle</Label>
-                          <p className="text-sm text-gray-500">Randomize playlist order</p>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            id="shuffle"
-                            type="checkbox"
-                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                            checked={selectedPlaylist ? selectedPlaylist.shuffle || false : newPlaylist.shuffle}
-                            onChange={(e) => {
-                              if (selectedPlaylist) {
-                                handleUpdatePlaylistSettings({ shuffle: e.target.checked })
-                              } else {
-                                setNewPlaylist((prev) => ({ ...prev, shuffle: e.target.checked }))
-                              }
-                            }}
-                          />
-                          <label htmlFor="shuffle" className="ml-2 text-sm font-medium text-gray-900">
-                            {(selectedPlaylist ? selectedPlaylist.shuffle || false : newPlaylist.shuffle)
-                              ? "ON"
-                              : "OFF"}
-                          </label>
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="default-transition">Default Transition</Label>
-                        <select
-                          id="default-transition"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mt-1"
-                          value={
-                            selectedPlaylist
-                              ? selectedPlaylist.default_transition || "fade"
-                              : newPlaylist.default_transition
-                          }
-                          onChange={(e) => {
-                            if (selectedPlaylist) {
-                              handleUpdatePlaylistSettings({ default_transition: e.target.value })
-                            } else {
-                              setNewPlaylist((prev) => ({ ...prev, default_transition: e.target.value }))
-                            }
-                          }}
-                        >
-                          <option value="fade">Fade</option>
-                          <option value="slide-left">Slide Left</option>
-                          <option value="slide-right">Slide Right</option>
-                          <option value="cross-fade">Cross Fade</option>
-                          <option value="zoom">Zoom</option>
-                          <option value="none">None</option>
-                        </select>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
             </Tabs>
           </div>
         ) : (
@@ -1842,17 +1599,6 @@ export default function PlaylistsPage() {
                   onChange={(e) => setNewPlaylist((prev) => ({ ...prev, description: e.target.value }))}
                   placeholder="Enter playlist description"
                   rows={3}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="background-color">Background Color</Label>
-                <Input
-                  id="background-color"
-                  type="color"
-                  value={newPlaylist.background_color}
-                  onChange={(e) => setNewPlaylist((prev) => ({ ...prev, background_color: e.target.value }))}
-                  className="w-full h-10"
                 />
               </div>
             </div>
@@ -2056,14 +1802,13 @@ export default function PlaylistsPage() {
         </DialogContent>
       </Dialog>
 
-      {previewPlaylist && (
-        <PlaylistPreviewModal
-          playlist={previewPlaylist}
-          isOpen={!!previewPlaylist}
-          onClose={() => setPreviewPlaylist(null)}
-          backgroundColor={previewPlaylist.background_color || "#000000"}
-        />
-      )}
+        {previewPlaylist && (
+          <PlaylistPreviewModal
+            playlist={previewPlaylist}
+            isOpen={!!previewPlaylist}
+            onClose={() => setPreviewPlaylist(null)}
+          />
+        )}
     </div>
   )
 }
