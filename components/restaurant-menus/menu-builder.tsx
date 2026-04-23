@@ -28,6 +28,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import type { RestaurantMenu, MenuSection, MenuItem, MenuTemplate } from "@/lib/restaurant-menus/types"
 import { TemplatePreview } from "@/components/restaurant-menus/template-preview"
@@ -50,6 +57,7 @@ import {
   ImageIcon,
   X,
   FileUp,
+  ListVideo,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -312,6 +320,12 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
   const [deletingItem, setDeletingItem] = useState<MenuItem | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [showPublishDialog, setShowPublishDialog] = useState(false)
+  const [playlists, setPlaylists] = useState<{ id: string; name: string }[]>([])
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>("")
+  const [publishDuration, setPublishDuration] = useState(30)
+  const [publishing, setPublishing] = useState(false)
+  const [publishedPlaylists, setPublishedPlaylists] = useState<{ playlist_item_id: string; playlist_id: string; playlist_name: string }[]>([])
 
   const fetchMenu = useCallback(async () => {
     setLoading(true)
@@ -333,6 +347,63 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
   }, [menuId])
 
   useEffect(() => { fetchMenu() }, [fetchMenu])
+
+  // Fetch playlists and publish status when dialog opens
+  useEffect(() => {
+    if (showPublishDialog) {
+      // Fetch user's playlists
+      fetch("/api/playlists")
+        .then((res) => res.json())
+        .then((data) => setPlaylists(data.playlists || []))
+        .catch(() => setPlaylists([]))
+
+      // Fetch publish status
+      fetch(`/api/restaurant-menus/${menuId}/publish`)
+        .then((res) => res.json())
+        .then((data) => setPublishedPlaylists(data.playlists || []))
+        .catch(() => setPublishedPlaylists([]))
+    }
+  }, [showPublishDialog, menuId])
+
+  const handlePublish = async () => {
+    if (!selectedPlaylistId) {
+      toast({ title: "Select a playlist", variant: "destructive" })
+      return
+    }
+    setPublishing(true)
+    try {
+      const res = await fetch(`/api/restaurant-menus/${menuId}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playlist_id: selectedPlaylistId, duration: publishDuration }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      const data = await res.json()
+      toast({ title: data.message })
+      // Refresh published list
+      const statusRes = await fetch(`/api/restaurant-menus/${menuId}/publish`)
+      const statusData = await statusRes.json()
+      setPublishedPlaylists(statusData.playlists || [])
+      setSelectedPlaylistId("")
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to publish", variant: "destructive" })
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  const handleUnpublish = async (playlistItemId: string) => {
+    try {
+      const res = await fetch(`/api/restaurant-menus/${menuId}/publish?playlist_item_id=${playlistItemId}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) throw new Error()
+      setPublishedPlaylists((prev) => prev.filter((p) => p.playlist_item_id !== playlistItemId))
+      toast({ title: "Removed from playlist" })
+    } catch {
+      toast({ title: "Error", description: "Failed to remove", variant: "destructive" })
+    }
+  }
 
   const handleAddSection = async () => {
     if (!newSectionName.trim()) return
@@ -607,6 +678,20 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
               </Button>
             )}
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPublishDialog(true)}
+            className="gap-2"
+          >
+            <ListVideo className="w-4 h-4" />
+            Publish
+            {publishedPlaylists.length > 0 && (
+              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
+                {publishedPlaylists.length}
+              </Badge>
+            )}
+          </Button>
           <Button
             size="sm"
             onClick={() => router.push(`/dashboard/restaurant-menus/${menuId}/preview`)}
@@ -900,6 +985,77 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Publish to Playlist dialog */}
+      <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Publish to Playlist</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Currently published */}
+            {publishedPlaylists.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Currently in playlists:</Label>
+                <div className="space-y-2">
+                  {publishedPlaylists.map((p) => (
+                    <div key={p.playlist_item_id} className="flex items-center justify-between p-2 bg-muted rounded-md">
+                      <span className="text-sm font-medium">{p.playlist_name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleUnpublish(p.playlist_item_id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add to playlist */}
+            <div className="space-y-3 pt-2 border-t border-border">
+              <Label className="text-sm">Add to playlist</Label>
+              <Select value={selectedPlaylistId} onValueChange={setSelectedPlaylistId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a playlist..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {playlists
+                    .filter((pl) => !publishedPlaylists.some((pp) => pp.playlist_id === pl.id))
+                    .map((pl) => (
+                      <SelectItem key={pl.id} value={pl.id}>{pl.name}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+
+              <div className="space-y-1">
+                <Label className="text-sm">Duration (seconds)</Label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={300}
+                  value={publishDuration}
+                  onChange={(e) => setPublishDuration(parseInt(e.target.value) || 30)}
+                />
+                <p className="text-xs text-muted-foreground">How long to display this menu before advancing</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowPublishDialog(false)}>Close</Button>
+            <Button
+              onClick={handlePublish}
+              disabled={!selectedPlaylistId || publishing}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white"
+            >
+              {publishing ? "Publishing..." : "Add to Playlist"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

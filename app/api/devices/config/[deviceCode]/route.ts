@@ -275,6 +275,8 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
                     duration_override,
                     transition_type,
                     transition_duration,
+                    content_type,
+                    menu_scene_id,
                     media (
                       id,
                       name,
@@ -282,13 +284,25 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
                       mime_type,
                       file_size,
                       duration
+                    ),
+                    menu_scene:menu_scenes(
+                      id,
+                      name,
+                      orientation,
+                      menu:restaurant_menus(
+                        id,
+                        name,
+                        brand_settings,
+                        menu_template:menu_templates(id, name, layout_config, orientation),
+                        menu_sections(*, menu_items(*))
+                      )
                     )
                   `)
                   .eq("playlist_id", content_id)
                   .order("position")
 
                 if (!itemsError && playlistItems) {
-                  playlistContent = playlistItems.filter((item) => item.media)
+                  playlistContent = playlistItems.filter((item) => item.media || item.menu_scene)
                 }
               }
             } else if (content_type === "media" && content_id) {
@@ -335,13 +349,22 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
                   .from("playlist_items")
                   .select(`
                     id, position, duration_override, transition_type, transition_duration,
-                    media ( id, name, file_path, mime_type, file_size, duration )
+                    content_type, menu_scene_id,
+                    media ( id, name, file_path, mime_type, file_size, duration ),
+                    menu_scene:menu_scenes(
+                      id, name, orientation,
+                      menu:restaurant_menus(
+                        id, name, brand_settings,
+                        menu_template:menu_templates(id, name, layout_config, orientation),
+                        menu_sections(*, menu_items(*))
+                      )
+                    )
                   `)
                   .eq("playlist_id", default_content_id)
                   .order("position")
 
                 if (defaultItems) {
-                  playlistContent = defaultItems.filter((item) => item.media)
+                  playlistContent = defaultItems.filter((item) => item.media || item.menu_scene)
                 }
               }
             } else if (default_content_type === "media" && default_content_id) {
@@ -409,6 +432,8 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
             duration_override,
             transition_type,
             transition_duration,
+            content_type,
+            menu_scene_id,
             media (
               id,
               name,
@@ -416,6 +441,18 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
               mime_type,
               file_size,
               duration
+            ),
+            menu_scene:menu_scenes(
+              id,
+              name,
+              orientation,
+              menu:restaurant_menus(
+                id,
+                name,
+                brand_settings,
+                menu_template:menu_templates(id, name, layout_config, orientation),
+                menu_sections(*, menu_items(*))
+              )
             )
           `)
           .eq("playlist_id", activePlaylist.id)
@@ -428,7 +465,8 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
         })
 
         if (!itemsError && playlistItems) {
-          playlistContent = playlistItems.filter((item) => item.media)
+          // Include both media items and menu_scene items
+          playlistContent = playlistItems.filter((item) => item.media || item.menu_scene)
           console.log("[v0] Filtered playlist content count:", playlistContent.length)
         }
       } else {
@@ -453,17 +491,49 @@ export async function GET(request: NextRequest, { params }: { params: { deviceCo
     })
 
     // Transform content for Android app - match old API structure exactly
+    // Now also supports menu_scene content type
     const transformedContent = playlistContent
-      .filter((item: any) => item.media) // Only include items with valid media
+      .filter((item: any) => item.media || item.menu_scene) // Include media and menu scenes
       .map((item: any) => {
-        const mediaData = item.media
+        const contentType = item.content_type || "media"
         
+        if (contentType === "menu_scene" && item.menu_scene) {
+          const scene = item.menu_scene
+          const menu = scene.menu
+          return {
+            id: item.id,
+            position: item.position,
+            duration_override: item.duration_override,
+            transition_type: item.transition_type,
+            transition_duration: item.transition_duration,
+            content_type: "menu_scene",
+            menu_scene: {
+              id: scene.id,
+              name: scene.name,
+              orientation: scene.orientation,
+              menu: menu ? {
+                id: menu.id,
+                name: menu.name,
+                brand_settings: menu.brand_settings,
+                template: menu.menu_template,
+                sections: menu.menu_sections?.map((section: any) => ({
+                  ...section,
+                  items: section.menu_items || [],
+                })) || [],
+              } : null,
+            },
+          }
+        }
+        
+        // Default: media content
+        const mediaData = item.media
         return {
           id: item.id,
           position: item.position,
           duration_override: item.duration_override,
           transition_type: item.transition_type,
           transition_duration: item.transition_duration,
+          content_type: "media",
           media: {
             id: mediaData.id,
             name: mediaData.name,
