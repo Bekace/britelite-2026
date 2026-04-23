@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -28,6 +29,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import type { RestaurantMenu, MenuSection, MenuItem, MenuTemplate } from "@/lib/restaurant-menus/types"
 import { TemplatePreview } from "@/components/restaurant-menus/template-preview"
@@ -50,6 +58,7 @@ import {
   ImageIcon,
   X,
   FileUp,
+  ListVideo,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -311,6 +320,13 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
   const [editingItem, setEditingItem] = useState<{ item: MenuItem | null; sectionId: string } | null>(null)
   const [deletingItem, setDeletingItem] = useState<MenuItem | null>(null)
   const [showImport, setShowImport] = useState(false)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [showPublishDialog, setShowPublishDialog] = useState(false)
+  const [playlists, setPlaylists] = useState<{ id: string; name: string }[]>([])
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>("")
+  const [publishDuration, setPublishDuration] = useState(30)
+  const [publishing, setPublishing] = useState(false)
+  const [publishedPlaylists, setPublishedPlaylists] = useState<{ playlist_item_id: string; playlist_id: string; playlist_name: string }[]>([])
 
   const fetchMenu = useCallback(async () => {
     setLoading(true)
@@ -332,6 +348,63 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
   }, [menuId])
 
   useEffect(() => { fetchMenu() }, [fetchMenu])
+
+  // Fetch playlists and publish status when dialog opens
+  useEffect(() => {
+    if (showPublishDialog) {
+      // Fetch user's playlists
+      fetch("/api/playlists")
+        .then((res) => res.json())
+        .then((data) => setPlaylists(data.playlists || []))
+        .catch(() => setPlaylists([]))
+
+      // Fetch publish status
+      fetch(`/api/restaurant-menus/${menuId}/publish`)
+        .then((res) => res.json())
+        .then((data) => setPublishedPlaylists(data.playlists || []))
+        .catch(() => setPublishedPlaylists([]))
+    }
+  }, [showPublishDialog, menuId])
+
+  const handlePublish = async () => {
+    if (!selectedPlaylistId) {
+      toast({ title: "Select a playlist", variant: "destructive" })
+      return
+    }
+    setPublishing(true)
+    try {
+      const res = await fetch(`/api/restaurant-menus/${menuId}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playlist_id: selectedPlaylistId, duration: publishDuration }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      const data = await res.json()
+      toast({ title: data.message })
+      // Refresh published list
+      const statusRes = await fetch(`/api/restaurant-menus/${menuId}/publish`)
+      const statusData = await statusRes.json()
+      setPublishedPlaylists(statusData.playlists || [])
+      setSelectedPlaylistId("")
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to publish", variant: "destructive" })
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  const handleUnpublish = async (playlistItemId: string) => {
+    try {
+      const res = await fetch(`/api/restaurant-menus/${menuId}/publish?playlist_item_id=${playlistItemId}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) throw new Error()
+      setPublishedPlaylists((prev) => prev.filter((p) => p.playlist_item_id !== playlistItemId))
+      toast({ title: "Removed from playlist" })
+    } catch {
+      toast({ title: "Error", description: "Failed to remove", variant: "destructive" })
+    }
+  }
 
   const handleAddSection = async () => {
     if (!newSectionName.trim()) return
@@ -465,6 +538,47 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
     }
   }
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.currentTarget.files?.[0]
+    if (!file) return
+
+    setUploadingLogo(true)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("type", "menu_logo")
+
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        body: formData,
+      })
+      if (!res.ok) throw new Error()
+      const { file_path } = await res.json()
+      // file_path is already the full public GCS URL returned by the upload API
+      const logoUrl = file_path
+
+      // Update brand settings with logo URL
+      const updateRes = await fetch(`/api/restaurant-menus/${menuId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand_settings: {
+            ...menu?.brand_settings,
+            logo_url: logoUrl,
+          },
+        }),
+      })
+      if (!updateRes.ok) throw new Error()
+      const { menu: updated } = await updateRes.json()
+      setMenu(updated)
+      toast({ title: "Logo uploaded successfully" })
+    } catch {
+      toast({ title: "Error", description: "Failed to upload logo", variant: "destructive" })
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -515,6 +629,69 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
           >
             <LayoutTemplate className="w-4 h-4" />
             {menu.menu_template ? menu.menu_template.name : "Choose Template"}
+          </Button>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleLogoUpload}
+              disabled={uploadingLogo}
+              className="hidden"
+              id="logo-upload"
+            />
+            <label htmlFor="logo-upload" className="cursor-pointer">
+              <div className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors",
+                "border-border bg-background hover:bg-accent hover:text-accent-foreground",
+                uploadingLogo && "opacity-50 pointer-events-none"
+              )}>
+                {menu.brand_settings?.logo_url ? (
+                  <img
+                    src={menu.brand_settings.logo_url}
+                    alt="Logo"
+                    className="w-5 h-5 object-contain rounded"
+                  />
+                ) : (
+                  <ImageIcon className="w-4 h-4" />
+                )}
+                {uploadingLogo ? "Uploading..." : menu.brand_settings?.logo_url ? "Change Logo" : "Add Logo"}
+              </div>
+            </label>
+            {menu.brand_settings?.logo_url && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-7 h-7 text-muted-foreground hover:text-destructive"
+                onClick={async () => {
+                  const res = await fetch(`/api/restaurant-menus/${menuId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ brand_settings: { ...menu.brand_settings, logo_url: null } }),
+                  })
+                  if (res.ok) {
+                    const { menu: updated } = await res.json()
+                    setMenu(updated)
+                    toast({ title: "Logo removed" })
+                  }
+                }}
+              >
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPublishDialog(true)}
+            className="gap-2"
+          >
+            <ListVideo className="w-4 h-4" />
+            Publish
+            {publishedPlaylists.length > 0 && (
+              <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-xs">
+                {publishedPlaylists.length}
+              </Badge>
+            )}
           </Button>
           <Button
             size="sm"
@@ -809,6 +986,78 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Publish to Playlist dialog */}
+      <Dialog open={showPublishDialog} onOpenChange={setShowPublishDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Publish to Playlist</DialogTitle>
+            <DialogDescription>Add this menu board to one or more playlists for display on your screens.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Currently published */}
+            {publishedPlaylists.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Currently in playlists:</Label>
+                <div className="space-y-2">
+                  {publishedPlaylists.map((p) => (
+                    <div key={p.playlist_item_id} className="flex items-center justify-between p-2 bg-muted rounded-md">
+                      <span className="text-sm font-medium">{p.playlist_name}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleUnpublish(p.playlist_item_id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add to playlist */}
+            <div className="space-y-3 pt-2 border-t border-border">
+              <Label className="text-sm">Add to playlist</Label>
+              <Select value={selectedPlaylistId} onValueChange={setSelectedPlaylistId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a playlist..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {playlists
+                    .filter((pl) => !publishedPlaylists.some((pp) => pp.playlist_id === pl.id))
+                    .map((pl) => (
+                      <SelectItem key={pl.id} value={pl.id}>{pl.name}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+
+              <div className="space-y-1">
+                <Label className="text-sm">Duration (seconds)</Label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={300}
+                  value={publishDuration}
+                  onChange={(e) => setPublishDuration(parseInt(e.target.value) || 30)}
+                />
+                <p className="text-xs text-muted-foreground">How long to display this menu before advancing</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setShowPublishDialog(false)}>Close</Button>
+            <Button
+              onClick={handlePublish}
+              disabled={!selectedPlaylistId || publishing}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white"
+            >
+              {publishing ? "Publishing..." : "Add to Playlist"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

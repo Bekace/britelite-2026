@@ -70,6 +70,21 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(arrayBuffer)
         thumbnail_url = await uploadToGCS(bucketName, filename, buffer, thumbnailFile.type)
       }
+
+      // Handle background image upload — inject real GCS URL into layout_config
+      const bgImageFile = formData.get("bg_image") as File | null
+      if (bgImageFile && bgImageFile.size > 0) {
+        const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
+        const filename = `menu-templates/bg/${Date.now()}-${bgImageFile.name}`
+        const arrayBuffer = await bgImageFile.arrayBuffer()
+        const buffer = Buffer.from(arrayBuffer)
+        const bgImageUrl = await uploadToGCS(bucketName, filename, buffer, bgImageFile.type)
+        ;(layout_config as any).background = {
+          ...(layout_config as any).background,
+          image_url: bgImageUrl,
+          type: "image",
+        }
+      }
     } else {
       // Handle JSON body
       const body = await request.json()

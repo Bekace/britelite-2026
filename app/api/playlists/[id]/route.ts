@@ -20,7 +20,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const { id } = await params
 
-    // Get playlist with media items
+    // Get playlist with media items and menu scenes
     const { data: playlist, error: playlistError } = await supabase
       .from("playlists")
       .select(`
@@ -31,7 +31,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           position,
           transition_type,
           transition_duration,
-          media(*)
+          content_type,
+          menu_scene_id,
+          media(*),
+          menu_scene:menu_scenes(
+            id,
+            name,
+            orientation,
+            menu:restaurant_menus(
+              id,
+              name,
+              brand_settings,
+              menu_template:menu_templates(id, name, layout_config, orientation),
+              menu_sections(*, menu_items(*))
+            )
+          )
         )
       `)
       .eq("id", id)

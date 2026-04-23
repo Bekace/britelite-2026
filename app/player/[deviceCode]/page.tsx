@@ -7,6 +7,7 @@ import { useMediaSwitcher } from "@/hooks/use-media-switcher"
 import { useMediaPreloader } from "@/hooks/use-media-preloader"
 import { usePlaylistTimer } from "@/hooks/use-playlist-timer"
 import YouTubePlayerWithFallback from "@/components/youtube-player-with-fallback"
+import { MenuBoardRenderer } from "@/components/restaurant-menus/menu-board-renderer"
 import "@/components/ui/spinner.css"
 
 interface MediaItem {
@@ -15,7 +16,8 @@ interface MediaItem {
   duration_override: number | null
   transition_type: string | null
   transition_duration: number | null
-  media: {
+  content_type?: "media" | "menu_scene"
+  media?: {
     id: string
     name: string
     file_path: string
@@ -23,6 +25,18 @@ interface MediaItem {
     file_size: number
     duration: number | null
     media_type: string
+  }
+  menu_scene?: {
+    id: string
+    name: string
+    orientation: string
+    menu: {
+      id: string
+      name: string
+      brand_settings: any
+      template: any
+      sections: any[]
+    }
   }
 }
 
@@ -81,7 +95,11 @@ const isYouTubeVideo = (media: MediaItem["media"]) => {
 }
 
 const isRegularVideo = (media: MediaItem["media"]) => {
-  return media.mime_type.startsWith("video/") && !isYouTubeVideo(media)
+  return media?.mime_type?.startsWith("video/") && !isYouTubeVideo(media)
+}
+
+const isMenuScene = (item: MediaItem) => {
+  return item.content_type === "menu_scene" && item.menu_scene?.menu
 }
 
 
@@ -179,8 +197,8 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const advanceToNext = useCallback(() => {
     if (contentToDisplay.length === 0) return
     
-    // Send media_end event before advancing
-    if (currentMedia && config?.device.code) {
+    // Send media_end event before advancing (only for media items, not menu scenes)
+    if (currentMedia && config?.device.code && currentMedia.media) {
       const totalDuration = currentMedia.media.duration || 
         currentMedia.duration_override || 
         0
@@ -207,9 +225,9 @@ export default function PlayerPage({ params }: PlayerPageProps) {
 
   const { timeRemaining } = usePlaylistTimer(contentToDisplay, currentIndex, advanceToNext)
 
-  // Send media_start event when current media changes
+  // Send media_start event when current media changes (only for media items)
   useEffect(() => {
-    if (currentMedia && config?.device.code) {
+    if (currentMedia && config?.device.code && currentMedia.media) {
       const totalDuration = currentMedia.media.duration || 
         currentMedia.duration_override || 
         0
@@ -220,7 +238,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
         totalDuration > 0 ? totalDuration : undefined
       )
     }
-  }, [currentIndex, config?.device.code, currentMedia?.media.id])
+  }, [currentIndex, config?.device.code, currentMedia?.media?.id])
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -271,21 +289,41 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     >
       {contentToDisplay && contentToDisplay.length > 0 ? (
         <div className="w-full h-full flex items-center justify-center">
-          {currentMedia && (
-            <>
-              {isRegularVideo(currentMedia.media) && (
-                <video
-                  key={currentMedia.media.id}
-                  className={`absolute inset-0 w-full h-full ${getMediaObjectFit("video", config?.screen)}`}
-                  src={currentMedia.media.file_path}
-                  autoPlay
-                  muted
-                  playsInline
-                  onEnded={advanceToNext}
-                />
-              )}
+            {currentMedia && (
+              <>
+                {/* Menu Scene rendering */}
+                {isMenuScene(currentMedia) && currentMedia.menu_scene?.menu && (
+                  <div className="absolute inset-0 w-full h-full">
+                    <MenuBoardRenderer
+                      menu={{
+                        id: currentMedia.menu_scene.menu.id,
+                        name: currentMedia.menu_scene.menu.name,
+                        brand_settings: currentMedia.menu_scene.menu.brand_settings,
+                        menu_template: currentMedia.menu_scene.menu.template,
+                        menu_sections: currentMedia.menu_scene.menu.sections?.map((s: any) => ({
+                          ...s,
+                          menu_items: s.items || [],
+                        })) || [],
+                      }}
+                      isPreview={false}
+                    />
+                  </div>
+                )}
 
-              {isYouTubeVideo(currentMedia.media) && (
+                {/* Regular Video */}
+                {!isMenuScene(currentMedia) && currentMedia.media && isRegularVideo(currentMedia.media) && (
+                  <video
+                    key={currentMedia.media.id}
+                    className={`absolute inset-0 w-full h-full ${getMediaObjectFit("video", config?.screen)}`}
+                    src={currentMedia.media.file_path}
+                    autoPlay
+                    muted
+                    playsInline
+                    onEnded={advanceToNext}
+                  />
+                )}
+
+              {!isMenuScene(currentMedia) && currentMedia.media && isYouTubeVideo(currentMedia.media) && (
                 <>
                   <YouTubePlayerWithFallback
                     ref={iframeARef}
@@ -312,7 +350,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                 </>
               )}
 
-              {isGoogleSlides(currentMedia.media) && (
+              {!isMenuScene(currentMedia) && currentMedia.media && isGoogleSlides(currentMedia.media) && (
                 <>
                   <iframe
                     ref={iframeARef}
@@ -340,7 +378,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
               )}
 
               {/* Images don't need dual elements, they load instantly */}
-              {currentMedia.media.mime_type.startsWith("image/") && (
+              {!isMenuScene(currentMedia) && currentMedia.media?.mime_type?.startsWith("image/") && (
                 <Image
                   key={currentMedia.id}
                   src={getMediaUrl(currentMedia.media.file_path) || "/placeholder.svg"}

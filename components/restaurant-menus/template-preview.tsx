@@ -40,9 +40,10 @@ const SAMPLE_SECTIONS = [
 interface TemplatePreviewProps {
   config: LayoutConfig
   scale?: number
+  logoUrl?: string
 }
 
-export function TemplatePreview({ config, scale = 0.4 }: TemplatePreviewProps) {
+export function TemplatePreview({ config, scale = 0.4, logoUrl }: TemplatePreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   const { background, typography, layout, promo_area, animations, accent_color, orientation } = config
@@ -59,12 +60,15 @@ export function TemplatePreview({ config, scale = 0.4 }: TemplatePreviewProps) {
       : "to bottom"
     bgStyle.background = `linear-gradient(${dir}, ${background.gradient_from || "#1a1a1a"}, ${background.gradient_to || "#2d2d2d"})`
   } else if (background.type === "image" && background.image_url) {
-    bgStyle.backgroundImage = `url(${background.image_url})`
-    bgStyle.backgroundSize = background.image_position === "fill" ? "cover" : "contain"
+    bgStyle.backgroundImage = `url("${background.image_url}")`
+    bgStyle.backgroundSize = "cover"
     bgStyle.backgroundPosition = background.image_position === "top" ? "top center"
       : background.image_position === "bottom" ? "bottom center"
       : "center center"
     bgStyle.backgroundRepeat = "no-repeat"
+    bgStyle.backgroundColor = "#111111"
+  } else if (background.type === "image") {
+    bgStyle.backgroundColor = "#111111"
   }
 
   const canvasWidth = orientation === "landscape" ? 1920 : 1080
@@ -119,14 +123,16 @@ export function TemplatePreview({ config, scale = 0.4 }: TemplatePreviewProps) {
           ...bgStyle,
         }}
       >
-        {/* Background overlay for image type */}
-        {background.type === "image" && background.image_url && (
+        {/* Background overlay — z-index 1, sits on CSS background-image */}
+        {background.type === "image" && (
           <div
             style={{
               position: "absolute",
               inset: 0,
               backgroundColor: background.overlay_color || "#000000",
               opacity: background.overlay_opacity ?? 0.5,
+              zIndex: 1,
+              pointerEvents: "none",
             }}
           />
         )}
@@ -151,7 +157,7 @@ export function TemplatePreview({ config, scale = 0.4 }: TemplatePreviewProps) {
         )}
 
         {/* Main content */}
-        <div style={{ position: "relative", zIndex: 1, height: "100%", display: "flex", flexDirection: "column" }}>
+        <div style={{ position: "relative", zIndex: 2, height: "100%", display: "flex", flexDirection: "column" }}>
           {/* Header */}
           {layout.header_style !== "none" && (
             <div
@@ -178,9 +184,14 @@ export function TemplatePreview({ config, scale = 0.4 }: TemplatePreviewProps) {
                     color: accent_color,
                     fontWeight: 700,
                     flexShrink: 0,
+                    overflow: "hidden",
                   }}
                 >
-                  {SAMPLE_RESTAURANT.name.charAt(0)}
+                  {logoUrl ? (
+                    <img src={logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    SAMPLE_RESTAURANT.name.charAt(0)
+                  )}
                 </div>
               )}
               <div style={{ textAlign: layout.header_style === "logo-center" ? "center" : "left" }}>

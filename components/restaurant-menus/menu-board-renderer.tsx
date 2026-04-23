@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence, useAnimation } from "framer-motion"
 import type { LayoutConfig, RestaurantMenu, MenuSection, MenuItem } from "@/lib/restaurant-menus/types"
+import { defaultLayoutConfig } from "@/lib/restaurant-menus/types"
 import { Flame, Leaf, WheatOff, Sparkles } from "lucide-react"
 
 const TAG_ICONS: Record<string, React.ElementType> = {
@@ -133,18 +134,25 @@ function VignettePulse() {
 
 interface MenuBoardRendererProps {
   menu: RestaurantMenu & { menu_sections?: MenuSection[] }
-  config: LayoutConfig
+  /** If omitted, derived from menu.menu_template?.layout_config with defaultLayoutConfig fallback */
+  config?: LayoutConfig
   /** Width in pixels of the rendering canvas. Defaults to viewport width. */
   width?: number
   /** Height in pixels. Defaults to aspect-ratio-based height. */
   height?: number
   /** Scale factor for embedding in a preview context */
   scale?: number
+  isPreview?: boolean
 }
 
-export function MenuBoardRenderer({ menu, config, width, height, scale = 1 }: MenuBoardRendererProps) {
+export function MenuBoardRenderer({ menu, config: configProp, width, height, scale = 1, isPreview }: MenuBoardRendererProps) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
+
+  // Derive config from template if not explicitly provided
+  const config: LayoutConfig = configProp
+    ?? (menu as any).menu_template?.layout_config
+    ?? defaultLayoutConfig
 
   const { background, typography, layout, promo_area, animations, accent_color, orientation } = config
 
@@ -162,6 +170,19 @@ export function MenuBoardRenderer({ menu, config, width, height, scale = 1 }: Me
       ? "to bottom right"
       : "to bottom"
     bgStyle.background = `linear-gradient(${dir}, ${background.gradient_from || "#1a1a1a"}, ${background.gradient_to || "#2d2d2d"})`
+  } else if (background.type === "image" && background.image_url) {
+    // Use CSS background-image — most reliable approach inside a scaled container
+    bgStyle.backgroundImage = `url("${background.image_url}")`
+    bgStyle.backgroundSize = "cover"
+    bgStyle.backgroundPosition = background.image_position === "top"
+      ? "top center"
+      : background.image_position === "bottom"
+      ? "bottom center"
+      : "center center"
+    bgStyle.backgroundRepeat = "no-repeat"
+    bgStyle.backgroundColor = "#111111"
+  } else if (background.type === "image") {
+    bgStyle.backgroundColor = "#111111"
   }
 
   const borderRadiusMap = { sharp: "0px", soft: "8px", pill: "999px" }
@@ -214,37 +235,23 @@ export function MenuBoardRenderer({ menu, config, width, height, scale = 1 }: Me
           ...bgStyle,
         }}
       >
-        {/* Background image */}
-        {background.type === "image" && background.image_url && (
-          <div className="absolute inset-0">
-            {animations.background_effect === "parallax" ? (
-              <KenBurnsImage src={background.image_url} alt="Background" />
-            ) : (
-              <img
-                src={background.image_url}
-                alt="Background"
-                crossOrigin="anonymous"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: background.image_position === "fill" ? "cover" : "contain",
-                  objectPosition: background.image_position === "top" ? "top center"
-                    : background.image_position === "bottom" ? "bottom center"
-                    : "center center",
-                }}
-              />
-            )}
+        {/* Ken Burns parallax effect — only when explicitly set */}
+        {background.type === "image" && background.image_url && animations.background_effect === "parallax" && (
+          <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+            <KenBurnsImage src={background.image_url} alt="" />
           </div>
         )}
 
-        {/* Background overlay */}
+        {/* Background overlay — sits on top of CSS background-image */}
         {background.type === "image" && (
           <div
             style={{
               position: "absolute",
               inset: 0,
+              zIndex: 1,
               backgroundColor: background.overlay_color || "#000000",
               opacity: background.overlay_opacity ?? 0.5,
+              pointerEvents: "none",
             }}
           />
         )}
@@ -274,8 +281,8 @@ export function MenuBoardRenderer({ menu, config, width, height, scale = 1 }: Me
           </motion.div>
         )}
 
-        {/* Main content area */}
-        <div style={{ position: "relative", zIndex: 1, height: "100%", display: "flex", flexDirection: "column" }}>
+        {/* Main content area — z-index 2 to sit above image (0) and overlay (1) */}
+        <div style={{ position: "relative", zIndex: 2, height: "100%", display: "flex", flexDirection: "column" }}>
 
           {/* Header */}
           {layout.header_style !== "none" && (
@@ -335,11 +342,7 @@ export function MenuBoardRenderer({ menu, config, width, height, scale = 1 }: Me
                   {restaurantName}
                 </div>
               </div>
-              {layout.header_style === "logo-left" && (
-                <div style={{ textAlign: "right", fontSize: sizes.itemDesc * 0.85, color: typography.text_color + "88" }}>
-                  <div style={{ color: accent_color, letterSpacing: 1 }}>MENU</div>
-                </div>
-              )}
+
             </motion.div>
           )}
 
@@ -356,39 +359,39 @@ export function MenuBoardRenderer({ menu, config, width, height, scale = 1 }: Me
           >
             {sections.map((section, si) => (
               <div key={section.id} style={{ paddingRight: si < layout.columns - 1 ? 48 : 0 }}>
-                {/* Section header */}
-                {layout.section_style !== "none" && (
-                  <motion.div
-                    initial={{ opacity: 0, x: -16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5, delay: si * 0.15 }}
+                {/* Section header — always visible, style controls visual treatment */}
+                <motion.div
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5, delay: si * 0.15 }}
+                  style={{
+                    marginBottom: 24,
+                    paddingBottom: 12,
+                    borderBottom: layout.section_style === "bold-label"
+                      ? `3px solid ${accent_color}`
+                      : layout.section_style === "subtle-divider"
+                      ? `1px solid ${typography.text_color}22`
+                      : `1px solid ${accent_color}33`,
+                  }}
+                >
+                  <div
                     style={{
-                      marginBottom: 24,
-                      paddingBottom: 12,
-                      borderBottom: layout.section_style === "bold-label"
-                        ? `3px solid ${accent_color}`
-                        : `1px solid ${typography.text_color}22`,
+                      fontFamily: `"${typography.font_heading}", serif`,
+                      fontSize: sizes.sectionLabel,
+                      fontWeight: 700,
+                      color: layout.section_style === "bold-label" ? accent_color : typography.text_color,
+                      letterSpacing: 1,
+                      textTransform: "uppercase",
                     }}
                   >
-                    <div
-                      style={{
-                        fontFamily: `"${typography.font_heading}", serif`,
-                        fontSize: sizes.sectionLabel,
-                        fontWeight: 700,
-                        color: layout.section_style === "bold-label" ? accent_color : typography.text_color,
-                        letterSpacing: 1,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {section.name}
+                    {section.name}
+                  </div>
+                  {section.description && (
+                    <div style={{ fontSize: sizes.itemDesc, color: typography.text_color + "66", marginTop: 4 }}>
+                      {section.description}
                     </div>
-                    {section.description && (
-                      <div style={{ fontSize: sizes.itemDesc, color: typography.text_color + "66", marginTop: 4 }}>
-                        {section.description}
-                      </div>
-                    )}
-                  </motion.div>
-                )}
+                  )}
+                </motion.div>
 
                 {/* Items */}
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

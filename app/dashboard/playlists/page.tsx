@@ -31,8 +31,10 @@ import {
   Maximize,
   Minimize,
   X,
+  LayoutTemplate,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { MenuBoardRenderer } from "@/components/restaurant-menus/menu-board-renderer"
 
 interface Playlist {
   id: string
@@ -46,13 +48,19 @@ interface PlaylistItem {
   id: string
   position: number
   duration_override: number
+  content_type?: "media" | "menu_scene"
   media: {
     id: string
     name: string
     file_path: string
     mime_type: string
     file_size: number
-  }
+  } | null
+  menu_scene?: {
+    id: string
+    name: string
+    orientation: string
+  } | null
   start_time?: number
   end_time?: number
   notes?: string
@@ -370,6 +378,38 @@ const getGoogleSlidesEmbedUrl = (url: string) => {
 
     const item = items[currentIndex]
     const mediaStyle = getTransitionStyles(isTransitioning)
+
+    // Menu board scene
+    if (item.content_type === "menu_scene" && item.menu_scene?.menu) {
+      const scene = item.menu_scene
+      const menu = scene.menu
+      return (
+        <div style={{ ...mediaStyle, background: "black" }}>
+          <MenuBoardRenderer
+            menu={{
+              id: menu.id,
+              name: menu.name,
+              brand_settings: menu.brand_settings,
+              menu_template: menu.menu_template,
+              menu_sections: (menu.menu_sections || []).map((s: any) => ({
+                ...s,
+                menu_items: s.menu_items || [],
+              })),
+            }}
+            isPreview={false}
+          />
+        </div>
+      )
+    }
+
+    // Guard against null media (shouldn't happen for non-menu-scene items)
+    if (!item.media) {
+      return (
+        <div style={mediaStyle} className="flex items-center justify-center bg-black text-white/50">
+          <p>No media available</p>
+        </div>
+      )
+    }
 
     if (isYouTubeVideo(item.media)) {
       const embedUrl = getYouTubeUrlWithAutoplay(item.media.file_path)
@@ -1461,20 +1501,29 @@ export default function PlaylistsPage() {
                               </div>
                               <span className="text-sm font-medium w-6 text-primary">{item.position}</span>
                               <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center flex-shrink-0">
-                                {item.media.mime_type?.startsWith("image/") ? (
+                                {item.content_type === "menu_scene" ? (
+                                  <LayoutTemplate className="h-6 w-6 text-emerald-500" />
+                                ) : item.media?.mime_type?.startsWith("image/") ? (
                                   <img
                                     src={item.media.file_path || "/placeholder.svg"}
                                     alt={item.media.name}
                                     className="w-full h-full object-cover rounded"
                                   />
-                                ) : item.media.mime_type?.startsWith("video/") ? (
+                                ) : item.media?.mime_type?.startsWith("video/") ? (
                                   <Video className="h-6 w-6 text-gray-400" />
                                 ) : (
                                   <ImageIcon className="h-6 w-6 text-gray-400" />
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium truncate text-primary">{item.media.name}</p>
+                                <p className="font-medium truncate text-primary">
+                                  {item.content_type === "menu_scene"
+                                    ? (item.menu_scene?.name || "Menu Board")
+                                    : item.media?.name}
+                                </p>
+                                {item.content_type === "menu_scene" && (
+                                  <p className="text-xs text-emerald-600">Menu Board</p>
+                                )}
                                 <p className="text-sm font-medium w-6 text-primary">
                                   Duration: {item.duration_override}s
                                 </p>
