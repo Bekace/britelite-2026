@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -991,6 +992,7 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Publish to Playlist</DialogTitle>
+            <DialogDescription>Add this menu board to one or more playlists for display on your screens.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {/* Currently published */}

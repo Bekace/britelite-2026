@@ -124,7 +124,7 @@ export async function POST(
       // Already in playlist, just update duration
       await supabase
         .from("playlist_items")
-        .update({ duration })
+        .update({ duration_override: duration })
         .eq("id", existingItem.id)
 
       return NextResponse.json({
@@ -154,7 +154,7 @@ export async function POST(
         content_type: "menu_scene",
         menu_scene_id: sceneId,
         media_id: null,
-        duration,
+        duration_override: duration,
         position: nextPosition,
       })
       .select("id")
