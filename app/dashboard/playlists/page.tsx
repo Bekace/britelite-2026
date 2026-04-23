@@ -34,6 +34,7 @@ import {
   LayoutTemplate,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { MenuBoardRenderer } from "@/components/restaurant-menus/menu-board-renderer"
 
 interface Playlist {
   id: string
@@ -377,6 +378,38 @@ const getGoogleSlidesEmbedUrl = (url: string) => {
 
     const item = items[currentIndex]
     const mediaStyle = getTransitionStyles(isTransitioning)
+
+    // Menu board scene
+    if (item.content_type === "menu_scene" && item.menu_scene?.menu) {
+      const scene = item.menu_scene
+      const menu = scene.menu
+      return (
+        <div style={{ ...mediaStyle, background: "black" }}>
+          <MenuBoardRenderer
+            menu={{
+              id: menu.id,
+              name: menu.name,
+              brand_settings: menu.brand_settings,
+              menu_template: menu.menu_template,
+              menu_sections: (menu.menu_sections || []).map((s: any) => ({
+                ...s,
+                menu_items: s.menu_items || [],
+              })),
+            }}
+            isPreview={false}
+          />
+        </div>
+      )
+    }
+
+    // Guard against null media (shouldn't happen for non-menu-scene items)
+    if (!item.media) {
+      return (
+        <div style={mediaStyle} className="flex items-center justify-center bg-black text-white/50">
+          <p>No media available</p>
+        </div>
+      )
+    }
 
     if (isYouTubeVideo(item.media)) {
       const embedUrl = getYouTubeUrlWithAutoplay(item.media.file_path)
