@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { motion, AnimatePresence, useAnimation } from "framer-motion"
 import type { LayoutConfig, RestaurantMenu, MenuSection, MenuItem } from "@/lib/restaurant-menus/types"
+import { defaultLayoutConfig } from "@/lib/restaurant-menus/types"
 import { Flame, Leaf, WheatOff, Sparkles } from "lucide-react"
 
 const TAG_ICONS: Record<string, React.ElementType> = {
@@ -133,18 +134,25 @@ function VignettePulse() {
 
 interface MenuBoardRendererProps {
   menu: RestaurantMenu & { menu_sections?: MenuSection[] }
-  config: LayoutConfig
+  /** If omitted, derived from menu.menu_template?.layout_config with defaultLayoutConfig fallback */
+  config?: LayoutConfig
   /** Width in pixels of the rendering canvas. Defaults to viewport width. */
   width?: number
   /** Height in pixels. Defaults to aspect-ratio-based height. */
   height?: number
   /** Scale factor for embedding in a preview context */
   scale?: number
+  isPreview?: boolean
 }
 
-export function MenuBoardRenderer({ menu, config, width, height, scale = 1 }: MenuBoardRendererProps) {
+export function MenuBoardRenderer({ menu, config: configProp, width, height, scale = 1, isPreview }: MenuBoardRendererProps) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
+
+  // Derive config from template if not explicitly provided
+  const config: LayoutConfig = configProp
+    ?? (menu as any).menu_template?.layout_config
+    ?? defaultLayoutConfig
 
   const { background, typography, layout, promo_area, animations, accent_color, orientation } = config
 
