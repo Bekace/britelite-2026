@@ -85,7 +85,7 @@ export async function POST(
         .update({
           name: menu.name,
           orientation,
-          status: "published",
+          status: "active",
           updated_at: new Date().toISOString(),
         })
         .eq("id", existingScene.id)
@@ -103,7 +103,7 @@ export async function POST(
           user_id: user.id,
           name: menu.name,
           orientation,
-          status: "published",
+          status: "active",
         })
         .select("id")
         .single()
