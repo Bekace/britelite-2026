@@ -245,8 +245,17 @@ function TemplateSelector({ currentTemplateId, onSelect, onCancel }: TemplateSel
       .then((d) => { setTemplates(d.templates || []); setLoading(false) })
   }, [])
 
+  const isCurrentTemplate = (id: string) => id === currentTemplateId
+  const isSelected = (id: string) => id === selected
+  const hasChanged = selected !== currentTemplateId
+
   return (
     <div className="space-y-5">
+      {currentTemplateId && (
+        <p className="text-sm text-muted-foreground">
+          Currently applied: <span className="font-medium text-foreground">{templates.find(t => t.id === currentTemplateId)?.name || "..."}</span>. Select a different template below to switch.
+        </p>
+      )}
       {loading ? (
         <div className="flex items-center justify-center h-40">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
@@ -264,7 +273,9 @@ function TemplateSelector({ currentTemplateId, onSelect, onCancel }: TemplateSel
               onClick={() => setSelected(t.id)}
               className={cn(
                 "rounded-lg border-2 cursor-pointer overflow-hidden transition-all",
-                selected === t.id ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-primary/40"
+                isSelected(t.id)
+                  ? "border-primary ring-2 ring-primary/20"
+                  : "border-border hover:border-primary/40"
               )}
             >
               <div className="relative h-32 bg-muted overflow-hidden flex items-center justify-center">
@@ -272,9 +283,19 @@ function TemplateSelector({ currentTemplateId, onSelect, onCancel }: TemplateSel
                   config={t.layout_config as any}
                   scale={t.orientation === "portrait" ? 0.085 : 0.15}
                 />
-                {selected === t.id && (
+                {isCurrentTemplate(t.id) && !isSelected(t.id) && (
+                  <div className="absolute top-2 left-2">
+                    <Badge className="text-[10px] px-1.5 py-0 bg-black/60 text-white border-0">Current</Badge>
+                  </div>
+                )}
+                {isSelected(t.id) && (
                   <div className="absolute top-2 right-2">
                     <CheckCircle className="w-5 h-5 text-primary drop-shadow-md" />
+                  </div>
+                )}
+                {isCurrentTemplate(t.id) && isSelected(t.id) && (
+                  <div className="absolute top-2 left-2">
+                    <Badge className="text-[10px] px-1.5 py-0 bg-primary text-primary-foreground border-0">Current</Badge>
                   </div>
                 )}
               </div>
@@ -289,11 +310,11 @@ function TemplateSelector({ currentTemplateId, onSelect, onCancel }: TemplateSel
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button
-          disabled={!selected}
+          disabled={!selected || !hasChanged}
           onClick={() => selected && onSelect(selected)}
           className="bg-emerald-500 hover:bg-emerald-600 text-white"
         >
-          Apply Template
+          {hasChanged ? "Apply Template" : "No Changes"}
         </Button>
       </div>
     </div>
@@ -979,6 +1000,7 @@ export function MenuBuilder({ menuId }: MenuBuilderProps) {
           </SheetHeader>
           <div className="mt-6">
             <TemplateSelector
+              key={showTemplateSheet ? "open" : "closed"}
               currentTemplateId={menu.template_id}
               onSelect={handleTemplateSelect}
               onCancel={() => setShowTemplateSheet(false)}
