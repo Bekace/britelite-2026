@@ -131,10 +131,15 @@ export function TemplateDesigner({ initial, onSave, onCancel }: TemplateDesigner
   )
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [thumbnailPreview, setThumbnailPreview] = useState<string>(initial?.thumbnail_url || "")
-  const [bgImageFile, setBgImageFile] = useState<File | null>(null)
+
   const [bgImagePreview, setBgImagePreview] = useState<string>(
-    initial?.layout_config?.background?.image_url || ""
+    // Only show preview if the stored URL is a real URL (not a dead blob)
+    (() => {
+      const url = initial?.layout_config?.background?.image_url || ""
+      return url.startsWith("blob:") ? "" : url
+    })()
   )
+  const [uploadingBg, setUploadingBg] = useState(false)
   const [saving, setSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const bgImageInputRef = useRef<HTMLInputElement>(null)
@@ -154,14 +159,37 @@ export function TemplateDesigner({ initial, onSave, onCancel }: TemplateDesigner
     []
   )
 
-  const handleBgImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBgImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setBgImageFile(file)
-    const url = URL.createObjectURL(file)
-    setBgImagePreview(url)
-    updateNested("background", "image_url", url)
-    updateNested("background", "type", "image")
+
+    // Show a local blob preview immediately for visual feedback
+    const localPreview = URL.createObjectURL(file)
+    setBgImagePreview(localPreview)
+    setUploadingBg(true)
+
+    try {
+      // Upload to GCS right now — never store a blob URL in the config
+      const fd = new FormData()
+      fd.append("file", file)
+      fd.append("folder", "menu-templates/bg")
+      const res = await fetch("/api/media/upload", { method: "POST", body: fd })
+      if (!res.ok) throw new Error("Upload failed")
+      const { file_path } = await res.json()
+      // file_path is the permanent GCS URL
+      setBgImagePreview(file_path)
+      updateNested("background", "image_url", file_path)
+      updateNested("background", "type", "image")
+      toast({ title: "Background image uploaded" })
+    } catch {
+      setBgImagePreview("")
+      toast({ title: "Upload failed", description: "Could not upload background image.", variant: "destructive" })
+    } finally {
+      setUploadingBg(false)
+      URL.revokeObjectURL(localPreview)
+    }
+    // Reset input so the same file can be re-selected
+    e.target.value = ""
   }
 
   const handleThumbnailUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -211,15 +239,9 @@ export function TemplateDesigner({ initial, onSave, onCancel }: TemplateDesigner
       if (description) formData.append("description", description.trim())
       formData.append("is_active", String(isActive))
 
-      // Strip blob URL from layout_config before sending — API will replace it with GCS URL
-      const finalConfig = { ...config }
-      if (bgImageFile) {
-        // Clear the local blob URL; API will upload the file and inject the real GCS URL
-        finalConfig.background = { ...finalConfig.background, image_url: "" }
-      }
-      formData.append("layout_config", JSON.stringify(finalConfig))
+      // config.background.image_url is already a real GCS URL (uploaded on file select)
+      formData.append("layout_config", JSON.stringify(config))
       if (thumbnailFile) formData.append("thumbnail", thumbnailFile)
-      if (bgImageFile) formData.append("bg_image", bgImageFile)
 
       const url = initial
         ? `/api/admin/menu-templates/${initial.id}`
@@ -365,26 +387,33 @@ export function TemplateDesigner({ initial, onSave, onCancel }: TemplateDesigner
                   {bgImagePreview ? (
                     <div className="relative w-full h-28 rounded-md overflow-hidden border border-border">
                       <img src={bgImagePreview} alt="Background" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setBgImagePreview("")
-                          setBgImageFile(null)
-                          updateNested("background", "image_url", undefined)
-                        }}
-                        className="absolute top-1 right-1 bg-black/60 rounded-full p-1 text-white hover:bg-black/80"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+                      {uploadingBg && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xs">
+                          Uploading...
+                        </div>
+                      )}
+                      {!uploadingBg && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBgImagePreview("")
+                            updateNested("background", "image_url", "")
+                          }}
+                          className="absolute top-1 right-1 bg-black/60 rounded-full p-1 text-white hover:bg-black/80"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <button
                       type="button"
+                      disabled={uploadingBg}
                       onClick={() => bgImageInputRef.current?.click()}
-                      className="w-full h-20 border-2 border-dashed border-border rounded-md flex items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors text-sm"
+                      className="w-full h-20 border-2 border-dashed border-border rounded-md flex items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors text-sm disabled:opacity-50"
                     >
                       <ImageIcon className="w-4 h-4" />
-                      Upload background image
+                      {uploadingBg ? "Uploading..." : "Upload background image"}
                     </button>
                   )}
                   <div>
