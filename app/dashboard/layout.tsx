@@ -1,7 +1,7 @@
 import type React from "react"
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar"
+import { DashboardSidebar, SidebarProvider } from "@/components/dashboard/dashboard-sidebar"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { UserProvider } from "@/lib/hooks/use-user"
 import { EmailVerificationBanner } from "@/components/email-verification-banner"
@@ -51,21 +51,23 @@ export default async function DashboardLayout({
 
   return (
     <UserProvider initialUser={user} initialProfile={profile}>
-      <div className="flex h-screen bg-background">
-        {/* Sidebar */}
-        <DashboardSidebar />
+      <SidebarProvider>
+        <div className="flex h-screen bg-background">
+          {/* Sidebar (handles mobile drawer + desktop sidebar internally) */}
+          <DashboardSidebar />
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <EmailVerificationBanner />
+          {/* Main Content */}
+          <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+            <EmailVerificationBanner />
 
-          {/* Header */}
-          <DashboardHeader user={user} />
+            {/* Header */}
+            <DashboardHeader user={user} />
 
-          {/* Page Content */}
-          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+            {/* Page Content */}
+            <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+          </div>
         </div>
-      </div>
+      </SidebarProvider>
     </UserProvider>
   )
 }

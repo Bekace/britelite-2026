@@ -15,6 +15,7 @@ import { signOut } from "@/lib/actions"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
+import { MobileMenuButton } from "@/components/dashboard/dashboard-sidebar"
 
 interface DashboardHeaderProps {
   user: SupabaseUser
@@ -34,15 +35,18 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
   }
 
   return (
-    <header className="bg-card border-b border-border px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+    <header className="bg-card border-b border-border px-4 md:px-6 py-3 md:py-4">
+      <div className="flex items-center justify-between gap-4">
+        {/* Left side - hamburger on mobile, title on desktop */}
+        <div className="flex items-center gap-3">
+          <MobileMenuButton />
+          <h1 className="text-lg md:text-2xl font-semibold text-foreground">Dashboard</h1>
         </div>
 
-        <div className="flex items-center gap-4">
-          {/* Search Button */}
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+        {/* Right side - actions */}
+        <div className="flex items-center gap-2 md:gap-4">
+          {/* Search Button - hidden on mobile, show in dropdown instead */}
+          <Button variant="ghost" size="icon" className="hidden md:flex text-muted-foreground hover:text-foreground">
             <Search className="w-5 h-5" />
           </Button>
 
@@ -54,16 +58,23 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 px-3">
+              <Button variant="ghost" className="flex items-center gap-2 px-2 md:px-3">
                 <Avatar className="w-8 h-8">
                   <AvatarFallback className="bg-primary text-primary-foreground text-sm">{userInitials}</AvatarFallback>
                 </Avatar>
-                <span className="text-sm font-medium text-foreground hidden md:block">{user.email}</span>
+                <span className="text-sm font-medium text-foreground hidden lg:block">{user.email}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              
+              {/* Search - visible on mobile only */}
+              <DropdownMenuItem className="md:hidden">
+                <Search className="w-4 h-4 mr-2" />
+                Search
+              </DropdownMenuItem>
+              
               <DropdownMenuItem>
                 <Bell className="w-4 h-4 mr-2" />
                 Notifications
