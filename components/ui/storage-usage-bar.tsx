@@ -55,7 +55,7 @@ export function StorageUsageBar({
 
   return (
     <div className={`space-y-3 ${className}`}>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-sm text-muted-foreground">{formatPercentageDisplay()}</span>
         <Badge
           variant={getBadgeVariant(usagePercentage)}
@@ -63,7 +63,7 @@ export function StorageUsageBar({
             ${usagePercentage < 75 ? "bg-emerald-500 hover:bg-emerald-600 text-white" : ""}
             ${usagePercentage >= 75 && usagePercentage < 90 ? "bg-yellow-500 hover:bg-yellow-600 text-white" : ""}
             ${usagePercentage >= 90 ? "bg-red-500 hover:bg-red-600 text-white" : ""}
-            font-medium px-3 py-1
+            font-medium px-3 py-1 w-fit
           `}
         >
           {formatStorageDisplay()}
