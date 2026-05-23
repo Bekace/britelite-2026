@@ -40,6 +40,12 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-svh w-full items-center justify-center p-4 sm:p-6 md:p-10">
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-4 sm:gap-6">
+          <div className="flex justify-center mb-6 sm:mb-[60px]">
+            {/* Light mode logo */}
+            <img src="/xkreen-logo-light.svg" alt="Xkreen" className="h-10 w-auto block dark:hidden" />
+            {/* Dark mode logo */}
+            <img src="/xkreen-logo.svg" alt="Xkreen" className="h-10 w-auto hidden dark:block" />
+          </div>
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">Forgot Password</CardTitle>
