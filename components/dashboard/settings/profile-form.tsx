@@ -136,28 +136,28 @@ export function ProfileForm({ userId, initialData }: ProfileFormProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       {/* Avatar Section */}
-      <div className="rounded-lg border border-border/50 p-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-lg font-semibold mb-2">Avatar</h2>
-            <p className="text-sm text-muted-foreground mb-4">This is your avatar.</p>
-            <p className="text-sm text-muted-foreground">Click on the avatar to upload a custom one from your files.</p>
+      <div className="rounded-lg border border-border/50 p-4 lg:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex-1">
+            <h2 className="text-base lg:text-lg font-semibold mb-1 lg:mb-2">Avatar</h2>
+            <p className="text-xs lg:text-sm text-muted-foreground mb-2 lg:mb-4">This is your avatar.</p>
+            <p className="text-xs lg:text-sm text-muted-foreground">Click on the avatar to upload a custom one from your files.</p>
           </div>
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <Avatar
-              className="w-20 h-20 cursor-pointer hover:opacity-80 transition-opacity"
+              className="w-16 h-16 lg:w-20 lg:h-20 cursor-pointer hover:opacity-80 transition-opacity"
               onClick={handleAvatarClick}
             >
               <AvatarImage src={avatarUrl || "/placeholder.svg"} />
               <AvatarFallback className="bg-muted">
-                <User className="w-8 h-8 text-muted-foreground" />
+                <User className="w-6 h-6 lg:w-8 lg:h-8 text-muted-foreground" />
               </AvatarFallback>
             </Avatar>
             {uploading && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-full">
-                <Loader2 className="w-6 h-6 animate-spin" />
+                <Loader2 className="w-5 h-5 lg:w-6 lg:h-6 animate-spin" />
               </div>
             )}
             <input
@@ -169,64 +169,64 @@ export function ProfileForm({ userId, initialData }: ProfileFormProps) {
             />
           </div>
         </div>
-        <p className="text-sm text-muted-foreground mt-4 pt-4 border-t border-border/50">
+        <p className="text-xs lg:text-sm text-muted-foreground mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-border/50">
           An avatar is optional but strongly recommended.
         </p>
       </div>
 
       {/* Display Name Section */}
-      <div className="rounded-lg border border-border/50 p-6">
-        <h2 className="text-lg font-semibold mb-2">Display Name</h2>
-        <p className="text-sm text-muted-foreground mb-4">
+      <div className="rounded-lg border border-border/50 p-4 lg:p-6">
+        <h2 className="text-base lg:text-lg font-semibold mb-1 lg:mb-2">Display Name</h2>
+        <p className="text-xs lg:text-sm text-muted-foreground mb-3 lg:mb-4">
           Please enter your full name, or a display name you are comfortable with.
         </p>
         <Input
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          className="max-w-md bg-muted/30"
+          className="w-full lg:max-w-md bg-muted/30 text-sm"
           maxLength={32}
         />
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
-          <p className="text-sm text-muted-foreground">Please use 32 characters at maximum.</p>
-          <Button onClick={handleSaveFullName} disabled={saving === "full_name"} size="sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-border/50">
+          <p className="text-xs lg:text-sm text-muted-foreground">Please use 32 characters at maximum.</p>
+          <Button onClick={handleSaveFullName} disabled={saving === "full_name"} size="sm" className="w-full sm:w-auto">
             {saving === "full_name" ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>
 
       {/* Company Name Section */}
-      <div className="rounded-lg border border-border/50 p-6">
-        <h2 className="text-lg font-semibold mb-2">Company Name</h2>
-        <p className="text-sm text-muted-foreground mb-4">Your company or organization name.</p>
+      <div className="rounded-lg border border-border/50 p-4 lg:p-6">
+        <h2 className="text-base lg:text-lg font-semibold mb-1 lg:mb-2">Company Name</h2>
+        <p className="text-xs lg:text-sm text-muted-foreground mb-3 lg:mb-4">Your company or organization name.</p>
         <Input
           value={companyName}
           onChange={(e) => setCompanyName(e.target.value)}
-          className="max-w-md bg-muted/30"
+          className="w-full lg:max-w-md bg-muted/30 text-sm"
           maxLength={100}
         />
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
-          <p className="text-sm text-muted-foreground">Please use 100 characters at maximum.</p>
-          <Button onClick={handleSaveCompanyName} disabled={saving === "company_name"} size="sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-border/50">
+          <p className="text-xs lg:text-sm text-muted-foreground">Please use 100 characters at maximum.</p>
+          <Button onClick={handleSaveCompanyName} disabled={saving === "company_name"} size="sm" className="w-full sm:w-auto">
             {saving === "company_name" ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>
 
       {/* Bio Section - Placeholder */}
-      <div className="rounded-lg border border-border/50 p-6">
-        <h2 className="text-lg font-semibold mb-2">Bio</h2>
-        <p className="text-sm text-muted-foreground mb-4">A brief description about yourself or your business.</p>
+      <div className="rounded-lg border border-border/50 p-4 lg:p-6">
+        <h2 className="text-base lg:text-lg font-semibold mb-1 lg:mb-2">Bio</h2>
+        <p className="text-xs lg:text-sm text-muted-foreground mb-3 lg:mb-4">A brief description about yourself or your business.</p>
         <Textarea
           value={bio}
           onChange={(e) => setBio(e.target.value)}
-          className="max-w-md bg-muted/30 min-h-[100px]"
+          className="w-full lg:max-w-md bg-muted/30 min-h-[100px] text-sm"
           placeholder="Tell us about yourself..."
           maxLength={500}
           disabled
         />
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
-          <p className="text-sm text-muted-foreground">Coming soon - Please use 500 characters at maximum.</p>
-          <Button size="sm" disabled>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-border/50">
+          <p className="text-xs lg:text-sm text-muted-foreground">Coming soon - Please use 500 characters at maximum.</p>
+          <Button size="sm" disabled className="w-full sm:w-auto">
             Save
           </Button>
         </div>

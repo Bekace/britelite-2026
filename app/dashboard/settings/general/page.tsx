@@ -64,17 +64,17 @@ export default async function GeneralSettingsPage() {
   const features = plan?.features ? (Array.isArray(plan.features) ? plan.features : []) : []
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       {plan && (
-        <div className="rounded-lg border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-6">
-          <div className="flex items-start justify-between mb-4">
+        <div className="rounded-lg border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-4 lg:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4 lg:mb-4 gap-3">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/10 rounded-lg">
                 <Crown className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold">{plan.name} Plan</h2>
-                <p className="text-sm text-muted-foreground">
+                <h2 className="text-lg lg:text-xl font-semibold">{plan.name} Plan</h2>
+                <p className="text-xs lg:text-sm text-muted-foreground">
                   {subscription?.status === "active" || subscription?.status === "trialing"
                     ? "Active subscription"
                     : "Current plan"}
@@ -83,7 +83,7 @@ export default async function GeneralSettingsPage() {
             </div>
             {!isHighestPlan && (
               <Link href="/dashboard/settings/billing">
-                <Button size="sm" className="gap-2">
+                <Button size="sm" className="gap-2 w-full sm:w-auto">
                   <Crown className="w-4 h-4" />
                   Upgrade Plan
                 </Button>
@@ -91,35 +91,35 @@ export default async function GeneralSettingsPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="bg-background/50 rounded-md p-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 lg:gap-4 mb-4 lg:mb-4">
+            <div className="bg-background/50 rounded-md p-2 lg:p-3">
               <p className="text-xs text-muted-foreground mb-1">Screens</p>
-              <p className="text-lg font-semibold">
+              <p className="text-base lg:text-lg font-semibold">
                 {plan.max_screens === -1 || plan.max_screens >= 999999 ? "Unlimited" : plan.max_screens}
               </p>
             </div>
-            <div className="bg-background/50 rounded-md p-3">
+            <div className="bg-background/50 rounded-md p-2 lg:p-3">
               <p className="text-xs text-muted-foreground mb-1">Playlists</p>
-              <p className="text-lg font-semibold">
+              <p className="text-base lg:text-lg font-semibold">
                 {plan.max_playlists === -1 || plan.max_playlists >= 999999 ? "Unlimited" : plan.max_playlists}
               </p>
             </div>
-            <div className="bg-background/50 rounded-md p-3">
+            <div className="bg-background/50 rounded-md p-2 lg:p-3">
               <p className="text-xs text-muted-foreground mb-1">Storage</p>
-              <p className="text-lg font-semibold">
+              <p className="text-base lg:text-lg font-semibold">
                 {plan.max_media_storage === -1 ? "Unlimited" : `${Math.round(plan.max_media_storage / 1073741824)} GB`}
               </p>
             </div>
           </div>
 
           {features.length > 0 && (
-            <div className="pt-4 border-t border-border/50">
-              <p className="text-sm font-medium mb-3">Plan Features:</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="pt-4 lg:pt-4 border-t border-border/50">
+              <p className="text-xs lg:text-sm font-medium mb-2 lg:mb-3">Plan Features:</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {features.map((feature: string, index: number) => (
                   <div key={index} className="flex items-start gap-2">
                     <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-muted-foreground">{feature}</span>
+                    <span className="text-xs lg:text-sm text-muted-foreground">{feature}</span>
                   </div>
                 ))}
               </div>
@@ -129,30 +129,30 @@ export default async function GeneralSettingsPage() {
       )}
 
       {/* Email Section */}
-      <div className="rounded-lg border border-border/50 p-6">
-        <h2 className="text-lg font-semibold mb-2">Email</h2>
-        <p className="text-sm text-muted-foreground mb-4">Your email address is used for login and notifications.</p>
-        <div className="bg-muted/30 rounded-md px-4 py-3">
-          <p className="text-sm font-mono">{user.email}</p>
+      <div className="rounded-lg border border-border/50 p-4 lg:p-6">
+        <h2 className="text-base lg:text-lg font-semibold mb-2">Email</h2>
+        <p className="text-xs lg:text-sm text-muted-foreground mb-3 lg:mb-4">Your email address is used for login and notifications.</p>
+        <div className="bg-muted/30 rounded-md px-3 lg:px-4 py-2 lg:py-3">
+          <p className="text-xs lg:text-sm font-mono break-all">{user.email}</p>
         </div>
-        <p className="text-sm text-muted-foreground mt-3">Contact support to change your email address.</p>
+        <p className="text-xs lg:text-sm text-muted-foreground mt-2 lg:mt-3">Contact support to change your email address.</p>
       </div>
 
       {/* User ID Section */}
-      <div className="rounded-lg border border-border/50 p-6">
-        <h2 className="text-lg font-semibold mb-2">User ID</h2>
-        <p className="text-sm text-muted-foreground mb-4">Your unique identifier in our system.</p>
-        <div className="bg-muted/30 rounded-md px-4 py-3">
-          <p className="text-sm font-mono">{user.id}</p>
+      <div className="rounded-lg border border-border/50 p-4 lg:p-6">
+        <h2 className="text-base lg:text-lg font-semibold mb-2">User ID</h2>
+        <p className="text-xs lg:text-sm text-muted-foreground mb-3 lg:mb-4">Your unique identifier in our system.</p>
+        <div className="bg-muted/30 rounded-md px-3 lg:px-4 py-2 lg:py-3 overflow-x-auto">
+          <p className="text-xs lg:text-sm font-mono break-all">{user.id}</p>
         </div>
       </div>
 
       {/* Account Created Section */}
-      <div className="rounded-lg border border-border/50 p-6">
-        <h2 className="text-lg font-semibold mb-2">Account Created</h2>
-        <p className="text-sm text-muted-foreground mb-4">The date when your account was created.</p>
-        <div className="bg-muted/30 rounded-md px-4 py-3">
-          <p className="text-sm">
+      <div className="rounded-lg border border-border/50 p-4 lg:p-6">
+        <h2 className="text-base lg:text-lg font-semibold mb-2">Account Created</h2>
+        <p className="text-xs lg:text-sm text-muted-foreground mb-3 lg:mb-4">The date when your account was created.</p>
+        <div className="bg-muted/30 rounded-md px-3 lg:px-4 py-2 lg:py-3">
+          <p className="text-xs lg:text-sm">
             {new Date(user.created_at).toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
@@ -164,11 +164,11 @@ export default async function GeneralSettingsPage() {
 
       {/* Role Section */}
       {profile?.role && (
-        <div className="rounded-lg border border-border/50 p-6">
-          <h2 className="text-lg font-semibold mb-2">Role</h2>
-          <p className="text-sm text-muted-foreground mb-4">Your current role and permissions level.</p>
-          <div className="bg-muted/30 rounded-md px-4 py-3">
-            <p className="text-sm capitalize">{profile.role}</p>
+        <div className="rounded-lg border border-border/50 p-4 lg:p-6">
+          <h2 className="text-base lg:text-lg font-semibold mb-2">Role</h2>
+          <p className="text-xs lg:text-sm text-muted-foreground mb-3 lg:mb-4">Your current role and permissions level.</p>
+          <div className="bg-muted/30 rounded-md px-3 lg:px-4 py-2 lg:py-3">
+            <p className="text-xs lg:text-sm capitalize">{profile.role}</p>
           </div>
         </div>
       )}
