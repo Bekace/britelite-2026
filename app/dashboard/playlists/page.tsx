@@ -1299,18 +1299,19 @@ export default function PlaylistsPage() {
 
 
   return (
-    <div className="flex h-full gap-6">
-      <div className="w-80 space-y-6">
+    <div className="flex flex-col lg:flex-row h-full gap-4 lg:gap-6">
+      {/* Playlist sidebar - horizontal scrollable list on mobile, vertical column on desktop */}
+      <div className="w-full lg:w-80 space-y-4 lg:space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Playlists</h1>
-          <Button className="bg-cyan-500 hover:bg-cyan-600" onClick={handleOpenCreateDialog}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Playlists</h1>
+          <Button className="bg-cyan-500 hover:bg-cyan-600" size="sm" onClick={handleOpenCreateDialog}>
+            <Plus className="h-4 w-4 mr-1 lg:mr-2" />
+            <span className="hidden sm:inline">Create</span>
           </Button>
         </div>
 
         {playlistLimits.maxPlaylists > 0 && playlistLimits.maxPlaylists < 999999 && (
-          <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+          <div className="text-sm text-gray-600 bg-gray-50 p-2 lg:p-3 rounded-lg">
             <div className="flex justify-between items-center">
               <span>Playlists:</span>
               <span className={playlistLimits.canCreate ? "text-green-600" : "text-red-600"}>
@@ -1333,11 +1334,12 @@ export default function PlaylistsPage() {
           />
         </div>
 
-        <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-300px)]">
+        {/* Mobile: horizontal scroll list, Desktop: vertical scroll list */}
+        <div className="flex lg:flex-col gap-2 overflow-x-auto lg:overflow-x-visible lg:overflow-y-auto lg:max-h-[calc(100vh-300px)] pb-2 lg:pb-0 -mx-4 px-4 lg:mx-0 lg:px-0">
           {filteredPlaylists.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <PlayCircle className="h-8 w-8 text-gray-400 mb-2" />
+            <Card className="flex-shrink-0 w-64 lg:w-full">
+              <CardContent className="flex flex-col items-center justify-center py-6 lg:py-8">
+                <PlayCircle className="h-6 lg:h-8 w-6 lg:w-8 text-gray-400 mb-2" />
                 <p className="text-sm text-gray-600 text-center">
                   {playlists.length === 0 ? "No playlists yet" : "No playlists match your search"}
                 </p>
@@ -1347,26 +1349,26 @@ export default function PlaylistsPage() {
             filteredPlaylists.map((playlist) => (
               <Card
                 key={playlist.id}
-                className={`cursor-pointer transition-all hover:shadow-md ${
+                className={`flex-shrink-0 w-64 lg:w-full cursor-pointer transition-all hover:shadow-md ${
                   selectedPlaylist?.id === playlist.id ? "ring-2 ring-cyan-500 bg-cyan-50" : ""
                 }`}
                 onClick={() => setSelectedPlaylist(playlist)}
               >
-                <CardContent className="p-4">
+                <CardContent className="p-3 lg:p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold truncate" title={playlist.name}>
+                      <h3 className="font-semibold text-sm lg:text-base truncate" title={playlist.name}>
                         {playlist.name}
                       </h3>
                       {playlist.description && (
-                        <p className="text-sm mt-1 line-clamp-2 text-primary">{playlist.description}</p>
+                        <p className="text-xs lg:text-sm mt-1 line-clamp-2 text-primary">{playlist.description}</p>
                       )}
-                      <div className="flex items-center gap-4 text-xs text-gray-500 mt-2">
+                      <div className="flex items-center gap-2 lg:gap-4 text-xs text-gray-500 mt-2">
                         <span>{playlist.playlist_media?.[0]?.count || 0} items</span>
-                        <span>{new Date(playlist.created_at).toLocaleDateString()}</span>
+                        <span className="hidden lg:inline">{new Date(playlist.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 ml-2">
+                    <div className="hidden lg:flex items-center gap-1 ml-2">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1398,7 +1400,7 @@ export default function PlaylistsPage() {
         </div>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 min-h-0">
         {selectedPlaylist ? (
           <div className="h-full">
             <div className="mb-6">
@@ -1431,7 +1433,7 @@ export default function PlaylistsPage() {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-64 overflow-y-auto">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 lg:gap-4 max-h-48 lg:max-h-64 overflow-y-auto">
                       {availableMedia.map((media) => (
                         <Card key={media.id} className="cursor-pointer hover:shadow-md transition-shadow">
                           <CardContent className="p-3">

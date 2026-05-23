@@ -126,28 +126,28 @@ export default function TeamPage() {
   const ownerInitials = ownerName.split(/[\s._-]/).map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Team Members</h1>
-          <p className="text-muted-foreground mt-1">Manage who has access to this account.</p>
+          <h1 className="text-2xl lg:text-3xl font-bold">Team Members</h1>
+          <p className="text-sm lg:text-base text-muted-foreground mt-1">Manage who has access to this account.</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-full">
+        <div className="flex items-center gap-2 text-xs lg:text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded-full w-fit">
           <Users className="h-4 w-4" />
           <span>{totalUsed} / {limitDisplay} users</span>
         </div>
       </div>
 
       {/* Usage summary */}
-      <p className="text-sm text-muted-foreground">
+      <p className="text-xs lg:text-sm text-muted-foreground">
         Your account currently has {totalUsed} / {limitDisplay === "Unlimited" ? "Unlimited" : limitDisplay} available users assigned for your plan.
       </p>
 
-      {/* Members table */}
+      {/* Members - Cards on mobile, table on desktop */}
       <div className="border rounded-lg overflow-hidden">
-        {/* Table header */}
-        <div className="grid grid-cols-[1fr_160px_120px_48px] gap-4 px-4 py-3 bg-muted/50 border-b">
+        {/* Table header - hidden on mobile */}
+        <div className="hidden lg:grid grid-cols-[1fr_160px_120px_48px] gap-4 px-4 py-3 bg-muted/50 border-b">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">User</span>
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Role</span>
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</span>
@@ -155,20 +155,24 @@ export default function TeamPage() {
         </div>
 
         {/* Owner row */}
-        <div className="grid grid-cols-[1fr_160px_120px_48px] gap-4 items-center px-4 py-4 border-b">
+        <div className="flex flex-col lg:grid lg:grid-cols-[1fr_160px_120px_48px] gap-2 lg:gap-4 lg:items-center px-4 py-4 border-b">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-full bg-cyan-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">
               {ownerInitials}
             </div>
-            <div>
-              <p className="font-medium text-sm">{ownerName}</p>
-              <p className="text-xs text-muted-foreground">{ownerEmail}</p>
+            <div className="min-w-0">
+              <p className="font-medium text-sm truncate">{ownerName}</p>
+              <p className="text-xs text-muted-foreground truncate">{ownerEmail}</p>
             </div>
           </div>
-          <div>
+          <div className="flex items-center gap-2 lg:block pl-12 lg:pl-0">
             <Badge variant="secondary" className="text-xs font-normal">account owner</Badge>
+            <div className="flex items-center gap-1.5 lg:hidden">
+              <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
+              <span className="text-xs">Active</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="hidden lg:flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />
             <span className="text-sm">Active</span>
           </div>
@@ -182,24 +186,37 @@ export default function TeamPage() {
           members.map(member => {
             const initials = member.member_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
             return (
-              <div key={member.id} className="grid grid-cols-[1fr_160px_120px_48px] gap-4 items-center px-4 py-4 border-b last:border-b-0">
+              <div key={member.id} className="flex flex-col lg:grid lg:grid-cols-[1fr_160px_120px_48px] gap-2 lg:gap-4 lg:items-center px-4 py-4 border-b last:border-b-0">
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-sm font-semibold shrink-0">
                     {initials}
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">{member.member_name}</p>
-                    <p className="text-xs text-muted-foreground">{member.member_email}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{member.member_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{member.member_email}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive lg:hidden"
+                    disabled={removingId === member.id}
+                    onClick={() => handleRemove(member.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 lg:block pl-12 lg:pl-0">
+                  <Badge variant="outline" className="text-xs font-normal capitalize">{member.role}</Badge>
+                  <div className="flex items-center gap-1.5 lg:hidden">
+                    <span className={`h-2 w-2 rounded-full inline-block ${member.status === "active" ? "bg-green-500" : "bg-yellow-400"}`} />
+                    <span className="text-xs capitalize">{member.status === "pending" ? "Pending" : "Active"}</span>
                   </div>
                 </div>
-                <div>
-                  <Badge variant="outline" className="text-xs font-normal capitalize">{member.role}</Badge>
-                </div>
-                <div className="flex items-center gap-1.5">
+                <div className="hidden lg:flex items-center gap-1.5">
                   <span className={`h-2 w-2 rounded-full inline-block ${member.status === "active" ? "bg-green-500" : "bg-yellow-400"}`} />
                   <span className="text-sm capitalize">{member.status === "pending" ? "Pending" : "Active"}</span>
                 </div>
-                <div className="flex justify-end">
+                <div className="hidden lg:flex justify-end">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -220,32 +237,34 @@ export default function TeamPage() {
           <div className="px-4 py-3 bg-muted/30">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Invite a New User</p>
           </div>
-          <div className="grid grid-cols-[1fr_160px_120px_auto] gap-3 items-center px-4 py-4">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-muted border-2 border-dashed border-muted-foreground/30 flex items-center justify-center shrink-0">
-                <UserPlus className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="flex gap-2 flex-1">
-                <Input
-                  placeholder="Full Name"
-                  value={inviteName}
-                  onChange={e => setInviteName(e.target.value)}
-                  className="h-9 text-sm"
-                  disabled={!canInvite}
-                />
-                <Input
-                  placeholder="Email Address"
-                  type="email"
-                  value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
-                  className="h-9 text-sm"
-                  disabled={!canInvite}
-                />
+          <div className="flex flex-col gap-3 px-4 py-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex items-center gap-3 flex-1">
+                <div className="h-9 w-9 rounded-full bg-muted border-2 border-dashed border-muted-foreground/30 flex items-center justify-center shrink-0 hidden sm:flex">
+                  <UserPlus className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2 flex-1">
+                  <Input
+                    placeholder="Full Name"
+                    value={inviteName}
+                    onChange={e => setInviteName(e.target.value)}
+                    className="h-9 text-sm"
+                    disabled={!canInvite}
+                  />
+                  <Input
+                    placeholder="Email Address"
+                    type="email"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    className="h-9 text-sm"
+                    disabled={!canInvite}
+                  />
+                </div>
               </div>
             </div>
-            <div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
               <Select value={inviteRole} onValueChange={setInviteRole} disabled={!canInvite}>
-                <SelectTrigger className="h-9 text-sm">
+                <SelectTrigger className="h-9 text-sm w-full sm:w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -254,16 +273,15 @@ export default function TeamPage() {
                   <SelectItem value="viewer">Viewer</SelectItem>
                 </SelectContent>
               </Select>
+              <Button
+                className="bg-cyan-500 hover:bg-cyan-600 text-white h-9 w-full sm:w-auto"
+                onClick={handleInvite}
+                disabled={!canInvite || inviting}
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                {inviting ? "Inviting..." : "Invite"}
+              </Button>
             </div>
-            <div />
-            <Button
-              className="bg-cyan-500 hover:bg-cyan-600 text-white h-9"
-              onClick={handleInvite}
-              disabled={!canInvite || inviting}
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              {inviting ? "Inviting..." : "Invite"}
-            </Button>
           </div>
           {!canInvite && (
             <p className="px-4 pb-3 text-xs text-muted-foreground">

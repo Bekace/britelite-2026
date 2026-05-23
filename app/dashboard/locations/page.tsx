@@ -487,22 +487,22 @@ export default function LocationsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Locations</h1>
-          <p className="text-muted-foreground">Manage physical locations and assign screens</p>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Locations</h1>
+          <p className="text-sm lg:text-base text-muted-foreground">Manage physical locations and assign screens</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
+        <Button onClick={() => setIsCreateDialogOpen(true)} className="w-full sm:w-auto" size="sm">
           <Plus className="w-4 h-4 mr-2" />
           Add Location
         </Button>
       </div>
 
       {/* Search Bar */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
+      <div>
+        <div className="relative w-full lg:max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
             placeholder="Search locations..."
@@ -514,15 +514,15 @@ export default function LocationsPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveView} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveView} className="space-y-4 lg:space-y-6">
         <TabsList>
-          <TabsTrigger value="list" className="gap-2">
-            <List className="w-4 h-4" />
-            List View
+          <TabsTrigger value="list" className="gap-1 lg:gap-2 text-xs lg:text-sm">
+            <List className="w-3 h-3 lg:w-4 lg:h-4" />
+            <span className="hidden sm:inline">List</span> View
           </TabsTrigger>
-          <TabsTrigger value="map" className="gap-2">
-            <Map className="w-4 h-4" />
-            Map View
+          <TabsTrigger value="map" className="gap-1 lg:gap-2 text-xs lg:text-sm">
+            <Map className="w-3 h-3 lg:w-4 lg:h-4" />
+            <span className="hidden sm:inline">Map</span> View
           </TabsTrigger>
         </TabsList>
 

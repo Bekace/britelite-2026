@@ -1433,12 +1433,12 @@ export default function ScreensPage() {
 
   return (
     // <DashboardLayout> - REMOVED AS PER UPDATES
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       {/* Header Section */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Screens</h1>
-          <p className="text-muted-foreground">Manage your digital signage screens</p>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Screens</h1>
+          <p className="text-sm lg:text-base text-muted-foreground">Manage your digital signage screens</p>
           {screenLimits && (() => {
             const freeScreens = Math.max(0, screenLimits.freeScreens ?? 0)
             const total = screenLimits.current
@@ -1450,12 +1450,11 @@ export default function ScreensPage() {
               const availableSlots = screenLimits.availableSlots ?? 0
 
               return (
-                <p className="text-sm text-muted-foreground mt-1">
-                  You have{" "}
-                  {usedPaid > 0 && <><strong>{usedPaid}</strong> Paid Screen{usedPaid !== 1 ? "s" : ""}</>}
-                  {usedPaid > 0 && usedFree > 0 && " and "}
-                  {usedFree > 0 && <><strong>{usedFree}</strong> Free Screen{usedFree !== 1 ? "s" : ""} <span className="opacity-70">(Included in {screenLimits.plan} Plan)</span></>}
-                  {usedPaid === 0 && usedFree === 0 && <>no screens yet</>}
+                <p className="text-xs lg:text-sm text-muted-foreground mt-1">
+                  {usedPaid > 0 && <><strong>{usedPaid}</strong> Paid</>}
+                  {usedPaid > 0 && usedFree > 0 && " + "}
+                  {usedFree > 0 && <><strong>{usedFree}</strong> Free</>}
+                  {usedPaid === 0 && usedFree === 0 && <>No screens yet</>}
                   {availableSlots > 0 && (
                     <span className="ml-2 text-cyan-500 font-medium">
                       · {availableSlots} slot{availableSlots !== 1 ? "s" : ""} available
@@ -1467,13 +1466,8 @@ export default function ScreensPage() {
 
             // Free / capped plan: show used / limit
             return (
-              <p className="text-sm text-muted-foreground mt-1">
-                You have <strong>{total}</strong> of <strong>{screenLimits.limit}</strong> screen{screenLimits.limit !== 1 ? "s" : ""} used
-                {freeScreens > 0 && (
-                  <span className="ml-1">
-                    · <strong>{freeScreens}</strong> free screen{freeScreens !== 1 ? "s" : ""} included
-                  </span>
-                )}
+              <p className="text-xs lg:text-sm text-muted-foreground mt-1">
+                <strong>{total}</strong> / <strong>{screenLimits.limit}</strong> screen{screenLimits.limit !== 1 ? "s" : ""}
               </p>
             )
           })()}
@@ -1481,7 +1475,7 @@ export default function ScreensPage() {
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
               <span className="text-xs text-muted-foreground">
-                Monitoring status · Last updated {elapsedSeconds}s ago
+                Updated {elapsedSeconds}s ago
               </span>
             </div>
             <Button
@@ -1501,7 +1495,8 @@ export default function ScreensPage() {
         </div>
         <Button
           onClick={() => handleAddScreenClick()}
-          className="bg-cyan-500 hover:bg-cyan-600"
+          className="bg-cyan-500 hover:bg-cyan-600 w-full sm:w-auto"
+          size="sm"
         >
           <Plus className="h-4 w-4 mr-2" />
           {screenLimits?.limit !== -1 && screenLimits && !screenLimits.canCreate ? "Upgrade Plan" : "Add Screen"}
@@ -1509,15 +1504,13 @@ export default function ScreensPage() {
       </div>
 
       {/* Search Section */}
-      <div className="flex gap-4">
-        <div className="flex-1">
-          <Input
-            placeholder="Search screens by name, location, or code..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full"
-          />
-        </div>
+      <div>
+        <Input
+          placeholder="Search screens..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full"
+        />
       </div>
 
       {/* Loading State */}
@@ -1542,36 +1535,36 @@ export default function ScreensPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
           {filteredScreens.map((screen) => (
             <Card key={screen.id} className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Tv className="h-8 w-8 text-cyan-500" />
-                    <div>
-                      <h3 className="font-semibold text-lg">{screen.name}</h3>
-                      {screen.location && <p className="text-sm text-gray-600">{screen.location}</p>}
+              <CardContent className="p-4 lg:p-6">
+                <div className="flex items-start justify-between mb-3 lg:mb-4">
+                  <div className="flex items-center gap-2 lg:gap-3">
+                    <Tv className="h-6 w-6 lg:h-8 lg:w-8 text-cyan-500 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-base lg:text-lg truncate">{screen.name}</h3>
+                      {screen.location && <p className="text-xs lg:text-sm text-gray-600 truncate">{screen.location}</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0">
                     {screen.enable_audio_management && (
-                      <div className="p-1.5 rounded bg-gray-100" title="Audio muted">
-                        <VolumeX className="h-4 w-4 text-gray-600" />
+                      <div className="p-1 lg:p-1.5 rounded bg-gray-100" title="Audio muted">
+                        <VolumeX className="h-3 w-3 lg:h-4 lg:w-4 text-gray-600" />
                       </div>
                     )}
                     <div
-                      className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1.5 ${deviceOnlineStatus[screen.id]
+                      className={`px-1.5 lg:px-2 py-0.5 lg:py-1 rounded text-xs font-medium flex items-center gap-1 ${deviceOnlineStatus[screen.id]
                           ? "bg-green-100 text-green-700"
                           : "bg-gray-100 text-gray-700"
                         }`}
                       title={deviceOnlineStatus[screen.id] ? "Device online" : "Device offline"}
                     >
                       <div
-                        className={`h-2 w-2 rounded-full ${deviceOnlineStatus[screen.id] ? "bg-green-500 animate-pulse" : "bg-gray-400"
+                        className={`h-1.5 w-1.5 lg:h-2 lg:w-2 rounded-full ${deviceOnlineStatus[screen.id] ? "bg-green-500 animate-pulse" : "bg-gray-400"
                           }`}
                       />
-                      {deviceOnlineStatus[screen.id] ? "Online" : "Offline"}
+                      <span className="hidden sm:inline">{deviceOnlineStatus[screen.id] ? "Online" : "Offline"}</span>
                     </div>
                   </div>
                 </div>

@@ -151,18 +151,18 @@ export function MenuList() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <UtensilsCrossed className="w-8 h-8 text-primary" />
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground flex items-center gap-2 lg:gap-3">
+            <UtensilsCrossed className="w-6 h-6 lg:w-8 lg:h-8 text-primary" />
             Restaurant Menus
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-sm lg:text-base text-muted-foreground mt-1">
             Create digital menu boards for your restaurant screens
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="bg-emerald-500 hover:bg-emerald-600 text-white">
+        <Button onClick={() => setShowCreate(true)} className="bg-emerald-500 hover:bg-emerald-600 text-white w-full sm:w-auto" size="sm">
           <Plus className="w-4 h-4 mr-2" />
           New Menu
         </Button>
@@ -191,7 +191,7 @@ export function MenuList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
           {menus.map((menu) => (
             <Card
               key={menu.id}

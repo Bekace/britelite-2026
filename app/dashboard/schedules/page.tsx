@@ -815,12 +815,12 @@ export default function SchedulesPage() {
   }
   
   return (
-  <div className="flex h-[calc(100vh-64px)]">
-      {/* Sidebar */}
+  <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)]">
+      {/* Sidebar - collapsible on desktop, hidden by default on mobile */}
       <div
         className={cn(
-          "border-r bg-background transition-all duration-300 flex flex-col",
-          sidebarCollapsed ? "w-0 overflow-hidden" : "w-72"
+          "border-b lg:border-b-0 lg:border-r bg-background transition-all duration-300 flex flex-col",
+          sidebarCollapsed ? "hidden lg:flex lg:w-0 lg:overflow-hidden" : "w-full lg:w-72"
         )}
       >
         {/* Sidebar Header */}
@@ -910,34 +910,35 @@ export default function SchedulesPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Calendar Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-background">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 lg:p-4 border-b bg-background gap-2">
+          <div className="flex items-center gap-1 lg:gap-2">
             <Button
               variant="ghost"
               size="icon"
+              className="h-8 w-8 lg:h-9 lg:w-9"
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             >
               {sidebarCollapsed ? (
-                <PanelLeft className="w-5 h-5" />
+                <PanelLeft className="w-4 h-4 lg:w-5 lg:h-5" />
               ) : (
-                <PanelLeftClose className="w-5 h-5" />
+                <PanelLeftClose className="w-4 h-4 lg:w-5 lg:h-5" />
               )}
             </Button>
-            <Button variant="outline" size="sm" onClick={goToToday}>
+            <Button variant="outline" size="sm" onClick={goToToday} className="text-xs lg:text-sm h-8">
               Today
             </Button>
-            <Button variant="ghost" size="icon" onClick={goToPreviousWeek}>
-              <ChevronLeft className="w-5 h-5" />
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToPreviousWeek}>
+              <ChevronLeft className="w-4 h-4 lg:w-5 lg:h-5" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={goToNextWeek}>
-              <ChevronRight className="w-5 h-5" />
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goToNextWeek}>
+              <ChevronRight className="w-4 h-4 lg:w-5 lg:h-5" />
             </Button>
-            <h2 className="text-lg font-semibold ml-2">{formatWeekRange()}</h2>
+            <h2 className="text-sm lg:text-lg font-semibold ml-1 lg:ml-2">{formatWeekRange()}</h2>
           </div>
           <div className="flex items-center gap-2">
             {selectedSchedule && (
-              <span className="text-sm text-muted-foreground">
-                Viewing: <span className="font-medium text-foreground">{selectedSchedule.name}</span>
+              <span className="text-xs lg:text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{selectedSchedule.name}</span>
               </span>
             )}
           </div>
