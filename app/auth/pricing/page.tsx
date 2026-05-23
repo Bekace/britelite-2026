@@ -67,8 +67,8 @@ export default async function PricingPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="https://xkreen.com/" className="flex items-center gap-2 text-foreground hover:text-foreground/80">
+        <div className="container mx-auto px-4 py-3 lg:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <Link href="https://xkreen.com/" className="flex items-center gap-2 text-foreground hover:text-foreground/80 text-sm">
             <ArrowLeft className="h-4 w-4" />
             <span>Back to Home</span>
           </Link>
@@ -79,10 +79,10 @@ export default async function PricingPage() {
       </header>
 
       {/* Pricing Section */}
-      <section className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12 space-y-4">
-          <h1 className="text-5xl font-bold text-foreground">Plans and Pricing</h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+      <section className="container mx-auto px-4 py-8 lg:py-16">
+        <div className="text-center mb-8 lg:mb-12 space-y-3 lg:space-y-4">
+          <h1 className="text-3xl lg:text-5xl font-bold text-foreground">Plans and Pricing</h1>
+          <p className="text-base lg:text-xl text-muted-foreground max-w-2xl mx-auto">
             Choose the perfect plan for your digital signage needs. Start free and upgrade as you grow.
           </p>
         </div>

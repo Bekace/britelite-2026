@@ -86,10 +86,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
+    <div className="flex min-h-svh w-full items-center justify-center p-4 sm:p-6 md:p-10">
       <div className="w-full max-w-sm">
-        <div className="flex flex-col gap-6">
-          <div className="flex justify-center mb-[60px]">
+        <div className="flex flex-col gap-4 sm:gap-6">
+          <div className="flex justify-center mb-6 sm:mb-[60px]">
             <Image src="/xkreen-logo.svg" alt="Xkreen" width={140} height={40} priority />
           </div>
           <Card>

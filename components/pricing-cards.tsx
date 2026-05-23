@@ -137,7 +137,7 @@ export default function PricingCards({ plans }: PricingCardsProps) {
       </div>
 
       {/* Pricing Cards */}
-      <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto px-2 md:px-0">
         {plans.map((plan) => {
           const isRecommended = plan.is_recommended === true
           const features = extractFeatures(plan)
@@ -147,7 +147,7 @@ export default function PricingCards({ plans }: PricingCardsProps) {
           return (
             <Card
               key={plan.id}
-              className={`relative p-8 ${isRecommended ? "border-primary shadow-lg scale-105" : "border-border"}`}
+              className={`relative p-5 lg:p-8 ${isRecommended ? "border-primary shadow-lg md:scale-105 order-first md:order-none" : "border-border"}`}
             >
               {isRecommended && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2">
@@ -157,16 +157,16 @@ export default function PricingCards({ plans }: PricingCardsProps) {
                 </div>
               )}
 
-              <div className="space-y-6">
+              <div className="space-y-4 lg:space-y-6">
                 {/* Plan Header */}
                 <div>
-                  <h3 className="text-2xl font-semibold text-foreground mb-2">{plan.name}</h3>
+                  <h3 className="text-xl lg:text-2xl font-semibold text-foreground mb-1 lg:mb-2">{plan.name}</h3>
                   <p className="text-muted-foreground text-sm">{plan.description}</p>
                 </div>
 
                 {/* Pricing */}
                 <div className="flex items-baseline gap-1">
-                  <span className="text-5xl font-bold text-foreground">{getDisplayPrice(plan)}</span>
+                  <span className="text-4xl lg:text-5xl font-bold text-foreground">{getDisplayPrice(plan)}</span>
                   <span className="text-muted-foreground">/month</span>
                 </div>
 
