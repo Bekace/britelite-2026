@@ -275,7 +275,7 @@ export function DashboardOverview({ user, showWelcome = false }: DashboardOvervi
       {/* Welcome Section */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Welcome back, {user.email?.split("@")[0]}!</h2>
+          <h2 className="text-3xl font-bold text-foreground">Welcome back, {(user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split("@")[0]) || "User"}!</h2>
           <p className="text-muted-foreground mt-1">Here's what's happening with your digital signage network today.</p>
         </div>
         <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
