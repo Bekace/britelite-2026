@@ -796,7 +796,7 @@ export default function ScreensPage() {
         {activeTab === "playlist" && (
           <div className="space-y-3">
             <h4 className="font-semibold flex items-center gap-2">
-              <PlayCircle className="h-5 w-5 text-cyan-500" />
+              <PlayCircle className="h-5 w-5 text-primary" />
               Playlists
             </h4>
                     <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-muted/30 scrollbar-hide">
@@ -807,8 +807,8 @@ export default function ScreensPage() {
                   <div
                     key={playlist.id}
                     className={`p-3 rounded-lg cursor-pointer transition-all ${wizardState.selectedContentIds.includes(playlist.id)
-                        ? "bg-cyan-50 ring-2 ring-cyan-500"
-                        : "bg-white hover:bg-gray-50"
+                        ? "bg-primary/10 ring-2 ring-primary"
+                        : "bg-card hover:bg-muted"
                       }`}
                     onClick={() => {
                       setWizardState((prev) => ({
@@ -819,13 +819,13 @@ export default function ScreensPage() {
                   >
                     <div className="flex items-center gap-3">
                       {wizardState.selectedContentIds.includes(playlist.id) ? (
-                        <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
                       ) : (
-                        <Circle className="h-5 w-5 text-gray-300" />
+                        <Circle className="h-5 w-5 text-muted-foreground/50" />
                       )}
                       <div>
-                        <h4 className="font-medium">{playlist.name}</h4>
-                        {playlist.description && <p className="text-sm text-gray-600">{playlist.description}</p>}
+                        <h4 className="font-medium text-foreground">{playlist.name}</h4>
+                        {playlist.description && <p className="text-sm text-muted-foreground">{playlist.description}</p>}
                       </div>
                     </div>
                   </div>
@@ -839,7 +839,7 @@ export default function ScreensPage() {
         {activeTab === "asset" && (
           <div className="space-y-3">
             <h4 className="font-semibold flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-cyan-500" />
+              <ImageIcon className="h-5 w-5 text-primary" />
               Media Assets
             </h4>
                     <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-muted/30 scrollbar-hide">
@@ -850,8 +850,8 @@ export default function ScreensPage() {
                   <div
                     key={media.id}
                     className={`p-3 rounded-lg cursor-pointer transition-all ${wizardState.selectedContentIds.includes(media.id)
-                        ? "bg-cyan-50 ring-2 ring-cyan-500"
-                        : "bg-white hover:bg-gray-50"
+                        ? "bg-primary/10 ring-2 ring-primary"
+                        : "bg-card hover:bg-muted"
                       }`}
                     onClick={() => {
                       setWizardState((prev) => ({
@@ -862,12 +862,12 @@ export default function ScreensPage() {
                   >
                     <div className="flex items-center gap-3">
                       {wizardState.selectedContentIds.includes(media.id) ? (
-                        <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
                       ) : (
-                        <Circle className="h-5 w-5 text-gray-300" />
+                        <Circle className="h-5 w-5 text-muted-foreground/50" />
                       )}
                               <div>
-                                <h4 className="font-medium">{media.name}</h4>
+                                <h4 className="font-medium text-foreground">{media.name}</h4>
                                 <p className="text-xs text-muted-foreground">{media.mime_type}</p>
                               </div>
                     </div>
@@ -882,7 +882,7 @@ export default function ScreensPage() {
         {activeTab === "schedule" && (
           <div className="space-y-3">
             <h4 className="font-semibold flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-cyan-500" />
+              <Calendar className="h-5 w-5 text-primary" />
               Schedules
             </h4>
                     <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-muted/30 scrollbar-hide">
@@ -893,8 +893,8 @@ export default function ScreensPage() {
                   <div
                     key={schedule.id}
                     className={`p-3 rounded-lg cursor-pointer transition-all ${wizardState.selectedContentIds.includes(schedule.id)
-                        ? "bg-cyan-50 ring-2 ring-cyan-500"
-                        : "bg-white hover:bg-gray-50"
+                        ? "bg-primary/10 ring-2 ring-primary"
+                        : "bg-card hover:bg-muted"
                       }`}
                     onClick={() => {
                       setWizardState((prev) => ({
@@ -905,11 +905,11 @@ export default function ScreensPage() {
                   >
                     <div className="flex items-center gap-3">
                       {wizardState.selectedContentIds.includes(schedule.id) ? (
-                        <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
                       ) : (
-                        <Circle className="h-5 w-5 text-gray-300" />
+                        <Circle className="h-5 w-5 text-muted-foreground/50" />
                       )}
-                      <span className="text-sm font-medium">{schedule.name}</span>
+                      <span className="text-sm font-medium text-foreground">{schedule.name}</span>
                     </div>
                   </div>
                 ))
@@ -2085,7 +2085,7 @@ export default function ScreensPage() {
                   {editingContentType === "playlist" && (
                     <div className="space-y-2">
                       <h4 className="text-sm font-semibold flex items-center gap-2">
-                        <PlayCircle className="h-4 w-4 text-cyan-500" />
+                        <PlayCircle className="h-4 w-4 text-primary" />
                         Playlists
                       </h4>
                       <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-muted/30 scrollbar-hide">
@@ -2096,20 +2096,20 @@ export default function ScreensPage() {
                             <div
                               key={playlist.id}
                               className={`p-3 rounded-lg cursor-pointer transition-all ${editingSelectedContentIds.includes(playlist.id)
-                                  ? "bg-cyan-50 ring-2 ring-cyan-500"
-                                  : "bg-white hover:bg-gray-50"
+                                  ? "bg-primary/10 ring-2 ring-primary"
+                                  : "bg-card hover:bg-muted"
                                 }`}
                               onClick={() => {
                                 setEditingSelectedContentIds([playlist.id])
                               }}
                             >
-                              <div className="flex items-center gap-3 text-popover">
+                              <div className="flex items-center gap-3">
                                 {editingSelectedContentIds.includes(playlist.id) ? (
-                                  <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                                  <CheckCircle2 className="h-5 w-5 text-primary" />
                                 ) : (
-                                  <Circle className="h-5 w-5 text-gray-300" />
+                                  <Circle className="h-5 w-5 text-muted-foreground/50" />
                                 )}
-                                <span className="text-sm font-medium text-popover">{playlist.name}</span>
+                                <span className="text-sm font-medium text-foreground">{playlist.name}</span>
                               </div>
                             </div>
                           ))
@@ -2122,7 +2122,7 @@ export default function ScreensPage() {
                   {editingContentType === "asset" && (
                     <div className="space-y-2">
                       <h4 className="text-sm font-semibold flex items-center gap-2">
-                        <ImageIcon className="h-4 w-4 text-cyan-500" />
+                        <ImageIcon className="h-4 w-4 text-primary" />
                         Media Assets
                       </h4>
                       <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-muted/30 scrollbar-hide">
@@ -2133,8 +2133,8 @@ export default function ScreensPage() {
                             <div
                               key={media.id}
                               className={`p-3 rounded-lg cursor-pointer transition-all ${editingSelectedContentIds.includes(media.id)
-                                  ? "bg-cyan-50 ring-2 ring-cyan-500"
-                                  : "bg-white hover:bg-gray-50"
+                                  ? "bg-primary/10 ring-2 ring-primary"
+                                  : "bg-card hover:bg-muted"
                                 }`}
                               onClick={() => {
                                 setEditingSelectedContentIds([media.id])
@@ -2142,12 +2142,12 @@ export default function ScreensPage() {
                             >
                               <div className="flex items-center gap-3">
                                 {editingSelectedContentIds.includes(media.id) ? (
-                                  <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                                  <CheckCircle2 className="h-5 w-5 text-primary" />
                                 ) : (
-                                  <Circle className="h-5 w-5 text-gray-300" />
+                                  <Circle className="h-5 w-5 text-muted-foreground/50" />
                                 )}
                               <div>
-                                <span className="text-sm font-medium block">{media.name}</span>
+                                <span className="text-sm font-medium block text-foreground">{media.name}</span>
                                 <p className="text-xs text-muted-foreground">{media.mime_type}</p>
                               </div>
                               </div>
@@ -2162,7 +2162,7 @@ export default function ScreensPage() {
                   {editingContentType === "schedule" && (
                     <div className="space-y-2">
                       <h4 className="text-sm font-semibold flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-cyan-500" />
+                        <Calendar className="h-4 w-4 text-primary" />
                         Schedules
                       </h4>
                       <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-muted/30 scrollbar-hide">
@@ -2173,20 +2173,20 @@ export default function ScreensPage() {
                             <div
                               key={schedule.id}
                               className={`p-3 rounded-lg cursor-pointer transition-all ${editingSelectedContentIds.includes(schedule.id)
-                                  ? "bg-cyan-50 ring-2 ring-cyan-500"
-                                  : "bg-white hover:bg-gray-50"
+                                  ? "bg-primary/10 ring-2 ring-primary"
+                                  : "bg-card hover:bg-muted"
                                 }`}
                               onClick={() => {
                                 setEditingSelectedContentIds([schedule.id])
                               }}
                             >
-                              <div className="flex items-center gap-3 text-popover">
+                              <div className="flex items-center gap-3">
                                 {editingSelectedContentIds.includes(schedule.id) ? (
-                                  <CheckCircle2 className="h-5 w-5 text-cyan-500" />
+                                  <CheckCircle2 className="h-5 w-5 text-primary" />
                                 ) : (
-                                  <Circle className="h-5 w-5 text-gray-300" />
+                                  <Circle className="h-5 w-5 text-muted-foreground/50" />
                                 )}
-                                <span className="text-sm font-medium text-popover">{schedule.name}</span>
+                                <span className="text-sm font-medium text-foreground">{schedule.name}</span>
                               </div>
                             </div>
                           ))
