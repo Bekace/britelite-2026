@@ -442,29 +442,57 @@ export function LocationsMap({ locations, isActive, onLocationClick }: Locations
                   pixelOffset: new google.maps.Size(0, -10),
                 }}
               >
-                <div className="p-2 max-w-xs">
+                <div className="p-2 max-w-xs bg-background text-foreground rounded-lg">
                   <style jsx global>{`
-                    .gm-style-iw button {
-                      background-color: white !important;
-                      border: 1px solid #d1d5db !important;
+                    .gm-style-iw-c {
+                      background-color: hsl(var(--background)) !important;
+                      border-radius: 12px !important;
+                      padding: 0 !important;
+                      box-shadow: 0 4px 20px rgba(0,0,0,0.25) !important;
+                    }
+                    .gm-style-iw-d {
+                      overflow: auto !important;
+                      background-color: hsl(var(--background)) !important;
+                    }
+                    .gm-style-iw-tc::after {
+                      background-color: hsl(var(--background)) !important;
+                    }
+                    .gm-style-iw button[aria-label="Close"] {
+                      background-color: hsl(var(--muted)) !important;
+                      border: none !important;
+                      border-radius: 50% !important;
                       opacity: 1 !important;
+                      top: 8px !important;
+                      right: 8px !important;
+                      width: 24px !important;
+                      height: 24px !important;
                     }
-                    .gm-style-iw button:hover {
-                      background-color: #f3f4f6 !important;
+                    .gm-style-iw button[aria-label="Close"]:hover {
+                      background-color: hsl(var(--muted-foreground) / 0.2) !important;
                     }
-                    .gm-style-iw button img {
-                      filter: invert(0) !important;
+                    .gm-style-iw button[aria-label="Close"] span {
+                      margin: 0 !important;
+                    }
+                    .dark .gm-style-iw button[aria-label="Close"] img,
+                    .gm-style-iw button[aria-label="Close"] img {
+                      filter: var(--close-btn-filter, invert(0)) !important;
+                    }
+                    :root {
+                      --close-btn-filter: invert(0);
+                    }
+                    .dark {
+                      --close-btn-filter: invert(1);
                     }
                   `}</style>
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="font-semibold text-base">{selectedLocation.name}</h3>
+                    <h3 className="font-semibold text-base text-foreground">{selectedLocation.name}</h3>
                     <Badge variant={selectedLocation.status === 'active' ? 'default' : 'secondary'}>
                       {selectedLocation.status}
                     </Badge>
                   </div>
 
                   {selectedLocation.address && (
-                    <div className="flex items-start gap-2 text-sm text-foreground mb-2">
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground mb-2">
                       <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
                       <span>
                         {selectedLocation.address}
@@ -476,14 +504,14 @@ export function LocationsMap({ locations, isActive, onLocationClick }: Locations
                   )}
 
                   {selectedLocation.contact_person && (
-                    <div className="flex items-center gap-2 text-sm text-foreground mb-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                       <User className="w-4 h-4 flex-shrink-0" />
                       <span>{selectedLocation.contact_person}</span>
                     </div>
                   )}
 
                   {selectedLocation.phone_number && (
-                    <div className="flex items-center gap-2 text-sm text-foreground mb-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                       <Phone className="w-4 h-4 flex-shrink-0" />
                       <span>{selectedLocation.phone_number}</span>
                     </div>
@@ -500,7 +528,7 @@ export function LocationsMap({ locations, isActive, onLocationClick }: Locations
                       
                       {selectedLocation.screens && selectedLocation.screens.length > 0 && (
                         <div className="ml-6 mb-2">
-                          <ul className="text-xs text-foreground space-y-1">
+                          <ul className="text-xs text-muted-foreground space-y-1">
                             {selectedLocation.screens.map((screen) => (
                               <li key={screen.id} className="truncate">
                                 • {screen.name}
@@ -520,7 +548,7 @@ export function LocationsMap({ locations, isActive, onLocationClick }: Locations
                             map.setZoom(15)
                           }
                         }}
-                        className="ml-6 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                        className="ml-6 text-xs text-primary hover:text-primary/80 hover:underline"
                       >
                         View location on map
                       </button>
