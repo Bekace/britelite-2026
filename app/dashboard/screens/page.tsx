@@ -799,9 +799,9 @@ export default function ScreensPage() {
               <PlayCircle className="h-5 w-5 text-cyan-500" />
               Playlists
             </h4>
-            <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
-              {playlists.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">No playlists available</p>
+                    <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-muted/30 scrollbar-hide">
+                      {playlists.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No playlists available</p>
               ) : (
                 playlists.map((playlist) => (
                   <div
@@ -842,9 +842,9 @@ export default function ScreensPage() {
               <ImageIcon className="h-5 w-5 text-cyan-500" />
               Media Assets
             </h4>
-            <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
-              {mediaItems.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">No media assets available</p>
+                    <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-muted/30 scrollbar-hide">
+                      {mediaItems.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No media assets available</p>
               ) : (
                 mediaItems.map((media) => (
                   <div
@@ -866,10 +866,10 @@ export default function ScreensPage() {
                       ) : (
                         <Circle className="h-5 w-5 text-gray-300" />
                       )}
-                      <div>
-                        <h4 className="font-medium">{media.name}</h4>
-                        <p className="text-xs text-gray-500">{media.mime_type}</p>
-                      </div>
+                              <div>
+                                <h4 className="font-medium">{media.name}</h4>
+                                <p className="text-xs text-muted-foreground">{media.mime_type}</p>
+                              </div>
                     </div>
                   </div>
                 ))
@@ -885,9 +885,9 @@ export default function ScreensPage() {
               <Calendar className="h-5 w-5 text-cyan-500" />
               Schedules
             </h4>
-            <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
-              {schedules.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">No schedules available</p>
+                    <div className="space-y-2 max-h-64 overflow-y-auto border rounded-lg p-3 bg-muted/30 scrollbar-hide">
+                      {schedules.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No schedules available</p>
               ) : (
                 schedules.map((schedule) => (
                   <div
@@ -1844,17 +1844,17 @@ export default function ScreensPage() {
                 </div>
 
                 {/* Advanced Options Section */}
-                <div className="space-y-4 border-t border-gray-700 pt-6 mt-6">
+                <div className="space-y-4 border-t border-border pt-6 mt-6">
                   <div className="flex items-center gap-2">
-                    <div className="h-1 w-1 rounded-full bg-cyan-500"></div>
-                    <h3 className="text-base font-semibold text-white">Advanced Options</h3>
+                    <div className="h-1 w-1 rounded-full bg-primary"></div>
+                    <h3 className="text-base font-semibold text-foreground">Advanced Options</h3>
                   </div>
 
                   <div className="space-y-4 pl-3">
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-700 hover:border-gray-600 transition-colors">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border hover:border-muted-foreground/30 transition-colors">
                       <div>
-                        <Label className="text-white font-medium">Active</Label>
-                        <p className="text-sm text-gray-400 mt-1">Enable this screen for display</p>
+                        <Label className="text-foreground font-medium">Active</Label>
+                        <p className="text-sm text-muted-foreground mt-1">Enable this screen for display</p>
                       </div>
                       <Switch
                         checked={editingScreen.is_active !== false}
@@ -1864,10 +1864,10 @@ export default function ScreensPage() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-700 hover:border-gray-600 transition-colors">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border hover:border-muted-foreground/30 transition-colors">
                       <div>
-                        <Label className="text-white font-medium">Mute Audio</Label>
-                        <p className="text-sm text-gray-400 mt-1">Disable audio playback</p>
+                        <Label className="text-foreground font-medium">Mute Audio</Label>
+                        <p className="text-sm text-muted-foreground mt-1">Disable audio playback</p>
                       </div>
                       <Switch
                         checked={editingScreen.enable_audio_management || false}
@@ -1877,10 +1877,10 @@ export default function ScreensPage() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-700 hover:border-gray-600 transition-colors">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border hover:border-muted-foreground/30 transition-colors">
                       <div>
-                        <Label className="text-white font-medium">Shuffle Content</Label>
-                        <p className="text-sm text-gray-400 mt-1">Randomize playback order</p>
+                        <Label className="text-foreground font-medium">Shuffle Content</Label>
+                        <p className="text-sm text-muted-foreground mt-1">Randomize playback order</p>
                       </div>
                       <Switch
                         checked={editingScreen.shuffle || false}
@@ -1891,29 +1891,29 @@ export default function ScreensPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="edit-background-color" className="text-white font-medium">Background Color</Label>
+                      <Label htmlFor="edit-background-color" className="text-foreground font-medium">Background Color</Label>
                       <div className="flex items-center gap-3">
                         <Input
                           id="edit-background-color"
                           type="color"
                           value={editingScreen.background_color || "#000000"}
                           onChange={(e) => setEditingScreen({ ...editingScreen, background_color: e.target.value })}
-                          className="h-12 w-20 cursor-pointer border-gray-700"
+                          className="h-12 w-20 cursor-pointer border-border"
                         />
-                        <span className="text-sm text-gray-400 font-mono">
+                        <span className="text-sm text-muted-foreground font-mono">
                           {editingScreen.background_color || "#000000"}
                         </span>
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="edit-transition" className="text-white font-medium">Default Transition</Label>
-                      <p className="text-xs text-gray-500">Transition effect used on Android devices</p>
+                      <Label htmlFor="edit-transition" className="text-foreground font-medium">Default Transition</Label>
+                      <p className="text-xs text-muted-foreground">Transition effect used on Android devices</p>
                       <Select
                         value={editingScreen.default_transition || "fade"}
                         onValueChange={(value) => setEditingScreen({ ...editingScreen, default_transition: value })}
                       >
-                        <SelectTrigger className="border-gray-700">
+                        <SelectTrigger className="border-border">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1928,13 +1928,13 @@ export default function ScreensPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="edit-timezone" className="text-white font-medium">Timezone</Label>
-                      <p className="text-xs text-gray-500">Used to match schedule time windows to the screen&apos;s local time</p>
+                      <Label htmlFor="edit-timezone" className="text-foreground font-medium">Timezone</Label>
+                      <p className="text-xs text-muted-foreground">Used to match schedule time windows to the screen&apos;s local time</p>
                       <Select
                         value={editingScreen.timezone || "UTC"}
                         onValueChange={(value) => setEditingScreen({ ...editingScreen, timezone: value })}
                       >
-                        <SelectTrigger className="border-gray-700">
+                        <SelectTrigger className="border-border">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="max-h-64 overflow-y-auto">
@@ -1993,20 +1993,20 @@ export default function ScreensPage() {
                 </div>
 
                 {/* Scaling Options Section */}
-                <div className="space-y-4 border-t border-gray-700 pt-6 mt-6">
+                <div className="space-y-4 border-t border-border pt-6 mt-6">
                   <div className="flex items-center gap-2">
-                    <div className="h-1 w-1 rounded-full bg-cyan-500"></div>
-                    <h3 className="text-base font-semibold text-white">Content Scaling</h3>
+                    <div className="h-1 w-1 rounded-full bg-primary"></div>
+                    <h3 className="text-base font-semibold text-foreground">Content Scaling</h3>
                   </div>
 
                   <div className="space-y-4 pl-3">
                     <div className="space-y-2">
-                      <Label htmlFor="edit-scale-image" className="text-white font-medium">Image Scaling</Label>
+                      <Label htmlFor="edit-scale-image" className="text-foreground font-medium">Image Scaling</Label>
                       <Select
                         value={editingScreen.scale_image || "fit"}
                         onValueChange={(value) => setEditingScreen({ ...editingScreen, scale_image: value })}
                       >
-                        <SelectTrigger className="border-gray-700">
+                        <SelectTrigger className="border-border">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -2018,12 +2018,12 @@ export default function ScreensPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="edit-scale-video" className="text-white font-medium">Video Scaling</Label>
+                      <Label htmlFor="edit-scale-video" className="text-foreground font-medium">Video Scaling</Label>
                       <Select
                         value={editingScreen.scale_video || "fit"}
                         onValueChange={(value) => setEditingScreen({ ...editingScreen, scale_video: value })}
                       >
-                        <SelectTrigger className="border-gray-700">
+                        <SelectTrigger className="border-border">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -2035,12 +2035,12 @@ export default function ScreensPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="edit-scale-document" className="text-white font-medium">Document Scaling</Label>
+                      <Label htmlFor="edit-scale-document" className="text-foreground font-medium">Document Scaling</Label>
                       <Select
                         value={editingScreen.scale_document || "fit"}
                         onValueChange={(value) => setEditingScreen({ ...editingScreen, scale_document: value })}
                       >
-                        <SelectTrigger className="border-gray-700">
+                        <SelectTrigger className="border-border">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -2088,9 +2088,9 @@ export default function ScreensPage() {
                         <PlayCircle className="h-4 w-4 text-cyan-500" />
                         Playlists
                       </h4>
-                      <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-gray-50/50 scrollbar-hide">
+                      <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-muted/30 scrollbar-hide">
                         {playlists.length === 0 ? (
-                          <p className="text-sm text-gray-500 text-center py-4">No playlists available</p>
+                          <p className="text-sm text-muted-foreground text-center py-4">No playlists available</p>
                         ) : (
                           playlists.map((playlist) => (
                             <div
@@ -2125,9 +2125,9 @@ export default function ScreensPage() {
                         <ImageIcon className="h-4 w-4 text-cyan-500" />
                         Media Assets
                       </h4>
-                      <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-gray-50/50 scrollbar-hide">
+                      <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-muted/30 scrollbar-hide">
                         {mediaItems.length === 0 ? (
-                          <p className="text-sm text-gray-500 text-center py-4">No media assets available</p>
+                          <p className="text-sm text-muted-foreground text-center py-4">No media assets available</p>
                         ) : (
                           mediaItems.map((media) => (
                             <div
@@ -2146,10 +2146,10 @@ export default function ScreensPage() {
                                 ) : (
                                   <Circle className="h-5 w-5 text-gray-300" />
                                 )}
-                                <div>
-                                  <span className="text-sm font-medium block">{media.name}</span>
-                                  <p className="text-xs text-gray-500">{media.mime_type}</p>
-                                </div>
+                              <div>
+                                <span className="text-sm font-medium block">{media.name}</span>
+                                <p className="text-xs text-muted-foreground">{media.mime_type}</p>
+                              </div>
                               </div>
                             </div>
                           ))
@@ -2165,9 +2165,9 @@ export default function ScreensPage() {
                         <Calendar className="h-4 w-4 text-cyan-500" />
                         Schedules
                       </h4>
-                      <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-gray-50/50 scrollbar-hide">
+                      <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-muted/30 scrollbar-hide">
                         {schedules.length === 0 ? (
-                          <p className="text-sm text-gray-500 text-center py-4">No schedules available</p>
+                          <p className="text-sm text-muted-foreground text-center py-4">No schedules available</p>
                         ) : (
                           schedules.map((schedule) => (
                             <div
