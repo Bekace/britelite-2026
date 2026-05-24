@@ -2088,7 +2088,7 @@ export default function ScreensPage() {
                         <PlayCircle className="h-4 w-4 text-cyan-500" />
                         Playlists
                       </h4>
-                      <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
+                      <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-gray-50/50 scrollbar-hide">
                         {playlists.length === 0 ? (
                           <p className="text-sm text-gray-500 text-center py-4">No playlists available</p>
                         ) : (
@@ -2125,7 +2125,7 @@ export default function ScreensPage() {
                         <ImageIcon className="h-4 w-4 text-cyan-500" />
                         Media Assets
                       </h4>
-                      <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
+                      <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-gray-50/50 scrollbar-hide">
                         {mediaItems.length === 0 ? (
                           <p className="text-sm text-gray-500 text-center py-4">No media assets available</p>
                         ) : (
@@ -2165,7 +2165,7 @@ export default function ScreensPage() {
                         <Calendar className="h-4 w-4 text-cyan-500" />
                         Schedules
                       </h4>
-                      <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-3 bg-gray-50/50 scrollbar-hide">
+                      <div className="space-y-2 max-h-40 sm:max-h-64 overflow-y-auto border rounded-lg p-3 pb-4 bg-gray-50/50 scrollbar-hide">
                         {schedules.length === 0 ? (
                           <p className="text-sm text-gray-500 text-center py-4">No schedules available</p>
                         ) : (
