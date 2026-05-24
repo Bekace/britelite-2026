@@ -274,12 +274,13 @@ export default function BillingClient({
 
   return (
     <>
-      <div className="billing-actions-upgrade flex gap-2">
-        {renderUpgradeButton()}
-        {renderChangeBillingCycleButton()}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          {renderUpgradeButton()}
+          {renderChangeBillingCycleButton()}
+        </div>
+        <div className="text-center sm:text-left">{renderCancelLink()}</div>
       </div>
-
-      <div className="billing-actions-cancel">{renderCancelLink()}</div>
 
       <UpgradePlanDialog
         open={isDialogOpen}

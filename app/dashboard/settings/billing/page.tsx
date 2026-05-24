@@ -157,26 +157,26 @@ export default async function BillingSettingsPage() {
     : undefined
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       {/* Current Plan */}
-      <div className="rounded-lg border border-border/50 p-6">
-        <div className="flex items-start gap-4">
-          <div className="p-2 bg-muted/50 rounded-lg">
+      <div className="rounded-lg border border-border/50 p-4 lg:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-3 lg:gap-4">
+          <div className="p-2 bg-muted/50 rounded-lg w-fit">
             <Package className="w-5 h-5 text-muted-foreground" />
           </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold mb-2">Current Plan</h2>
-            <p className="text-sm text-muted-foreground mb-4">Your current subscription plan and usage limits.</p>
-            <div className="bg-muted/30 rounded-md p-4">
-              <div className="flex items-center justify-between mb-2">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base lg:text-lg font-semibold mb-1 lg:mb-2">Current Plan</h2>
+            <p className="text-xs lg:text-sm text-muted-foreground mb-3 lg:mb-4">Your current subscription plan and usage limits.</p>
+            <div className="bg-muted/30 rounded-md p-3 lg:p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <div>
-                  <div className="font-medium">{plan?.name || "Free"} Plan</div>
+                  <div className="font-medium text-sm lg:text-base">{plan?.name || "Free"} Plan</div>
                   {isPaidPerScreen ? (
-                    <div className="text-sm text-muted-foreground mt-1">
+                    <div className="text-xs lg:text-sm text-muted-foreground mt-1">
                       ${pricePerScreen.toFixed(2)}/screen/{billingCycle}
                     </div>
                   ) : (
-                    <div className="text-sm text-muted-foreground mt-1">
+                    <div className="text-xs lg:text-sm text-muted-foreground mt-1">
                       Free
                     </div>
                   )}
@@ -187,7 +187,7 @@ export default async function BillingSettingsPage() {
               </div>
               {isPaidPerScreen && (
                 <div className="mt-3 pt-3 border-t border-border/30 space-y-1">
-                  <div className="text-sm space-y-1">
+                  <div className="text-xs lg:text-sm space-y-1">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total screens:</span>
                       <span className="font-medium">{currentScreenCount}</span>
@@ -207,22 +207,22 @@ export default async function BillingSettingsPage() {
                       <span className="font-semibold">${totalCost.toFixed(2)}</span>
                     </div>
                   </div>
-                  <p className="text-sm font-medium pt-1">Billed {userBillingCycle === "yearly" ? "annually" : "monthly"}</p>
+                  <p className="text-xs lg:text-sm font-medium pt-1">Billed {userBillingCycle === "yearly" ? "annually" : "monthly"}</p>
                   {nextPaymentDate && (
-                    <p className="text-sm text-muted-foreground">Next payment: {nextPaymentDate}</p>
+                    <p className="text-xs lg:text-sm text-muted-foreground">Next payment: {nextPaymentDate}</p>
                   )}
                 </div>
               )}
               {hasActiveSubscription && !isPaidPerScreen && (
                 <div className="mt-3 pt-3 border-t border-border/30 space-y-1">
-                  <p className="text-sm font-medium">Billed {userBillingCycle === "yearly" ? "annually" : "monthly"}</p>
+                  <p className="text-xs lg:text-sm font-medium">Billed {userBillingCycle === "yearly" ? "annually" : "monthly"}</p>
                   {nextPaymentDate && (
-                    <p className="text-sm text-muted-foreground">Next payment: {nextPaymentDate}</p>
+                    <p className="text-xs lg:text-sm text-muted-foreground">Next payment: {nextPaymentDate}</p>
                   )}
                 </div>
               )}
               {plan && (
-                <div className="text-sm text-muted-foreground space-y-1 mt-3 pt-3 border-t border-border/30">
+                <div className="text-xs lg:text-sm text-muted-foreground space-y-1 mt-3 pt-3 border-t border-border/30">
                   <p>Max Screens: {plan.max_screens === -1 ? "Unlimited" : plan.max_screens || 0}</p>
                   <p>
                     Max Playlists:{" "}
@@ -234,79 +234,59 @@ export default async function BillingSettingsPage() {
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
-          <p className="text-sm text-muted-foreground">{getSubscriptionStatus()}</p>
-          <div className="billing-client-upgrade-wrapper">
-            <BillingClient
-              plans={allPlans}
-              currentPlanId={plan?.id}
-              currentPriceId={subscription?.price_id}
-              currentBillingCycle={userBillingCycle}
-              hasActiveSubscription={hasActiveSubscription}
-              stripeCustomerId={subscription?.stripe_customer_id}
-              cancelAtPeriodEnd={subscription?.cancel_at_period_end}
-              planName={plan?.name}
-              expiresAt={formattedExpiresAt}
-            />
-          </div>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-border/50">
+          <p className="text-xs lg:text-sm text-muted-foreground">{getSubscriptionStatus()}</p>
+          <BillingClient
+            plans={allPlans}
+            currentPlanId={plan?.id}
+            currentPriceId={subscription?.price_id}
+            currentBillingCycle={userBillingCycle}
+            hasActiveSubscription={hasActiveSubscription}
+            stripeCustomerId={subscription?.stripe_customer_id}
+            cancelAtPeriodEnd={subscription?.cancel_at_period_end}
+            planName={plan?.name}
+            expiresAt={formattedExpiresAt}
+          />
         </div>
       </div>
 
-      <div className="rounded-lg border border-border/50 p-6">
-        <div className="flex items-start gap-4 mb-4">
-          <div className="p-2 bg-muted/50 rounded-lg">
+      <div className="rounded-lg border border-border/50 p-4 lg:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-3 lg:gap-4 mb-3 lg:mb-4">
+          <div className="p-2 bg-muted/50 rounded-lg w-fit">
             <CreditCard className="w-5 h-5 text-muted-foreground" />
           </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold mb-2">Payment Methods</h2>
-            <p className="text-sm text-muted-foreground">Manage your payment methods and billing information.</p>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base lg:text-lg font-semibold mb-1 lg:mb-2">Payment Methods</h2>
+            <p className="text-xs lg:text-sm text-muted-foreground">Manage your payment methods and billing information.</p>
           </div>
         </div>
         {hasActiveSubscription ? (
           <PaymentMethodsManager />
         ) : (
-          <div className="text-center py-4 text-sm text-muted-foreground">
+          <div className="text-center py-4 text-xs lg:text-sm text-muted-foreground">
             Payment methods will be available after subscribing
           </div>
         )}
       </div>
 
-      <div className="rounded-lg border border-border/50 p-6">
-        <div className="flex items-start gap-4 mb-4">
-          <div className="p-2 bg-muted/50 rounded-lg">
+      <div className="rounded-lg border border-border/50 p-4 lg:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-3 lg:gap-4 mb-3 lg:mb-4">
+          <div className="p-2 bg-muted/50 rounded-lg w-fit">
             <Receipt className="w-5 h-5 text-muted-foreground" />
           </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-semibold mb-2">Invoices</h2>
-            <p className="text-sm text-muted-foreground">View and download your past invoices.</p>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base lg:text-lg font-semibold mb-1 lg:mb-2">Invoices</h2>
+            <p className="text-xs lg:text-sm text-muted-foreground">View and download your past invoices.</p>
           </div>
         </div>
         {hasActiveSubscription ? (
           <InvoicesList />
         ) : (
-          <div className="text-center py-4 text-sm text-muted-foreground">
+          <div className="text-center py-4 text-xs lg:text-sm text-muted-foreground">
             Invoices will be available after your first payment
           </div>
         )}
       </div>
-
-      {hasActiveSubscription && (
-        <div className="flex justify-center pt-4 border-t border-border/50">
-          <div className="billing-client-cancel-wrapper">
-            <BillingClient
-              plans={allPlans}
-              currentPlanId={plan?.id}
-              currentPriceId={subscription?.price_id}
-              currentBillingCycle={userBillingCycle}
-              hasActiveSubscription={hasActiveSubscription}
-              stripeCustomerId={subscription?.stripe_customer_id}
-              cancelAtPeriodEnd={subscription?.cancel_at_period_end}
-              planName={plan?.name}
-              expiresAt={formattedExpiresAt}
-            />
-          </div>
-        </div>
-      )}
     </div>
   )
 }
