@@ -1303,7 +1303,7 @@ export default function PlaylistsPage() {
       {/* Playlist sidebar - horizontal scrollable list on mobile, vertical column on desktop */}
       <div className="w-full lg:w-80 space-y-4 lg:space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Playlists</h1>
+            <h1 className="text-xl lg:text-2xl font-bold text-foreground">Playlists</h1>
           <Button className="bg-cyan-500 hover:bg-cyan-600" size="sm" onClick={handleOpenCreateDialog}>
             <Plus className="h-4 w-4 mr-1 lg:mr-2" />
             <span className="hidden sm:inline">Create</span>
@@ -1347,13 +1347,13 @@ export default function PlaylistsPage() {
             </Card>
           ) : (
             filteredPlaylists.map((playlist) => (
-              <Card
-                key={playlist.id}
-                className={`flex-shrink-0 w-64 lg:w-full cursor-pointer transition-all hover:shadow-md ${
-                  selectedPlaylist?.id === playlist.id ? "ring-2 ring-cyan-500 bg-cyan-50" : ""
-                }`}
-                onClick={() => setSelectedPlaylist(playlist)}
-              >
+                <Card
+                  key={playlist.id}
+                  className={`flex-shrink-0 w-64 lg:w-full cursor-pointer transition-all hover:shadow-md ${
+                    selectedPlaylist?.id === playlist.id ? "ring-2 ring-primary bg-primary/10" : ""
+                  }`}
+                  onClick={() => setSelectedPlaylist(playlist)}
+                >
                 <CardContent className="p-3 lg:p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
@@ -1376,7 +1376,7 @@ export default function PlaylistsPage() {
                           e.stopPropagation()
                           handlePreviewPlaylist(playlist)
                         }}
-                        className="text-cyan-600 hover:text-cyan-700 hover:bg-cyan-50"
+                            className="text-primary hover:text-primary/80 hover:bg-primary/10"
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
@@ -1404,8 +1404,8 @@ export default function PlaylistsPage() {
         {selectedPlaylist ? (
           <div className="h-full">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">{selectedPlaylist.name}</h2>
-              {selectedPlaylist.description && <p className="text-gray-600 mt-1">{selectedPlaylist.description}</p>}
+                <h2 className="text-2xl font-bold text-foreground">{selectedPlaylist.name}</h2>
+                {selectedPlaylist.description && <p className="text-muted-foreground mt-1">{selectedPlaylist.description}</p>}
             </div>
 
             <Tabs defaultValue="content" className="h-full">
