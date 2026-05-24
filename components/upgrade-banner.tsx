@@ -37,7 +37,7 @@ export function UpgradeBanner({ feature, description, currentPlan, className = "
           <strong>{feature}</strong> {description && `- ${description}`}
         </p>
         <Button asChild size="sm" className="bg-cyan-600 hover:bg-cyan-700">
-          <Link href="/dashboard/settings/subscription">
+          <Link href="/dashboard/settings/billing">
             <Zap className="h-4 w-4 mr-2" />
             Upgrade Now
           </Link>
@@ -64,7 +64,7 @@ export function UpgradeInline({ feature, currentPlan }: UpgradeInlineProps) {
         {feature} requires {nextPlan} plan
       </span>
       <Button asChild variant="link" size="sm" className="text-cyan-600 p-0 h-auto">
-        <Link href="/dashboard/settings/subscription">Upgrade</Link>
+        <Link href="/dashboard/settings/billing">Upgrade</Link>
       </Button>
     </div>
   )
