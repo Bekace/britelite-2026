@@ -94,37 +94,37 @@ export function InvoicesList() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {invoices.map((invoice) => (
-        <Card key={invoice.id} className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-muted/50 rounded-lg">
-                <Receipt className="w-5 h-5 text-muted-foreground" />
+        <Card key={invoice.id} className="p-3 lg:p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="p-2 bg-muted/50 rounded-lg flex-shrink-0">
+                <Receipt className="w-4 h-4 lg:w-5 lg:h-5 text-muted-foreground" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{invoice.number || invoice.description || "Payment"}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-sm lg:text-base truncate">{invoice.number || invoice.description || "Payment"}</span>
                   {getStatusBadge(invoice.status)}
                 </div>
-                <p className="text-sm text-muted-foreground">{formatDate(invoice.created)}</p>
+                <p className="text-xs lg:text-sm text-muted-foreground">{formatDate(invoice.created)}</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="font-semibold">{formatAmount(invoice.amount, invoice.currency)}</span>
+            <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 pl-11 sm:pl-0">
+              <span className="font-semibold text-sm lg:text-base">{formatAmount(invoice.amount, invoice.currency)}</span>
               <div className="flex items-center gap-2">
                 {invoice.pdfUrl && (
-                  <Button size="sm" variant="outline" asChild>
+                  <Button size="sm" variant="outline" className="h-8 text-xs lg:text-sm" asChild>
                     <a href={invoice.pdfUrl} target="_blank" rel="noopener noreferrer">
-                      <Download className="w-4 h-4 mr-2" />
+                      <Download className="w-3.5 h-3.5 lg:w-4 lg:h-4 mr-1.5" />
                       PDF
                     </a>
                   </Button>
                 )}
                 {invoice.hostedUrl && (
-                  <Button size="sm" variant="ghost" asChild>
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild>
                     <a href={invoice.hostedUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="w-4 h-4" />
+                      <ExternalLink className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                     </a>
                   </Button>
                 )}
