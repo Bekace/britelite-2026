@@ -861,15 +861,15 @@ export default function SchedulesPage() {
                   className={cn(
                     "flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors group",
                     selectedSchedule?.id === schedule.id
-                      ? "bg-cyan-50 border border-cyan-200"
+                      ? "bg-primary/10 border border-primary/30"
                       : "hover:bg-muted"
                   )}
                   onClick={() => setSelectedSchedule(schedule)}
                 >
                   <div
                     className={cn(
-                      "w-3 h-3 rounded-full",
-                      schedule.is_active ? "bg-cyan-500" : "bg-gray-300"
+                      "w-3 h-3 rounded-full flex-shrink-0",
+                      schedule.is_active ? "bg-primary" : "bg-muted-foreground/30"
                     )}
                   />
                   <span className="flex-1 text-sm font-medium truncate text-foreground">
@@ -959,19 +959,22 @@ export default function SchedulesPage() {
               </Button>
             </div>
           ) : (
-            <div className="min-w-[800px]">
+            <div className="min-w-[600px] lg:min-w-[800px]">
               {/* Day Headers */}
               <div className="flex border-b sticky top-0 z-10">
-                <div className="w-16 shrink-0 border-r bg-gray-100" />
+                <div className="w-12 lg:w-16 shrink-0 border-r bg-muted" />
                 {weekDays.map((date, index) => {
                   const isToday = date.toDateString() === new Date().toDateString()
                   return (
                     <div
                       key={index}
-                      className="flex-1 p-3 text-center border-r last:border-r-0 bg-gray-100"
+                      className="flex-1 p-2 lg:p-3 text-center border-r last:border-r-0 bg-muted"
                     >
-                      <div className="text-xs font-medium text-gray-600">{dayNames[index]}</div>
-                      <div className="text-2xl font-semibold text-gray-900 mt-1">
+                      <div className="text-xs font-medium text-muted-foreground">{dayNames[index]}</div>
+                      <div className={cn(
+                        "text-lg lg:text-2xl font-semibold mt-1",
+                        isToday ? "text-primary" : "text-foreground"
+                      )}>
                         {date.getDate()}
                       </div>
                     </div>
@@ -981,14 +984,14 @@ export default function SchedulesPage() {
 
               {/* All-Day Row */}
               <div className="flex border-b bg-background">
-                <div className="w-16 shrink-0 border-r p-2 text-xs font-medium text-muted-foreground flex items-center justify-end pr-2">
+                <div className="w-12 lg:w-16 shrink-0 border-r p-1 lg:p-2 text-xs font-medium text-muted-foreground flex items-center justify-end pr-1 lg:pr-2">
                   all-day
                 </div>
                 {weekDays.map((date, index) => (
                   <div
                     key={index}
                     onClick={() => handleAllDayClick(index)}
-                    className="flex-1 p-2 border-r last:border-r-0 cursor-pointer hover:bg-accent/50 transition-colors min-h-[40px]"
+                    className="flex-1 p-1 lg:p-2 border-r last:border-r-0 cursor-pointer hover:bg-accent/50 transition-colors min-h-[32px] lg:min-h-[40px]"
                   >
                     {/* Show any all-day events here if needed */}
                   </div>
@@ -998,11 +1001,11 @@ export default function SchedulesPage() {
               {/* Time Grid */}
               <div className="flex">
                 {/* Time Labels */}
-                <div className="w-16 shrink-0 border-r">
+                <div className="w-12 lg:w-16 shrink-0 border-r">
                   {hours.map((hour) => (
                     <div
                       key={hour}
-                      className="h-12 border-b text-xs text-muted-foreground pr-2 text-right flex items-start pt-1"
+                      className="h-12 border-b text-[10px] lg:text-xs text-muted-foreground pr-1 lg:pr-2 text-right flex items-start pt-1"
                     >
                       {hour === 0 ? "12AM" : hour === 12 ? "12PM" : hour > 12 ? `${hour - 12}PM` : `${hour}AM`}
                     </div>
@@ -1015,7 +1018,10 @@ export default function SchedulesPage() {
                   return (
                     <div
                       key={dayIndex}
-                      className="flex-1 border-r last:border-r-0 relative bg-cyan-50"
+                      className={cn(
+                        "flex-1 border-r last:border-r-0 relative",
+                        isToday ? "bg-primary/5" : "bg-muted/30"
+                      )}
                     >
                       {/* Hour cells */}
                       {hours.map((hour) => (
@@ -1041,7 +1047,7 @@ export default function SchedulesPage() {
                             <div
                               key={`${item.id}-${dayIndex}`}
                               className={cn(
-                                "absolute left-1 right-1 rounded-md p-2.5 overflow-hidden cursor-pointer group hover:shadow-lg transition-shadow",
+                                "absolute left-0.5 right-0.5 lg:left-1 lg:right-1 rounded-md p-1.5 lg:p-2.5 overflow-hidden cursor-pointer group hover:shadow-lg transition-shadow",
                                 color.bg,
                                 color.text
                               )}
@@ -1049,16 +1055,16 @@ export default function SchedulesPage() {
                               title={`${contentName}\n${item.start_time} - ${item.end_time}`}
                               onClick={() => openEditItemDialog(item)}
                             >
-                              <div className="text-xs font-medium truncate">
+                              <div className="text-[10px] lg:text-xs font-medium truncate">
                                 {item.start_time.slice(0, 5)} - {item.end_time.slice(0, 5)}
                               </div>
-                              <div className="text-sm truncate font-medium mt-0.5">
+                              <div className="text-xs lg:text-sm truncate font-medium mt-0.5">
                                 {contentName || "Unknown content"}
                               </div>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="absolute top-0.5 right-0.5 h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-teal-800"
+                                className="absolute top-0.5 right-0.5 h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/20"
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   handleDeleteScheduleItem(item.id)
