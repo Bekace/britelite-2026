@@ -1020,14 +1020,14 @@ export default function SchedulesPage() {
                       key={dayIndex}
                       className={cn(
                         "flex-1 border-r last:border-r-0 relative",
-                        isToday ? "bg-primary/5" : "bg-muted/30"
+                        isToday ? "bg-primary/15 dark:bg-primary/20" : "bg-muted/50 dark:bg-muted/40"
                       )}
                     >
                       {/* Hour cells */}
                       {hours.map((hour) => (
                         <div
                           key={hour}
-                          className="h-12 border-b border-dashed hover:bg-muted/50 cursor-pointer transition-colors"
+                          className="h-12 border-b border-dashed border-border/50 hover:bg-accent/60 cursor-pointer transition-colors"
                           onClick={() => handleCellClick(dayIndex, hour)}
                         />
                       ))}
