@@ -6,7 +6,11 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "tokens:sync": "node scripts/figma/sync-figma-tokens.mjs",
+    "tokens:transform": "node scripts/design-tokens/transform-tokens.mjs",
+    "tokens:all": "node scripts/design-tokens/sync-all.mjs",
+    "tokens:watch": "nodemon --ext json --watch design-tokens scripts/design-tokens/transform-tokens.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "latest",
