@@ -27,7 +27,17 @@ export async function GET() {
         return NextResponse.json(
           {
             error: 'Unauthorized',
-            message: 'Token does not have permission. Make sure the token has "file_variables:read" scope.',
+            message: 'Token does not have permission to access this file.',
+            scopes_needed: ['file_content:read', 'file_metadata:read'],
+            instructions: [
+              '1. Go to https://figma.com/account',
+              '2. API section → Create new personal access token',
+              '3. Select these scopes:',
+              '   ✓ file_content:read (required)',
+              '   ✓ file_metadata:read (required)',
+              '4. Copy the token and update FIGMA_TOKEN in .env.local',
+              '5. Try connecting again',
+            ],
           },
           { status: 403 }
         )
