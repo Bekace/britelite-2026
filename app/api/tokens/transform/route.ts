@@ -1,87 +1,145 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-function rgbaToHex(r: number, g: number, b: number, a: number = 1): string {
-  const toHex = (n: number) => {
-    const hex = n.toString(16)
-    return hex.length === 1 ? '0' + hex : hex
-  }
-  const alpha = a < 1 ? toHex(Math.round(a * 255)) : ''
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}${alpha}`.toUpperCase()
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+type TokenValue = string | number
+
+type ModeMap = Record<string, TokenValue>
+
+type TokenEntry =
+  | { light: string; dark: string }   // color collection with Light/Dark modes
+  | string                             // single-value collection (radius, spacing, etc.)
+
+type TokenMap = Record<string, Record<string, { light: string; dark: string }>>
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+/**
+ * Detect if a collection has Figma-style Light/Dark mode keys.
+ * Figma exports collections where the top-level keys are mode names.
+ */
+function hasModes(obj: Record<string, any>): boolean {
+  const keys = Object.keys(obj).map(k => k.toLowerCase())
+  return keys.includes('light') || keys.includes('dark')
 }
 
-function generateCSSVariables(tokens: any): string {
-  let css = ':root {\n  /* Design Tokens - Auto Generated */\n'
+/**
+ * Normalise a raw token value to a string. Figma may export numbers.
+ */
+function normalise(val: any): string {
+  if (val === null || val === undefined) return ''
+  if (typeof val === 'object') {
+    // Figma RGBA object  { r, g, b, a }
+    if ('r' in val && 'g' in val && 'b' in val) {
+      return rgbaToHex(val.r, val.g, val.b, val.a ?? 1)
+    }
+    return JSON.stringify(val)
+  }
+  return String(val)
+}
 
-  function processTokens(obj: any, prefix = '') {
-    Object.entries(obj).forEach(([key, value]: [string, any]) => {
-      if (typeof value === 'object' && value !== null && !('$value' in value)) {
-        processTokens(value, prefix ? `${prefix}-${key}` : key)
-      } else {
-        const varValue = value?.$value || value
-        const cssVarName = prefix ? `${prefix}-${key}` : key
-        css += `  --${cssVarName}: ${varValue};\n`
+function rgbaToHex(r: number, g: number, b: number, a = 1): string {
+  const byte = (n: number) => Math.round(n * 255).toString(16).padStart(2, '0')
+  const alpha = a < 1 ? byte(a) : ''
+  return `#${byte(r)}${byte(g)}${byte(b)}${alpha}`.toUpperCase()
+}
+
+/**
+ * Sanitise a token key into a valid CSS custom property fragment.
+ * "Button / Primary / Default" → "button-primary-default"
+ */
+function sanitise(key: string): string {
+  return key
+    .toLowerCase()
+    .replace(/\s*\/\s*/g, '-')
+    .replace(/[^a-z0-9-_]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+// ── Core transformation ────────────────────────────────────────────────────────
+
+/**
+ * Flatten a nested token object into a flat map of { cssVarSuffix: value }.
+ * e.g. { button: { primary: "#fff" } } → { "button-primary": "#fff" }
+ */
+function flattenTokens(obj: Record<string, any>, prefix = ''): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [key, val] of Object.entries(obj)) {
+    const segment = sanitise(key)
+    const fullKey = prefix ? `${prefix}-${segment}` : segment
+    if (val !== null && typeof val === 'object' && !('r' in val)) {
+      Object.assign(result, flattenTokens(val, fullKey))
+    } else {
+      result[fullKey] = normalise(val)
+    }
+  }
+  return result
+}
+
+/**
+ * Main parser. Handles both:
+ *   - Mode-based collections: { colors: { Light: { primary: "…" }, Dark: { primary: "…" } } }
+ *   - Simple collections:     { radius: { sm: "4px", md: "8px" } }
+ */
+function parseTokens(input: Record<string, any>): {
+  tokenMap: TokenMap
+  lightVars: Record<string, string>
+  darkVars: Record<string, string>
+} {
+  const tokenMap: TokenMap = {}
+  const lightVars: Record<string, string> = {}
+  const darkVars: Record<string, string> = {}
+
+  for (const [collection, value] of Object.entries(input)) {
+    if (typeof value !== 'object' || value === null) continue
+    const collKey = sanitise(collection)
+    tokenMap[collKey] = {}
+
+    if (hasModes(value)) {
+      // Figma mode-aware collection
+      const lightRaw = value['Light'] ?? value['light'] ?? {}
+      const darkRaw  = value['Dark']  ?? value['dark']  ?? lightRaw
+
+      const lightFlat = flattenTokens(lightRaw)
+      const darkFlat  = flattenTokens(darkRaw)
+
+      // Union of all keys from both modes
+      const allKeys = new Set([...Object.keys(lightFlat), ...Object.keys(darkFlat)])
+      for (const k of allKeys) {
+        const lv = lightFlat[k] ?? darkFlat[k] ?? ''
+        const dv = darkFlat[k]  ?? lv
+        const cssVar = `--${collKey}-${k}`
+        tokenMap[collKey][k] = { light: lv, dark: dv }
+        lightVars[cssVar] = lv
+        darkVars[cssVar]  = dv
       }
-    })
-  }
-
-  processTokens(tokens)
-  css += '}\n'
-  return css
-}
-
-function generateTailwindConfig(tokens: any): string {
-  const config: any = {}
-
-  function processTokens(obj: any, category = '') {
-    Object.entries(obj).forEach(([key, value]: [string, any]) => {
-      if (typeof value === 'object' && value !== null && !('$value' in value)) {
-        processTokens(value, key)
-      } else {
-        const varValue = value?.$value || value
-        const varName = category ? `${category}-${key}` : key
-
-        if (category === 'colors') {
-          if (!config.colors) config.colors = {}
-          config.colors[key] = varValue
-        } else if (category === 'space' || category === 'spacing') {
-          if (!config.spacing) config.spacing = {}
-          config.spacing[key] = varValue
-        } else if (category === 'radius') {
-          if (!config.borderRadius) config.borderRadius = {}
-          config.borderRadius[key] = varValue
-        } else {
-          if (!config.extend) config.extend = {}
-          if (!config.extend[category]) config.extend[category] = {}
-          config.extend[category][key] = varValue
-        }
+    } else {
+      // Simple (no modes): same value for light and dark
+      const flat = flattenTokens(value)
+      for (const [k, v] of Object.entries(flat)) {
+        const cssVar = `--${collKey}-${k}`
+        tokenMap[collKey][k] = { light: v, dark: v }
+        lightVars[cssVar] = v
+        darkVars[cssVar]  = v
       }
-    })
+    }
   }
 
-  processTokens(tokens)
-  return JSON.stringify(config, null, 2)
+  return { tokenMap, lightVars, darkVars }
 }
 
-function generateTypeScript(tokens: any): string {
-  let ts = 'export const designTokens = {\n'
+// ── CSS generation ─────────────────────────────────────────────────────────────
 
-  function processTokens(obj: any, indent = '  ') {
-    Object.entries(obj).forEach(([key, value]: [string, any]) => {
-      if (typeof value === 'object' && value !== null && !('$value' in value)) {
-        ts += `${indent}${key}: {\n`
-        processTokens(value, indent + '  ')
-        ts += `${indent}},\n`
-      } else {
-        const varValue = value?.$value || value
-        ts += `${indent}${key}: '${varValue}',\n`
-      }
-    })
-  }
-
-  processTokens(tokens)
-  ts += '} as const\n\nexport type DesignTokens = typeof designTokens\n'
-  return ts
+function buildCSSBlock(vars: Record<string, string>, selector: string): string {
+  const lines = Object.entries(vars)
+    .filter(([, v]) => v !== '')
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join('\n')
+  return `${selector} {\n${lines}\n}`
 }
+
+// ── Route handler ──────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   try {
@@ -89,26 +147,29 @@ export async function POST(req: NextRequest) {
     const { tokens } = body
 
     if (!tokens || typeof tokens !== 'object') {
-      return NextResponse.json(
-        { error: 'Invalid tokens format' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Invalid tokens: expected a JSON object.' }, { status: 400 })
     }
 
-    const css = generateCSSVariables(tokens)
-    const tailwind = generateTailwindConfig(tokens)
-    const typescript = generateTypeScript(tokens)
+    const { tokenMap, lightVars, darkVars } = parseTokens(tokens)
+
+    const lightCSS = buildCSSBlock(lightVars, ':root')
+    const darkCSS  = buildCSSBlock(darkVars, '.dark')
+    const combined = `/* Design Tokens — Light */\n${lightCSS}\n\n/* Design Tokens — Dark */\n${darkCSS}`
+
+    const totalTokens = Object.values(tokenMap).reduce(
+      (sum, group) => sum + Object.keys(group).length, 0
+    )
+
+    const collections = Object.keys(tokenMap)
 
     return NextResponse.json({
-      css,
-      tailwind,
-      typescript,
+      css: { light: lightCSS, dark: darkCSS, combined },
+      tokenMap,
+      collections,
+      totalTokens,
     })
-  } catch (error) {
-    console.error('Transform error:', error)
-    return NextResponse.json(
-      { error: 'Failed to transform tokens' },
-      { status: 500 }
-    )
+  } catch (err: any) {
+    console.error('[tokens/transform]', err)
+    return NextResponse.json({ error: err.message || 'Transform failed' }, { status: 500 })
   }
 }
