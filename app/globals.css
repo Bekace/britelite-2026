@@ -167,6 +167,9 @@
   .text-gray-600 {
     color: var(--muted-foreground);
   }
+  .bg-gray-100 {
+    background-color: var(--muted-foreground);
+}
 }
 
 
