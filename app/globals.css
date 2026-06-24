@@ -162,12 +162,11 @@
   body {
     @apply bg-background text-foreground;
   }
-
-  @layer utilities {
+}
+ @layer utilities {
   .text-label-muted {
     color: var(--muted-foreground);
   }
-}
 }
 
 
