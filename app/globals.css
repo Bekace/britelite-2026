@@ -37,7 +37,7 @@
   --destructive: var(--color/border/danger);
   --destructive-foreground: var(--color/background/inverse);
 
-  --border: var(--color/border/subtle); /* Light borders */
+  --border: var(--color/border/selected); /* Light borders */
   --input: var(--colors/dark-green/dark-green-50); /* Light input background */
   --ring: var(--color/action/primary);
 
@@ -86,7 +86,7 @@
   --destructive: var(--color/border/danger);
   --destructive-foreground: var(--color/background/inverse);
 
-  --border: var(--color/border/subtle); /* Fixed border opacity for better visibility in dark mode */
+  --border: var(--color/border/selected); /* Fixed border opacity for better visibility in dark mode */
   --input: var(--colors/dark-green/dark-green-50);
   --ring: var(--color/action/primary);
 
