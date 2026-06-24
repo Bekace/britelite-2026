@@ -5,7 +5,7 @@
 
 :root {
   /* Light theme colors - proper light mode */
-  --card: #d0ff00; /* White card background */
+  --card: #FFFFFF; /* White card background */
   --card-foreground: #1B1F22; /* Dark text on cards */
 
   --popover: #FFFFFF;
@@ -65,7 +65,7 @@
   --background: #1B1F22; /* #0f1211 */
   --foreground: #171717; /* #e7eceb */
 
-  --card: #1B1F22; /* Dark card background for proper contrast with light text */
+  --card: #FFFFFF; /* Dark card background for proper contrast with light text */
   --card-foreground: #1B1F22;
 
   --popover: #FFFFFF;
