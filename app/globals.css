@@ -23,7 +23,7 @@
   --accent: #00FFFF; /* Light accent */
   --accent-foreground: #1B1F22; /* Dark text */
 
-  --background: #000000; /* White background */
+  --background: #1B1F22; /* White background */
   --foreground: #171717; /* Dark text */
 
   --muted-foreground-light: #404040;
@@ -62,7 +62,7 @@
 
 .dark {
   /* Dark mode variants - proper dark theme */
-  --background: #000000; /* #0f1211 */
+  --background: #1B1F22; /* #0f1211 */
   --foreground: #171717; /* #e7eceb */
 
   --card: #FFFFFF; /* Dark card background for proper contrast with light text */
