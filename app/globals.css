@@ -163,8 +163,8 @@
     @apply bg-background text-foreground;
   }
 }
- @layer utilities {
-  .text-label-muted {
+@layer utilities {
+  .text-gray-600 {
     color: var(--muted-foreground);
   }
 }
