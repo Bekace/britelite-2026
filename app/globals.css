@@ -3,104 +3,106 @@
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
+:root  {
   /* Light theme colors - proper light mode */
-  --card: #FFFFFF; /* White card background */
-  --card-foreground: #e5f1fa; /* Dark text on cards */
+  --card: hsl(0 0% 100%); /* White card background */
+  --card-foreground: hsl(210 11% 7%); /* Dark text on cards */
 
-  --popover: #FFFFFF;
-  --popover-foreground: #171717;
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(210 11% 7%);
 
-  --primary: #6EFCD9; /* #78fcd6 - Keep brand color */
-  --primary-foreground: #0A0A0A; /* #0d0f0e */
+  --primary: hsl(165 96% 71%); /* #78fcd6 - Keep brand color */
+  --primary-foreground: hsl(160 8% 6%); /* #0d0f0e */
 
-  --secondary: #F5F5F5; /* Light gray */
-  --secondary-foreground: #171717; /* Dark text */
+  --secondary: hsl(210 11% 96%); /* Light gray */
+  --secondary-foreground: hsl(210 11% 7%); /* Dark text */
 
-  --muted: #E8F3F4; /* Light muted */
-  --muted-foreground: #737373; /* Medium gray text */
+  --muted: hsl(210 10% 93%); /* Light muted */
+  --muted-foreground: hsl(210 11% 40%); /* Medium gray text */
 
-  --accent: #00FFFF; /* Light accent */
-  --accent-foreground: #1B1F22; /* Dark text */
+  --accent: hsl(210 10% 95%); /* Light accent */
+  --accent-foreground: hsl(210 11% 7%); /* Dark text */
 
-  --background: #ffffff; /* White background */
-  --foreground: #171717; /* Dark text */
+  --background: hsl(0 0% 100%); /* White background */
+  --foreground: hsl(210 11% 7%); /* Dark text */
 
-  --muted-foreground-light: #404040;
-  --muted-foreground-dark: #E91313;
+  --muted-foreground-light: hsl(71 85 105 / 0.5);
+  --muted-foreground-dark: hsl(71 85 105 / 0.6);
 
   /* Updated font configuration to use Google Fonts Inter directly */
-  --font-sans: Inter;
-  --font-mono: JetBrains Mono;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* Updated design tokens to match device player design brief */
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(0 0% 100%);
 
-  --border: #00CEA5; /* Light borders */
-  --input: #E8F3F4; /* Light input background */
-  --ring: #6EFCD9;
+  --border: hsl(210 11% 85%); /* Light borders */
+  --input: hsl(210 10% 93%); /* Light input background */
+  --ring: hsl(165 96% 71%);
 
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #171717;
-  --sidebar-primary: #6EFCD9;
-  --sidebar-primary-foreground: #0A0A0A;
-  --sidebar-accent: #da1a1a;
-  --sidebar-accent-foreground: #171717;
-  --sidebar-border: #00CEA5;
-  --sidebar-ring: #6EFCD9;
+  --sidebar: hsl(0 0% 100%);
+  --sidebar-foreground: hsl(210 11% 7%);
+  --sidebar-primary: hsl(165 96% 71%);
+  --sidebar-primary-foreground: hsl(160 8% 6%);
+  --sidebar-accent: hsl(210 10% 95%);
+  --sidebar-accent-foreground: hsl(210 11% 7%);
+  --sidebar-border: hsl(210 11% 85%);
+  --sidebar-ring: hsl(165 96% 71%);
 
   /* Chart colors for data visualization */
-  --chart-1: #2662D9; /* #6366f1 - Indigo */
-  --chart-2: #00D861; /* #d97706 - Amber */
-  --chart-3: #F28518; /* #164e63 - Cyan-800 */
-  --chart-4: #E23670; /* #475569 - Dark cyan */
-  --chart-5: #A037D4; /* #fefce8 - Light yellow */
+  --chart-1: hsl(99 102 241); /* #6366f1 - Indigo */
+  --chart-2: hsl(217 119 6); /* #d97706 - Amber */
+  --chart-3: hsl(22 78 99); /* #164e63 - Cyan-800 */
+  --chart-4: hsl(71 85 105); /* #475569 - Dark cyan */
+  --chart-5: hsl(254 252 232); /* #fefce8 - Light yellow */
 
-  --radius: 4;
+  --radius: 0.5rem;
 }
 
-.dark {
+
+.dark  {
   /* Dark mode variants - proper dark theme */
-  --background: #1B1F22; /* #0f1211 */
-  --foreground: #171717; /* #e7eceb */
+  --background: #000910; /* #0f1211 */
+  --foreground: hsl(160 14% 93%); /* #e7eceb */
 
-  --card: #FFFFFF; /* Dark card background for proper contrast with light text */
-  --card-foreground: #1B1F22;
+  --card: #404040; /* Dark card background for proper contrast with light text */
+  --card-foreground: hsl(160 14% 93%);
 
-  --popover: #FFFFFF;
-  --popover-foreground: #171717;
+  --popover: hsl(210 11% 7%);
+  --popover-foreground: hsl(160 14% 93%);
 
-  --primary: #6EFCD9; /* #78fcd6 */
-  --primary-foreground: #0A0A0A; /* #0d0f0e */
+  --primary: hsl(165 96% 71%); /* #78fcd6 */
+  --primary-foreground: hsl(160 8% 6%); /* #0d0f0e */
 
-  --secondary: #F5F5F5; /* #e7eceb */
-  --secondary-foreground: #171717; /* #141a18 */
+  --secondary: hsl(160 14% 93%); /* #e7eceb */
+  --secondary-foreground: hsl(165 14% 8%); /* #141a18 */
 
-  --muted: #E8F3F4; /* #27272a */
-  --muted-foreground: #737373; /* Increased muted-foreground opacity for better contrast in dark mode */
+  --muted: hsl(240 2% 16%); /* #27272a */
+  --muted-foreground: hsl(160 14% 85%); /* Increased muted-foreground opacity for better contrast in dark mode */
 
-  --accent: #00FFFF; /* #3f3f42 */
-  --accent-foreground: #1B1F22; /* #f4f4f5 */
+  --accent: #000910; /* #3f3f42 */
+  --accent-foreground: #FAFAFA; /* #f4f4f5 */
 
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(210 40% 98%);
 
-  --border: #00CEA5; /* Fixed border opacity for better visibility in dark mode */
-  --input: #E8F3F4;
-  --ring: #6EFCD9;
+  --border: #2C3746; /* Fixed border opacity for better visibility in dark mode */
+  --input: hsl(240 2% 16%);
+  --ring: hsl(165 96% 71%);
 
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #171717;
-  --sidebar-primary: #6EFCD9;
-  --sidebar-primary-foreground: #0A0A0A;
-  --sidebar-accent: #F5F5F5;
-  --sidebar-accent-foreground: #171717;
-  --sidebar-border: #00CEA5;
-  --sidebar-ring: #6EFCD9;
+  --sidebar: hsl(210 11% 7%);
+  --sidebar-foreground: hsl(160 14% 93%);
+  --sidebar-primary: hsl(165 96% 71%);
+  --sidebar-primary-foreground: hsl(160 8% 6%);
+  --sidebar-accent: hsl(240 2% 25%);
+  --sidebar-accent-foreground: hsl(240 2% 96%);
+  --sidebar-border: hsl(240 100% 100% / 0.08);
+  --sidebar-ring: hsl(165 96% 71%);
 }
 
-@theme inline {
+
+@theme inline  {
   /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -126,10 +128,10 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: 8;
-  --radius-md: 12;
-  --radius-lg: 16;
-  --radius-xl: 32;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -139,8 +141,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --animate-accordion-down: #6EFCD9;
-  --animate-accordion-up: #6EFCD9;
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
 
   @keyframes accordion-down {
     from { height: 0; }
@@ -152,7 +154,8 @@
   }
 }
 
-@layer base {
+
+@layer base  {
   * {
     @apply border-border outline-ring/50;
   }
@@ -161,73 +164,82 @@
   }
 }
 
+
 /* Added Inter font utility class for consistent usage */
-.font-inter {
+.font-inter  {
   font-family: "Inter", sans-serif;
   font-optical-sizing: auto;
   font-style: normal;
 }
 
+
 /* TV-specific focus styles for 10-foot UI */
-.tv-focusable {
+.tv-focusable  {
   outline: none;
   transition: all 0.2s ease-in-out;
 }
 
-.tv-focusable:focus-visible {
+
+.tv-focusable:focus-visible  {
   outline: 4px solid var(--color-primary);
   outline-offset: 4px;
   transform: scale(1.05);
   box-shadow: 0 0 0 4px var(--color-primary), 0 0 20px var(--color-primary);
 }
 
+
 /* TV mode cursor hiding for cleaner experience */
-.tv-mode {
+.tv-mode  {
   cursor: none;
 }
 
-.tv-mode * {
+
+.tv-mode *  {
   cursor: none;
 }
+
 
 /* Large touch targets for remote navigation */
-.tv-button {
+.tv-button  {
   min-width: 120px;
   min-height: 48px;
   font-size: 1.125rem;
 }
 
+
 /* Added scrollbar-hide utility for cleaner modal scrolling */
 /* Hide scrollbar while maintaining scroll functionality */
-.scrollbar-hide {
+.scrollbar-hide  {
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
 
+
 /* Design Tokens - Auto-generated from Figma */
-:root {
-  --colors-primary: #6EFCD9;
-  --colors-secondary: #E23670;
-  --colors-success: #009E80;
-  --colors-destructive: #EF4444;
-  --colors-muted-foreground: #404040;
-  --space-xs: 4;
-  --space-sm: 6;
-  --space-md: 8;
-  --space-lg: 10;
-  --space-xl: 12;
-  --radius-sm: 8;
-  --radius-md: 12;
-  --radius-lg: 16;
-  --radius-full: 9999;
-  --padding-sm: 6;
-  --padding-md: 8;
-  --padding-lg: 10;
-  --gap-xs: 4;
-  --gap-sm: 8;
-  --gap-md: 12;
+:root  {
+  --colors-primary: #0891b2;
+  --colors-secondary: #ec4899;
+  --colors-success: #10b981;
+  --colors-destructive: #ef4444;
+  --colors-muted-foreground: #6b7280;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-full: 9999px;
+  --padding-sm: 0.5rem;
+  --padding-md: 1rem;
+  --padding-lg: 1.5rem;
+  --gap-xs: 0.25rem;
+  --gap-sm: 0.5rem;
+  --gap-md: 1rem;
 }
+
 /* End Design Tokens */
-.scrollbar-hide::-webkit-scrollbar {
+.scrollbar-hide::-webkit-scrollbar  {
   display: none; /* Chrome, Safari and Opera */
 }
