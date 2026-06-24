@@ -81,7 +81,7 @@
   --muted: hsl(240 2% 16%); /* #27272a */
   --muted-foreground: hsl(160 14% 85%); /* Increased muted-foreground opacity for better contrast in dark mode */
 
-  --accent: #00FFFF; /* #3f3f42 */
+  --accent: #004D42; /* #3f3f42 */
   --accent-foreground: #FAFAFA; /* #f4f4f5 */
 
   --destructive: hsl(0 62.8% 30.6%);
