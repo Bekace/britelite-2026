@@ -244,4 +244,4 @@
   display: none; /* Chrome, Safari and Opera */
 }
 /* ── Utility class overrides — outside @layer, always wins over Tailwind ── */
-  .text-gray-600 { color: #F59E0B; }
+  .text-gray-600 { color: #FFFFFF; }
