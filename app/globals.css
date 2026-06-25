@@ -66,7 +66,7 @@
   --background: #000910; /* #0f1211 */
   --foreground: hsl(160 14% 93%); /* #e7eceb */
 
-  --card: #404040; /* Dark card background for proper contrast with light text */
+  --card: #1B1F22; /* Dark card background for proper contrast with light text */
   --card-foreground: hsl(160 14% 93%);
 
   --popover: hsl(210 11% 7%);
