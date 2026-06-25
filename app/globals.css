@@ -163,14 +163,6 @@
     @apply bg-background text-foreground;
   }
 }
-@layer utilities {
-  .text-gray-600 {
-    color: var(--muted-foreground);
-  }
-  .bg-gray-100 {
-    background-color: var(--color-gray-100);
-}
-}
 
 
 /* Added Inter font utility class for consistent usage */
@@ -225,7 +217,7 @@
 
 /* Design Tokens - Auto-generated from Figma */
 :root  {
-  --colors-primary: #0891b2;
+  --colors-primary: #6EFCD9;
   --colors-secondary: #ec4899;
   --colors-success: #10b981;
   --colors-destructive: #ef4444;
@@ -251,3 +243,5 @@
 .scrollbar-hide::-webkit-scrollbar  {
   display: none; /* Chrome, Safari and Opera */
 }
+/* ── Utility class overrides — outside @layer, always wins over Tailwind ── */
+  .text-gray-600 { color: #F59E0B; }
