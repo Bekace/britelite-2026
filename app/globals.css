@@ -246,3 +246,5 @@
 /* ── Utility class overrides — outside @layer, always wins over Tailwind ── */
   .text-gray-600 { color: #6EFCD9; }
   .bg-cyan-500 { background-color: #6EFCD9; }
+  .bg-teal-700 { background-color: #009E80; }
+  .bg-primary\/10 { background-color: #00FFFF; }
