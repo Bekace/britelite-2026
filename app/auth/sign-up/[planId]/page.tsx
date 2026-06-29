@@ -95,9 +95,9 @@ export default async function SignUpWithPlanPage({ params, searchParams }: SignU
       <div className="border-b border-border px-6 py-4">
         <Link href="/auth/pricing" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           {/* Light mode logo */}
-          <img src="/xkreen-logo-light.svg" alt="XKREEN" className="h-6 w-auto block dark:hidden" />
+          <img src="/britelite-logo-light.svg" alt="XKREEN" className="h-6 w-auto block dark:hidden" />
           {/* Dark mode logo */}
-          <img src="/xkreen-logo.svg" alt="XKREEN" className="h-6 w-auto hidden dark:block" />
+          <img src="/britelite-logo.svg" alt="XKREEN" className="h-6 w-auto hidden dark:block" />
         </Link>
       </div>
 

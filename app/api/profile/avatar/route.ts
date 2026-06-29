@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     console.log("[v0] File name:", file.name, "Size:", file.size, "Type:", file.type)
 
     // Upload to Google Cloud Storage
-    const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
+    const bucketName = process.env.GCS_BUCKET_NAME || "britelite-web-app"
     const filename = `avatars/${user.id}/${Date.now()}-${file.name}`
 
     const arrayBuffer = await file.arrayBuffer()

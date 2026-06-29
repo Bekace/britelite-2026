@@ -13,7 +13,7 @@ declare global {
   interface Window {
     /**
      * Android native interface exposed by the WebView.
-     * Only available when running inside the Xkreen Android app.
+     * Only available when running inside the Britelite Android app.
      */
     AndroidInterface?: AndroidInterface
 

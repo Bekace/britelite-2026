@@ -1,7 +1,7 @@
 import { MenuList } from "@/components/restaurant-menus/menu-list"
 
 export const metadata = {
-  title: "Restaurant Menus | Xkreen",
+  title: "Restaurant Menus | Britelite",
   description: "Create and manage digital menu boards for your restaurant screens",
 }
 

@@ -25,7 +25,7 @@ export default function PlayerSetupPage() {
       console.log("[v0] Received pairing code from Android:", code)
       if (code && typeof code === "string" && code.length > 0) {
         setDeviceCode(code)
-        localStorage.setItem("xkreen_device_code", code)
+        localStorage.setItem("britelite_device_code", code)
         setIsRegistering(false)
         registerDeviceWithCode(code)
       }
@@ -93,7 +93,7 @@ export default function PlayerSetupPage() {
     if (showSplash) return
 
     const generateAndRegisterDevice = async () => {
-      const storedCode = localStorage.getItem("xkreen_device_code")
+      const storedCode = localStorage.getItem("britelite_device_code")
 
       if (storedCode) {
         console.log("[v0] Found existing device code in localStorage:", storedCode)
@@ -132,7 +132,7 @@ export default function PlayerSetupPage() {
       const timestamp = Date.now().toString(36).toUpperCase()
       code = (code + timestamp).substring(0, 5)
 
-      localStorage.setItem("xkreen_device_code", code)
+      localStorage.setItem("britelite_device_code", code)
       console.log("[v0] Stored device code in localStorage:", code)
 
       setDeviceCode(code)
@@ -233,7 +233,7 @@ export default function PlayerSetupPage() {
 
         {/* Logo - 20% bigger */}
         <div className="mb-12">
-          <Image src="/xkreen-logo.svg" alt="Xkreen" width={480} height={96} className="w-auto h-24" priority />
+          <Image src="/britelite-logo.svg" alt="Britelite" width={480} height={96} className="w-auto h-24" priority />
         </div>
 
         {/* Instructional Text */}
@@ -279,7 +279,7 @@ export default function PlayerSetupPage() {
 
       {/* Logo - 20% bigger */}
       <div className="mb-12">
-        <Image src="/xkreen-logo.svg" alt="Xkreen" width={480} height={96} className="w-auto h-24" priority />
+        <Image src="/britelite-logo.svg" alt="Britelite" width={480} height={96} className="w-auto h-24" priority />
       </div>
 
       {/* Instructional Text */}

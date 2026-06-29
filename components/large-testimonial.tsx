@@ -9,7 +9,7 @@ export function LargeTestimonial() {
             <div className="flex-1 px-4 py-8 md:px-12 lg:px-20 md:py-8 lg:py-10 overflow-hidden rounded-lg flex flex-col justify-center items-center gap-6 md:gap-8 lg:gap-11">
               <div className="w-full max-w-[1024px] text-center text-foreground leading-7 md:leading-10 lg:leading-[64px] font-medium text-lg md:text-3xl lg:text-6xl">
                 {
-                  "Real-time AI insights from Xkreen help us optimize every display instantly and work together seamlessly."
+                  "Real-time AI insights from Britelite help us optimize every display instantly and work together seamlessly."
                 }
               </div>
               <div className="flex justify-start items-center gap-5">

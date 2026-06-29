@@ -1016,7 +1016,7 @@ export function PlanManagement() {
                 <Label className="text-lg font-medium">Branding</Label>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="text-sm text-muted-foreground">Display Xkreen Logo on Player</Label>
+                    <Label className="text-sm text-muted-foreground">Display Britelite Logo on Player</Label>
                   </div>
                   <div className="flex flex-col justify-end">
                     <div className="flex items-center justify-between">

@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       // Handle thumbnail upload
       const thumbnailFile = formData.get("thumbnail") as File | null
       if (thumbnailFile && thumbnailFile.size > 0) {
-        const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
+        const bucketName = process.env.GCS_BUCKET_NAME || "britelite-web-app"
         const filename = `menu-templates/${Date.now()}-${thumbnailFile.name}`
         const arrayBuffer = await thumbnailFile.arrayBuffer()
         const buffer = Buffer.from(arrayBuffer)
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       // Handle background image upload — inject real GCS URL into layout_config
       const bgImageFile = formData.get("bg_image") as File | null
       if (bgImageFile && bgImageFile.size > 0) {
-        const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
+        const bucketName = process.env.GCS_BUCKET_NAME || "britelite-web-app"
         const filename = `menu-templates/bg/${Date.now()}-${bgImageFile.name}`
         const arrayBuffer = await bgImageFile.arrayBuffer()
         const buffer = Buffer.from(arrayBuffer)

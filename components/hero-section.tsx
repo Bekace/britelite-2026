@@ -442,7 +442,7 @@ export function HeroSection() {
           {"Smart Programmatic \nDigital Signage for Retail"} 
         </h1>
         <p className="text-muted-foreground text-base md:text-base lg:text-lg font-medium leading-relaxed mx-auto">
-          {"Xkreen helps retailers manage and scale digital signage across one or hundreds of locations, from promotions and brand content to in-store advertising, using a single, centralized platform.\nAI-powered audience analytics enhance performance when needed, but the core value is simple:\n smarter retail signage that drives results."}
+          {"Britelite helps retailers manage and scale digital signage across one or hundreds of locations, from promotions and brand content to in-store advertising, using a single, centralized platform.\nAI-powered audience analytics enhance performance when needed, but the core value is simple:\n smarter retail signage that drives results."}
         </p>
       </div>
 

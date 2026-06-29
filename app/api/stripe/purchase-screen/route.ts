@@ -111,7 +111,7 @@ export async function POST(_request: Request) {
       )
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://app.xkreen.com"
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://app.britelite.com"
 
     console.log("[purchase-screen] creating Checkout Session for customer:", stripeCustomerId)
 

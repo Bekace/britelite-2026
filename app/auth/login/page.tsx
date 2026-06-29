@@ -90,7 +90,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-6">
           <div className="flex justify-center mb-[60px]">
-            <Image src="/xkreen-logo.svg" alt="Xkreen" width={140} height={40} priority />
+            <Image src="/britelite-logo.svg" alt="Britelite" width={140} height={40} priority />
           </div>
           <Card>
             <CardHeader>

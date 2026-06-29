@@ -45,7 +45,7 @@ export async function DELETE(request: NextRequest) {
 
     if (!isExternalMedia) {
       try {
-        const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
+        const bucketName = process.env.GCS_BUCKET_NAME || "britelite-web-app"
         // Extract filename from URL: https://storage.googleapis.com/bucket/filename
         const url = new URL(media.file_path)
         const filename = url.pathname.split("/").slice(2).join("/") // Remove leading /bucket/

@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
 
     let publicUrl: string
     try {
-      const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
+      const bucketName = process.env.GCS_BUCKET_NAME || "britelite-web-app"
       const filename = `${user.id}/${Date.now()}-${file.name}`
 
       const arrayBuffer = await file.arrayBuffer()

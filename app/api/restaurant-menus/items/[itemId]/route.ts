@@ -33,7 +33,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       // Handle image upload
       const imageFile = formData.get("image") as File | null
       if (imageFile && imageFile.size > 0) {
-        const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
+        const bucketName = process.env.GCS_BUCKET_NAME || "britelite-web-app"
         const filename = `menu-items/${user.id}/${Date.now()}-${imageFile.name}`
         const arrayBuffer = await imageFile.arrayBuffer()
         const buffer = Buffer.from(arrayBuffer)

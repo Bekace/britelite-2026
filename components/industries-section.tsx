@@ -44,7 +44,7 @@ export function IndustriesSection() {
           for Every Industry
         </h2>
         <p className="text-gray-300 text-lg max-w-2xl mx-auto text-balance">
-          From food retail to hospitality, Xkreen empowers businesses with AI-powered signage to connect with customers,
+          From food retail to hospitality, Britelite empowers businesses with AI-powered signage to connect with customers,
           optimize campaigns, and scale effortlessly.
         </p>
       </div>
