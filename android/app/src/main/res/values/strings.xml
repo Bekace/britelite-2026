@@ -1,5 +1,0 @@
-<resources>
-    <string name="app_name">Xkreen Player</string>
-    <!-- Added splash screen loading text -->
-    <string name="splash_loading">Loading player...</string>
-</resources>
