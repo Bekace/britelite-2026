@@ -77,10 +77,7 @@ export default function LoginPage() {
         }
       }
 
-      // Refresh the router so the middleware re-reads the new session cookie,
-      // then do a hard navigation so the server renders the dashboard with auth.
-      router.refresh()
-      window.location.href = redirectAfterLogin
+      router.push(redirectAfterLogin)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred during login")
       setIsLoading(false)
