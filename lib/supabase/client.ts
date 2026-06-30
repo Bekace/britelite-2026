@@ -7,13 +7,11 @@ declare global {
 
 export function createClient() {
   if (typeof window === "undefined") {
-    return createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    )
+    // Server-side: always create a new client
+    return createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
   }
 
-  // Client-side singleton — all components must share the same auth state
+  // Client-side: use singleton pattern with global variable
   if (!globalThis.supabaseClient) {
     globalThis.supabaseClient = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,3 +21,5 @@ export function createClient() {
 
   return globalThis.supabaseClient
 }
+
+export const supabase = createClient()

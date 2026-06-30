@@ -23,10 +23,10 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-        supabaseResponse = NextResponse.next({ request })
-        cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
-        )
+        supabaseResponse = NextResponse.next({
+          request,
+        })
+        cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options))
       },
     },
   })
@@ -36,15 +36,12 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    // Fetch profile once and reuse for all checks
-    let profile: { deleted_at: string | null; role: string } | null = null
     if (user) {
-      const { data } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("deleted_at, role")
+        .select("deleted_at")
         .eq("id", user.id)
         .single()
-      profile = data
 
       // If profile has deleted_at set, sign out and redirect
       if (profile?.deleted_at) {
@@ -52,6 +49,7 @@ export async function updateSession(request: NextRequest) {
         const url = request.nextUrl.clone()
         url.pathname = "/auth/login"
         url.searchParams.set("error", "account_deleted")
+        // Clear all auth cookies
         supabaseResponse = NextResponse.redirect(url)
         supabaseResponse.cookies.delete("sb-access-token")
         supabaseResponse.cookies.delete("sb-refresh-token")
@@ -71,6 +69,9 @@ export async function updateSession(request: NextRequest) {
         url.pathname = "/auth/login"
         return NextResponse.redirect(url)
       }
+
+      // Check if user has admin or superadmin role
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
       if (!profile || (profile.role !== "admin" && profile.role !== "superadmin")) {
         const url = request.nextUrl.clone()
