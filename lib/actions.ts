@@ -5,9 +5,20 @@ import { redirect } from "next/navigation"
 import Stripe from "stripe"
 import bcrypt from "bcryptjs"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-05-28.basil",
-})
+// Lazily initialize Stripe so a missing STRIPE_SECRET_KEY doesn't crash
+// at module load (e.g. when this file is imported by a server component).
+let stripeInstance: Stripe | null = null
+function getStripe(): Stripe {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY is not configured")
+  }
+  if (!stripeInstance) {
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-05-28.basil",
+    })
+  }
+  return stripeInstance
+}
 
 // Update the signIn function to handle redirects properly
 export async function signIn(prevState: any, formData: FormData) {
@@ -96,7 +107,7 @@ export async function signUp(prevState: { error?: string; success?: boolean; mes
       const passwordHash = await bcrypt.hash(password.toString(), 12)
 
       // Create Stripe Checkout session
-      const session = await stripe.checkout.sessions.create({
+      const session = await getStripe().checkout.sessions.create({
         mode: "subscription",
         payment_method_types: ["card"],
         customer_email: email.toString(),
