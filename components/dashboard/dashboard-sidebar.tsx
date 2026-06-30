@@ -160,9 +160,9 @@ export function DashboardSidebar() {
           {!collapsed && (
             <div className="flex items-center gap-2">
               {/* Light mode logo */}
-              <img src="/xkreen-logo-light.svg" alt="XKREEN" className="h-6 w-auto block dark:hidden" />
+              <img src="/britelite-logo-light.svg" alt="XKREEN" className="h-6 w-auto block dark:hidden" />
               {/* Dark mode logo */}
-              <img src="/xkreen-logo.svg" alt="XKREEN" className="h-6 w-auto hidden dark:block" />
+              <img src="/britelite-logo.svg" alt="XKREEN" className="h-6 w-auto hidden dark:block" />
             </div>
           )}
           <Button

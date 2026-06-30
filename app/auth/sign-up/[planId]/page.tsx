@@ -16,21 +16,27 @@ interface SignUpPageProps {
   }>
 }
 
-function getDisplayFeatures(features: Record<string, unknown> | null): string[] {
-  if (!features) return []
+// Plans store `features` as a JSON array of display strings, with limits on
+// top-level columns. Prefer the explicit feature list, otherwise derive from limits.
+function getDisplayFeatures(plan: Record<string, unknown>): string[] {
+  const rawFeatures = plan.features
+
+  if (Array.isArray(rawFeatures) && rawFeatures.length > 0) {
+    return rawFeatures.map((f) => String(f))
+  }
 
   const displayFeatures: string[] = []
 
-  if (features.max_screens !== undefined) {
-    const screens = features.max_screens as number
+  const screens = plan.max_screens as number | undefined
+  if (screens !== undefined && screens !== null) {
     displayFeatures.push(screens === -1 ? "Unlimited screens" : `Up to ${screens} screens`)
   }
-  if (features.max_playlists !== undefined) {
-    const playlists = features.max_playlists as number
+  const playlists = plan.max_playlists as number | undefined
+  if (playlists !== undefined && playlists !== null) {
     displayFeatures.push(playlists === -1 ? "Unlimited playlists" : `${playlists} playlists`)
   }
-  if (features.max_media_storage_mb !== undefined) {
-    const storageMB = features.max_media_storage_mb as number
+  const storageMB = plan.max_storage_mb as number | undefined
+  if (storageMB !== undefined && storageMB !== null) {
     if (storageMB === -1) {
       displayFeatures.push("Unlimited storage")
     } else if (storageMB >= 1024) {
@@ -64,17 +70,41 @@ export default async function SignUpWithPlanPage({ params, searchParams }: SignU
     redirect("/auth/pricing")
   }
 
-  const { data: prices } = await supabase
-    .from("subscription_prices")
-    .select("*")
-    .eq("plan_id", planId)
-    .eq("is_active", true)
+  // Build prices from the plan's own price_monthly / price_yearly fields
+  const prices: Array<{
+    id: string
+    plan_id: string
+    billing_cycle: string
+    price: number
+    stripe_price_id: string | null
+    trial_days: number
+  }> = []
+  if (plan.price_monthly != null) {
+    prices.push({
+      id: `${plan.id}-monthly`,
+      plan_id: plan.id,
+      billing_cycle: "monthly",
+      price: Number(plan.price_monthly),
+      stripe_price_id: plan.stripe_price_id_monthly ?? null,
+      trial_days: 0,
+    })
+  }
+  if (plan.price_yearly != null) {
+    prices.push({
+      id: `${plan.id}-yearly`,
+      plan_id: plan.id,
+      billing_cycle: "yearly",
+      price: Number(plan.price_yearly),
+      stripe_price_id: plan.stripe_price_id_yearly ?? null,
+      trial_days: 0,
+    })
+  }
 
   // Find the selected price based on billing cycle or priceId
-  const selectedPrice = prices?.find((p) => (priceId ? p.id === priceId : p.billing_cycle === billing)) || prices?.[0]
+  const selectedPrice = prices.find((p) => (priceId ? p.id === priceId : p.billing_cycle === billing)) || prices[0]
 
   // Convert features JSON to display array
-  const displayFeatures = getDisplayFeatures(plan.features as Record<string, unknown>)
+  const displayFeatures = getDisplayFeatures(plan as Record<string, unknown>)
 
   // Create the plan object with display-friendly format
   const planWithPrice = {
@@ -95,9 +125,9 @@ export default async function SignUpWithPlanPage({ params, searchParams }: SignU
       <div className="border-b border-border px-6 py-4">
         <Link href="/auth/pricing" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           {/* Light mode logo */}
-          <img src="/xkreen-logo-light.svg" alt="XKREEN" className="h-6 w-auto block dark:hidden" />
+          <img src="/britelite-logo-light.svg" alt="XKREEN" className="h-6 w-auto block dark:hidden" />
           {/* Dark mode logo */}
-          <img src="/xkreen-logo.svg" alt="XKREEN" className="h-6 w-auto hidden dark:block" />
+          <img src="/britelite-logo.svg" alt="XKREEN" className="h-6 w-auto hidden dark:block" />
         </Link>
       </div>
 
@@ -119,7 +149,7 @@ export default async function SignUpWithPlanPage({ params, searchParams }: SignU
             </div>
 
             {/* Trial Info */}
-            {planWithPrice.trialDays && planWithPrice.trialDays > 0 && (
+            {planWithPrice.trialDays > 0 && (
               <p className="text-sm text-primary font-medium">{planWithPrice.trialDays}-day free trial included</p>
             )}
 

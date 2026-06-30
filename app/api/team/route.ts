@@ -91,7 +91,7 @@ export async function POST(request: Request) {
 
     // Send the actual invite email via Supabase admin API
     const adminClient = createAdminClient()
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://v0-britelite-ai.vercel.app"
     const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(member_email, {
       redirectTo: `${siteUrl}/auth/callback?next=/dashboard`,
       data: {

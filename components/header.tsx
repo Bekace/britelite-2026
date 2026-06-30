@@ -29,7 +29,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
-            <Image src="/xkreen-logo.svg" alt="Xkreen" width={120} height={24} className="h-6 w-auto" />
+            <Image src="/britelite-logo.svg" alt="Britelite" width={120} height={24} className="h-6 w-auto" />
           </div>
           <nav className="hidden md:flex items-center gap-2">
             {navItems.map((item) => (

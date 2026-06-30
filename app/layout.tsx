@@ -19,7 +19,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "Xkreen - AI-Powered Digital Signage",
+  title: "Britelite - AI-Powered Digital Signage",
   description: "AI-Powered Digital Signage",
   generator: "v0.app",
 }

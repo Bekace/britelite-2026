@@ -22,53 +22,65 @@ export default async function PricingPage() {
     .from("subscription_plans")
     .select("*")
     .eq("is_active", true)
-    .order("max_screens", { ascending: true })
-
-  const { data: prices, error: pricesError } = await supabase
-    .from("subscription_prices")
-    .select("*")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-
-  // Fetch admin-managed pricing bullets (visible only)
-  const { data: pricingBullets } = await supabase
-    .from("plan_pricing_features")
-    .select("plan_id, label, sort_order")
-    .eq("is_visible", true)
     .order("sort_order", { ascending: true })
 
   if (plansError) {
     console.error("Error fetching plans:", plansError)
   }
-  if (pricesError) {
-    console.error("Error fetching prices:", pricesError)
-  }
 
-  // Group bullets by plan_id
-  const bulletsByPlan: Record<string, string[]> = {}
-  for (const bullet of pricingBullets ?? []) {
-    if (!bulletsByPlan[bullet.plan_id]) bulletsByPlan[bullet.plan_id] = []
-    bulletsByPlan[bullet.plan_id].push(bullet.label)
-  }
-
-  // Combine plans with their prices and admin-managed bullets
+  // Build synthetic prices array from plan's own price_monthly / price_yearly fields
+  // so PricingCards can use its existing billing-cycle logic
   const plansWithPrices =
-    plans?.map((plan) => ({
-      ...plan,
-      prices: prices?.filter((price) => price.plan_id === plan.id) || [],
-      features: {
-        ...(plan.features ?? {}),
-        // If admin has set bullets for this plan, use them; otherwise fall back to derived features
-        ...(bulletsByPlan[plan.id]?.length ? { display_features: bulletsByPlan[plan.id] } : {}),
-      },
-    })) || []
+    plans?.map((plan) => {
+      const prices = []
+      if (plan.price_monthly != null) {
+        prices.push({
+          id: `${plan.id}-monthly`,
+          plan_id: plan.id,
+          billing_cycle: "monthly" as const,
+          price: Number(plan.price_monthly),
+          stripe_price_id: plan.stripe_price_id_monthly ?? null,
+          trial_days: 0,
+          is_active: true,
+        })
+      }
+      if (plan.price_yearly != null) {
+        prices.push({
+          id: `${plan.id}-yearly`,
+          plan_id: plan.id,
+          billing_cycle: "yearly" as const,
+          price: Number(plan.price_yearly),
+          stripe_price_id: plan.stripe_price_id_yearly ?? null,
+          trial_days: 0,
+          is_active: true,
+        })
+      }
+
+      // Derive display_features from the plan's features JSON array (stored as a JSON array of strings)
+      const rawFeatures = plan.features
+      const displayFeatures: string[] = Array.isArray(rawFeatures)
+        ? rawFeatures
+        : typeof rawFeatures === "object" && rawFeatures !== null
+          ? (rawFeatures as Record<string, unknown>).display_features as string[] ?? []
+          : []
+
+      return {
+        ...plan,
+        is_recommended: plan.is_popular ?? false,
+        max_media_storage: plan.max_storage_mb ?? 0,
+        prices,
+        features: {
+          display_features: displayFeatures,
+        },
+      }
+    }) || []
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="https://xkreen.com/" className="flex items-center gap-2 text-foreground hover:text-foreground/80">
+          <Link href="https://new2.britelitedigital.com/" className="flex items-center gap-2 text-foreground hover:text-foreground/80">
             <ArrowLeft className="h-4 w-4" />
             <span>Back to Home</span>
           </Link>

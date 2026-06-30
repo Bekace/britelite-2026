@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
+    const bucketName = process.env.GCS_BUCKET_NAME || "britelite-web-app"
     const gcsFileName = `${user.id}/${Date.now()}-${fileName}`
 
     console.log("[v0] Generating signed URL for:", gcsFileName)

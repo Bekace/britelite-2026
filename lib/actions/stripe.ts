@@ -247,8 +247,8 @@ export async function createCheckoutSession(planId: string, priceId: string) {
         price_id: priceId,
       },
     },
-    success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/auth/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/auth/pricing`,
+    success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-britelite-ai.vercel.app"}/auth/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-britelite-ai.vercel.app"}/auth/pricing`,
     metadata: {
       user_id: user.id,
       plan_id: planId,
@@ -283,7 +283,7 @@ export async function createCustomerPortalSession() {
 
   const session = await stripe.billingPortal.sessions.create({
     customer: subscription.stripe_customer_id,
-    return_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/dashboard/settings/billing`,
+    return_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-britelite-ai.vercel.app"}/dashboard/settings/billing`,
     // Configure what features are available in the portal
     flow_data: {
       type: "subscription_cancel",
@@ -398,8 +398,8 @@ export async function createUpgradeCheckoutSession(planId: string, priceId: stri
           billing_cycle: price.billing_cycle,
         },
       },
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/dashboard/settings/billing?upgraded=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-xkreen-ai.vercel.app"}/dashboard/settings/billing`,
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-britelite-ai.vercel.app"}/dashboard/settings/billing?upgraded=true`,
+      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://v0-britelite-ai.vercel.app"}/dashboard/settings/billing`,
       metadata: {
         user_id: user.id,
         plan_id: planId,

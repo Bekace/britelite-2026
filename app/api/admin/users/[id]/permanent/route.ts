@@ -39,7 +39,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     // 2. Delete from GCS storage
     if (mediaFiles && mediaFiles.length > 0) {
-      const bucketName = process.env.GCS_BUCKET_NAME || "xkreen-web-app"
+      const bucketName = process.env.GCS_BUCKET_NAME || "britelite-web-app"
 
       for (const media of mediaFiles) {
         // Skip external media (YouTube, Google Slides)
