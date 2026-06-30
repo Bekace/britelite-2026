@@ -22,4 +22,4 @@ export function createClient() {
   return globalThis.supabaseClient
 }
 
-export const supabase = createClient()
+// Use createClient() directly instead of this singleton to avoid SSR issues

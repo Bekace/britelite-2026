@@ -36,12 +36,15 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
+    // Fetch profile once and reuse for all checks
+    let profile: { deleted_at: string | null; role: string } | null = null
     if (user) {
-      const { data: profile, error: profileError } = await supabase
+      const { data } = await supabase
         .from("profiles")
-        .select("deleted_at")
+        .select("deleted_at, role")
         .eq("id", user.id)
         .single()
+      profile = data
 
       // If profile has deleted_at set, sign out and redirect
       if (profile?.deleted_at) {
@@ -49,7 +52,6 @@ export async function updateSession(request: NextRequest) {
         const url = request.nextUrl.clone()
         url.pathname = "/auth/login"
         url.searchParams.set("error", "account_deleted")
-        // Clear all auth cookies
         supabaseResponse = NextResponse.redirect(url)
         supabaseResponse.cookies.delete("sb-access-token")
         supabaseResponse.cookies.delete("sb-refresh-token")
@@ -69,9 +71,6 @@ export async function updateSession(request: NextRequest) {
         url.pathname = "/auth/login"
         return NextResponse.redirect(url)
       }
-
-      // Check if user has admin or superadmin role
-      const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single()
 
       if (!profile || (profile.role !== "admin" && profile.role !== "superadmin")) {
         const url = request.nextUrl.clone()
