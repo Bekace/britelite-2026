@@ -29,22 +29,21 @@ export async function POST(request: NextRequest) {
     const { data: uploadSettingsArray } = await supabase.from("upload_settings").select("*").limit(1)
     const uploadSettings = uploadSettingsArray?.[0] || null
 
-    // Get user's subscription plan limits
-    const { data: userData } = await supabase
-      .from("profiles")
+    // Get user's active subscription plan limits
+    const { data: subscriptionData } = await supabase
+      .from("user_subscriptions")
       .select(`
-        *,
-        user_subscriptions!inner(
-          status,
-          subscription_plans(max_media_storage, max_file_upload_size)
-        )
+        status,
+        subscription_plans(max_storage_mb, max_file_upload_size)
       `)
-      .eq("id", user.id)
-      .single()
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle()
+
+    const plan = (subscriptionData?.subscription_plans as Record<string, number> | null)
 
     // Determine max file size — plan limit always wins; global is just a ceiling
-    const planFileSize =
-      userData?.user_subscriptions?.subscription_plans?.max_file_upload_size || 10 * 1024 * 1024
+    const planFileSize = plan?.max_file_upload_size || 100 * 1024 * 1024 // 100MB default
 
     let maxFileSize: number
     if (uploadSettings?.enforce_globally && uploadSettings.max_file_size) {
@@ -63,18 +62,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check storage limit
-    const maxStorage = userData?.user_subscriptions?.subscription_plans?.max_media_storage || 1024 * 1024 * 1024
-    const isUnlimited = maxStorage === -1
+    // Check storage limit (max_storage_mb stored in MB, -1 = unlimited)
+    const maxStorageMB = plan?.max_storage_mb ?? 512
+    const isUnlimited = maxStorageMB === -1
+    const maxStorage = maxStorageMB * 1024 * 1024
 
     if (!isUnlimited) {
       const { data: mediaData } = await supabase.from("media").select("file_size").eq("user_id", user.id)
       const currentStorage = mediaData?.reduce((t, i) => t + (i.file_size || 0), 0) || 0
 
       if (currentStorage + fileSize > maxStorage) {
-        const remainingGB = Math.max(0, (maxStorage - currentStorage) / (1024 * 1024 * 1024))
+        const remainingMB = Math.max(0, (maxStorage - currentStorage) / (1024 * 1024))
         return NextResponse.json(
-          { error: `Storage limit exceeded. You have ${remainingGB.toFixed(2)} GB remaining.` },
+          { error: `Storage limit exceeded. You have ${remainingMB.toFixed(0)} MB remaining.` },
           { status: 413 },
         )
       }
