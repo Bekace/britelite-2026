@@ -54,20 +54,28 @@ export default function LoginPage() {
     setError(null)
 
     try {
+      console.log("[v0] handleLogin start", { email })
+
       const supabase = createClient()
+      console.log("[v0] supabase client created", {
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        keyPrefix: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.slice(0, 20),
+      })
 
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
+      console.log("[v0] signInWithPassword result", { user: authData?.user?.id, error: authError })
       if (authError) throw authError
 
       if (authData.user) {
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("deleted_at")
           .eq("id", authData.user.id)
           .single()
+        console.log("[v0] profile fetch", { profile, profileError })
 
         if (profile?.deleted_at) {
           await supabase.auth.signOut()
@@ -77,9 +85,11 @@ export default function LoginPage() {
         }
       }
 
+      console.log("[v0] login success, redirecting to", redirectAfterLogin)
       router.push(redirectAfterLogin)
       setIsLoading(false)
     } catch (error: unknown) {
+      console.log("[v0] login error", error)
       setError(error instanceof Error ? error.message : "An error occurred during login")
       setIsLoading(false)
     }
